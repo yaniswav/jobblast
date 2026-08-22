@@ -1,7 +1,7 @@
 # Running JobBlast in local "production"
 
 This folder has everything needed to run JobBlast permanently on a machine
-you own — no cloud, no hosting cost (\$0) — surviving reboots, on Windows,
+you own - no cloud, no hosting cost (\$0) - surviving reboots, on Windows,
 Linux, or macOS.
 
 ## Principle
@@ -12,8 +12,8 @@ A single Node.js process (the Express API server) serves both:
 - the already-built frontend (static Vite output, with an SPA fallback for
   client-side routes like `/review`).
 
-Postgres runs separately (a Docker container, by default — see
-`docker-compose.yml` at the repo root — or any Postgres instance you already
+Postgres runs separately (a Docker container, by default - see
+`docker-compose.yml` at the repo root - or any Postgres instance you already
 have). The API process does its own background work for as long as it runs:
 job aggregation across every enabled source every 6 hours, and AI
 tailoring (`claude -p`) every 30 minutes. Nothing else needs to run
@@ -79,7 +79,7 @@ tail -f deploy/logs/jobblast.log
 
 ## Auto-start on boot / login
 
-### Windows — Scheduled Task
+### Windows - Scheduled Task
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\deploy\register-task.ps1
@@ -96,10 +96,10 @@ Get-ScheduledTaskInfo -TaskName JobBlast
 
 If Docker Desktop is your Postgres, it needs to be set to launch at login
 too (Docker Desktop → Settings → General → "Start Docker Desktop when you
-log in") — a scheduled task alone can't launch a GUI app reliably without
+log in") - a scheduled task alone can't launch a GUI app reliably without
 that.
 
-### Linux — systemd
+### Linux - systemd
 
 ```bash
 sudo cp deploy/jobblast.service.example /etc/systemd/system/jobblast.service
@@ -114,14 +114,14 @@ If Postgres runs via `docker compose`, either give it its own
 Docker's own daemon brings it back after a reboot, or add
 `After=docker.service` / a dependency in the unit file.
 
-### macOS — launchd
+### macOS - launchd
 
 There's no bundled `.plist` here (systemd's job on Linux, Scheduled Tasks on
-Windows — launchd is the macOS equivalent, but conventions vary enough by
+Windows - launchd is the macOS equivalent, but conventions vary enough by
 setup that a one-size template isn't worth shipping). The short version:
 create `~/Library/LaunchAgents/com.jobblast.plist` with a `ProgramArguments`
 array equivalent to `deploy/start-jobblast.sh`'s `node` invocation (absolute
-paths — launchd doesn't read your shell profile), a `RunAtLoad` key set to
+paths - launchd doesn't read your shell profile), a `RunAtLoad` key set to
 `true`, and `StandardOutPath`/`StandardErrorPath` pointing at
 `deploy/logs/jobblast.log`. Load it with
 `launchctl load ~/Library/LaunchAgents/com.jobblast.plist`. If Postgres runs
@@ -131,10 +131,10 @@ way as on Windows.
 ## Prerequisites / reminders
 
 - Postgres must be reachable at the `DATABASE_URL` in `.env` before starting
-  — the start scripts wait for it (via `docker exec ... pg_isready`) when
+  - the start scripts wait for it (via `docker exec ... pg_isready`) when
   it's the `jobblast-pg` Docker container, but won't wait for a Postgres
   instance managed some other way.
-- `.env` must have `SERVE_STATIC=1` and a valid `PORT` / `DATABASE_URL` — do
+- `.env` must have `SERVE_STATIC=1` and a valid `PORT` / `DATABASE_URL` - do
   not remove them for a production run.
 - **AI tailoring** (and AI Scout / Notion Inbox, if enabled) need the
   `claude` CLI installed and **logged in** under the account that runs the
@@ -142,7 +142,7 @@ way as on Windows.
   fails silently (check the logs) and postings get the fallback template
   letter instead of an AI-tailored one.
 - After a reboot, the scheduled task / service brings everything back up
-  automatically — give Docker a little time to finish starting before the
+  automatically - give Docker a little time to finish starting before the
   Postgres wait loop times out (`start-jobblast.ps1` allows up to 120s for
   Docker itself, and both scripts allow up to 60s for Postgres to answer
   `pg_isready`).
@@ -151,6 +151,6 @@ way as on Windows.
 
 For the optional cloud-scheduled routines that keep the review queue fed
 even while your machine is off (a "Cloud Scout" that drops postings into a
-Notion inbox, a Gmail morning-digest summary, a local "briefing" task) —
-including generic, copy-pasteable prompts — see **`docs/TUTORIEL.md`**
+Notion inbox, a Gmail morning-digest summary, a local "briefing" task) -
+including generic, copy-pasteable prompts - see **`docs/TUTORIEL.md`**
 ("Options avancées").

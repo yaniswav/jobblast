@@ -17,6 +17,7 @@ import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { getCoverLetterTemplate } from "../sources/tailoring";
 import { runClaudePrompt } from "./claude-cli";
+import { sanitizeAiText, sanitizeAiTexts } from "./sanitize";
 
 const DEFAULT_LIMIT = 10;
 const DESCRIPTION_TRUNCATE_CHARS = 4000;
@@ -114,6 +115,8 @@ Produce two things:
 
 CRITICAL - language rule: The applicant writes applications in ${letterLanguageNames}. If the job posting is written in one of those languages, write BOTH the cover letter and the bullets in that language. For a posting in any other language, write them in ${fallbackLanguageName} - you may open the letter with one short greeting sentence in the posting's language, then continue in ${fallbackLanguageName}. Never write an application in a language the applicant has not listed: doing so would misrepresent them.
 
+STYLE - write like a person, not a model: no em dashes or en dashes (use commas, periods or parentheses instead), straight quotes only, no ellipsis character, no bullet symbols inside the letter, no buzzword stacking, vary sentence length. Avoid openers like "I am writing to express my interest" in English or "C'est avec un vif intérêt" in French; start with something specific to the company or role.
+
 Output STRICT JSON only, with exactly this shape and no other keys:
 {"bullets": ["...", "...", "...", "..."], "coverLetter": "..."}
 
@@ -179,7 +182,7 @@ async function generateTailoredContent(
     return null;
   }
 
-  return { bullets: parsed.bullets, coverLetter: parsed.coverLetter.trim() };
+  return { bullets: sanitizeAiTexts(parsed.bullets), coverLetter: sanitizeAiText(parsed.coverLetter) };
 }
 
 let passRunning = false;

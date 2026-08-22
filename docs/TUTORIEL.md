@@ -161,19 +161,19 @@ Deux processus à lancer, dans deux terminaux séparés (les deux lisent le
 même `.env` à la racine) :
 
 ```bash
-# Terminal 1 — l'API (port 5000 par défaut)
+# Terminal 1 - l'API (port 5000 par défaut)
 pnpm run dev:api
 ```
 
 ```bash
-# Terminal 2 — le frontend (port 5173 par défaut, avec proxy vers l'API)
+# Terminal 2 - le frontend (port 5173 par défaut, avec proxy vers l'API)
 pnpm run dev:web
 ```
 
 Ouvrez ensuite **http://localhost:5173** dans votre navigateur. Vous devriez
 voir le tableau de bord JobBlast (probablement vide au premier lancement, le
 temps que le premier cycle d'agrégation des offres se termine en tâche de
-fond — quelques dizaines de secondes à quelques minutes selon les sources
+fond - quelques dizaines de secondes à quelques minutes selon les sources
 activées).
 
 `pnpm run dev:api` fait un build + démarrage (pas de rechargement à chaud) :
@@ -191,14 +191,14 @@ Allez sur la page **Profile** (menu de gauche) :
 - **Ciblage** : rôles visés (tags, ex. « Software Engineer », « Firmware
   Engineer »), lieux visés (tags, ex. « Paris », « Remote »), entreprises
   exclues.
-- **Master resume** : collez tout votre CV/parcours en texte brut — c'est la
+- **Master resume** : collez tout votre CV/parcours en texte brut - c'est la
   matière première à partir de laquelle l'IA génère des puces de CV
   adaptées à chaque offre. Plus c'est riche et concret (ce que vous avez
   fait, avec quelles technologies, quel impact), meilleures seront les
   candidatures générées.
 - **Mes documents** (en bas de la page Profile) : uploadez votre **CV en
-  PDF** — son texte est automatiquement extrait et vient enrichir/remplacer
-  le « Master resume » ci-dessus — et votre **lettre de motivation en PDF**
+  PDF** - son texte est automatiquement extrait et vient enrichir/remplacer
+  le « Master resume » ci-dessus - et votre **lettre de motivation en PDF**
   (optionnel, sert surtout de secours si `config/cover-letter-template.txt`
   n'est pas rempli). Les deux fichiers sont stockés localement dans
   `data/documents/` (non suivi par git).
@@ -230,7 +230,7 @@ demandent aucune et fonctionnent déjà sans rien faire.
    FRANCETRAVAIL_CLIENT_SECRET=...
    ```
 
-(L'interface de francetravail.io évolue de temps en temps — le principe
+(L'interface de francetravail.io évolue de temps en temps - le principe
 reste : créer une application, souscrire à l'API "Offres d'emploi v2",
 récupérer les deux identifiants OAuth2.)
 
@@ -248,7 +248,7 @@ récupérer les deux identifiants OAuth2.)
    ADZUNA_APP_KEY=...
    ```
 
-Le plan gratuit d'Adzuna a un quota d'appels assez bas — voir la FAQ si vous
+Le plan gratuit d'Adzuna a un quota d'appels assez bas - voir la FAQ si vous
 rencontrez des erreurs 429.
 
 **Ni l'une ni l'autre n'est obligatoire.** Sans ces clés, les sources
@@ -261,7 +261,7 @@ RemoteOK, Remotive, Himalayas, Arbeitnow, Yourator, TokyoDev et japan-dev.
 ## 9. Adapter `jobblast.config.json` à votre profil
 
 `jobblast.config.json` (créé à l'étape 3) est livré avec des règles de
-scoring taillées pour un profil « embarqué / C++ / systems » — **c'est un
+scoring taillées pour un profil « embarqué / C++ / systems » - **c'est un
 exemple, pas une valeur par défaut neutre**. Éditez-le pour qu'il corresponde
 à votre recherche :
 
@@ -272,20 +272,20 @@ exemple, pas une valeur par défaut neutre**. Éditez-le pour qu'il corresponde
   l'interface. Remplacez les règles C++/embarqué par vos propres
   compétences.
 - **`scoring.penalties`** : les défauts supposent un profil junior basé en
-  Europe, sans autorisation de travail US — si ce n'est pas votre cas,
+  Europe, sans autorisation de travail US - si ce n'est pas votre cas,
   ajustez ou désactivez `usLocation` / `workAuthorization` (poids à `0` ou
   suppression de la clé).
 - **`sources`** : activez/désactivez chaque source (`enabled: true/false`),
   et pour France Travail/Adzuna/Greenhouse/Lever, adaptez les mots-clés,
   départements ou boards à votre recherche.
 - **`coverLetterTemplatePath`** : par défaut
-  `config/cover-letter-template.txt` — le fichier édité à l'étape suivante.
+  `config/cover-letter-template.txt` - le fichier édité à l'étape suivante.
 
 Référence complète de chaque clé : **[`docs/CONFIG.md`](CONFIG.md)**.
 
 Éditez aussi **`config/cover-letter-template.txt`** : remplacez le texte
 d'exemple par votre propre lettre de motivation type (structure, ton,
-formule de politesse). L'IA ne la recopie jamais mot pour mot — elle s'en
+formule de politesse). L'IA ne la recopie jamais mot pour mot - elle s'en
 sert de modèle de structure et de ton pour rédiger une lettre différente
 pour chaque offre.
 
@@ -338,7 +338,7 @@ réellement adaptées à chaque offre.
    non vide.
 
 C'est tout : JobBlast appelle ensuite `claude -p` tout seul (toutes les 30
-minutes, sur les nouvelles offres) — il n'y a rien d'autre à configurer.
+minutes, sur les nouvelles offres) - il n'y a rien d'autre à configurer.
 L'IA tourne sous l'utilisateur Windows/Linux/macOS qui exécute le processus
 serveur, donc si vous déployez en tâche planifiée / service (étape 11),
 c'est **ce compte-là** qui doit être connecté (`claude` doit avoir été lancé
@@ -397,7 +397,7 @@ Une fois déployé, la routine devient très simple :
    accessibles directement depuis la carte de l'offre : boutons « Mon CV »
    / « Lettre en PDF »).
 4. Retournez dans **Applications**, ligne correspondante, bouton **« J'ai
-   postulé »** pour confirmer — la candidature passe alors de « À ENVOYER »
+   postulé »** pour confirmer - la candidature passe alors de « À ENVOYER »
    à « Applied » dans le tracker.
 5. Quand un recruteur répond, éditez la ligne (icône crayon) pour mettre à
    jour le statut (`Responded` / `Interview` / `Offer` / `Rejected`) et,
@@ -455,17 +455,17 @@ Référence complète : `docs/CONFIG.md` → `sources.aiScout`.
 
 ### Notion Inbox + routine cloud
 
-Un pont qui importe dans JobBlast les offres déposées dans une base Notion —
+Un pont qui importe dans JobBlast les offres déposées dans une base Notion -
 typiquement alimentée par une routine Claude programmée qui tourne dans le
 cloud, **même quand votre machine est éteinte**.
 
-**Étape 1 — créer la base Notion**, avec ces propriétés (les noms sont
+**Étape 1 - créer la base Notion**, avec ces propriétés (les noms sont
 personnalisables dans la config, ces noms-ci sont juste un exemple) :
 `Title` (titre), `Company` (texte), `URL` (url), `Location` (texte), `Why`
-(texte), `Source` (texte), `Imported` (case à cocher — **réservée à
+(texte), `Source` (texte), `Imported` (case à cocher - **réservée à
 l'app**, ne la cochez jamais manuellement).
 
-**Étape 2 — configurer `jobblast.config.json`** :
+**Étape 2 - configurer `jobblast.config.json`** :
 
 ```json
 "notionInbox": {
@@ -480,9 +480,9 @@ l'app**, ne la cochez jamais manuellement).
 }
 ```
 
-**Étape 3 — créer la routine planifiée** qui alimente cette base. Cette
+**Étape 3 - créer la routine planifiée** qui alimente cette base. Cette
 fonctionnalité s'appelle **Routines** et tourne sur l'infrastructure cloud
-d'Anthropic (donc même machine éteinte) — deux façons de la créer :
+d'Anthropic (donc même machine éteinte) - deux façons de la créer :
 
 - Interface web : [claude.ai/code/routines](https://claude.ai/code/routines)
   → « New routine » → prompt, connecteurs à autoriser, planification
@@ -531,7 +531,7 @@ Une routine planifiée facultative, indépendante de JobBlast, qui scanne
 votre boîte Gmail chaque matin pour repérer les réponses de recruteurs et
 vous éviter de fouiller manuellement. Exemple de prompt générique (à
 programmer via claude.ai, connecteur Gmail autorisé au préalable, en
-**lecture seule** — ne rien envoyer ni archiver) :
+**lecture seule** - ne rien envoyer ni archiver) :
 
 ```
 Analyse ma boîte Gmail (lecture seule, ne modifie/n'envoie rien) pour les
@@ -551,7 +551,7 @@ ton tracker de candidatures (http://localhost:5000/applications)."
 ### Briefing local (santé + rafraîchissement + résumé)
 
 Une tâche planifiée **locale** (sur votre machine, via le Planificateur de
-tâches Windows / cron / launchd, pas dans le cloud — puisqu'elle a besoin
+tâches Windows / cron / launchd, pas dans le cloud - puisqu'elle a besoin
 que le serveur JobBlast tourne déjà) qui vérifie que tout va bien et vous
 donne un résumé du jour. Exemple de prompt, à exécuter par une CLI Claude
 Code locale programmée le matin :
@@ -560,13 +560,13 @@ Code locale programmée le matin :
 Fais ces appels dans l'ordre contre le serveur JobBlast local
 (http://localhost:5000, adapte le port si besoin) :
 
-1. GET /api/healthz — si ça échoue, dis-le et arrête-toi là (le serveur
+1. GET /api/healthz - si ça échoue, dis-le et arrête-toi là (le serveur
    n'est probablement pas démarré : voir deploy/start-jobblast.*).
-2. POST /api/jobs/refresh — déclenche un rafraîchissement des offres.
-3. GET /api/jobs?status=queued — liste les offres en attente de revue.
-4. GET /api/applications?status=approved — candidatures "À ENVOYER" pas
+2. POST /api/jobs/refresh - déclenche un rafraîchissement des offres.
+3. GET /api/jobs?status=queued - liste les offres en attente de revue.
+4. GET /api/applications?status=approved - candidatures "À ENVOYER" pas
    encore confirmées comme envoyées.
-5. GET /api/dashboard — statistiques globales.
+5. GET /api/dashboard - statistiques globales.
 
 Résume en français : les 5 meilleures offres de la file (titre,
 entreprise, score), le nombre de candidatures "À ENVOYER" en attente de
@@ -576,7 +576,7 @@ jour" (le meilleur score).
 
 En pratique, cela peut être un simple script shell/PowerShell avec `curl`
 enchaîné à `claude -p` pour la mise en forme, ou une tâche planifiée Claude
-Code locale équivalente — l'important est juste que ça tourne **après** que
+Code locale équivalente - l'important est juste que ça tourne **après** que
 `deploy/start-jobblast.*` ait démarré le serveur.
 
 ---
@@ -611,7 +611,7 @@ natif)**
 Assurez-vous d'utiliser une CLI standard (PowerShell ou Git Bash), avec
 Node 24+ et pnpm 10 installés correctement (`node -v`, `pnpm -v`). Certains
 paquets natifs nécessitent les « Build Tools » Visual Studio si le binaire
-précompilé n'est pas disponible pour votre version de Node — c'est rare
+précompilé n'est pas disponible pour votre version de Node - c'est rare
 avec ce projet mais si `pnpm install` échoue sur un paquet précis, cherchez
 l'erreur exacte (souvent `node-gyp`) et installez les outils qu'elle
 demande.
@@ -619,14 +619,14 @@ demande.
 **Adzuna renvoie des erreurs 429 / rate limit**
 Le plan gratuit d'Adzuna a un quota d'appels par jour assez bas. Réduisez
 `sources.adzuna.queries` (moins de mots-clés) dans `jobblast.config.json`,
-ou désactivez temporairement la source (`"enabled": false`) — les 10 autres
+ou désactivez temporairement la source (`"enabled": false`) - les 10 autres
 sources continuent de fonctionner normalement.
 
 **La source 104 (104.com.tw) ne renvoie rien**
 C'est normal et volontaire : `sources.job104` est désactivée par défaut car
 son endpoint de recherche est derrière une protection Cloudflare qui bloque
 les requêtes automatisées. L'activer ne fait que gaspiller du budget de
-requêtes pour zéro résultat — voir la note dans
+requêtes pour zéro résultat - voir la note dans
 `jobblast.config.example.json` / `docs/CONFIG.md`.
 
 **Rien n'apparaît dans la file de revue après le premier lancement**
