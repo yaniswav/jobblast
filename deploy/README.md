@@ -152,5 +152,6 @@ way as on Windows.
 For the optional cloud-scheduled routines that keep the review queue fed
 even while your machine is off (a "Cloud Scout" that drops postings into a
 Notion inbox, a Gmail morning-digest summary, a local "briefing" task) -
-including generic, copy-pasteable prompts - see **`docs/TUTORIEL.md`**
-("Options avancées").
+including generic, copy-pasteable prompts - see **`docs/TUTORIAL.md`**
+("Advanced options", English) or **`docs/TUTORIEL.md`** ("Options
+avancées", French).

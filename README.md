@@ -83,7 +83,8 @@ pnpm run dev:web                    # terminal 2 - frontend on :5173, open it in
 Then fill in your profile (Profile page: identity, target roles/locations,
 master resume, CV/cover-letter upload) and edit `jobblast.config.json` to
 match it - see `docs/CONFIG.md`. For a fully-narrated, non-expert walkthrough
-(installing Node/pnpm/Docker included), see `docs/TUTORIEL.md` (French).
+(installing Node/pnpm/Docker included), see `docs/TUTORIAL.md` (English) or
+`docs/TUTORIEL.md` (French).
 
 ## Requirements
 
@@ -149,8 +150,10 @@ Two optional sources extend coverage past the structured APIs by using the
 Notion Inbox: a Notion database fed by a scheduled claude.ai routine that
 can run while your machine is off). Both are off by default, config-driven,
 and documented with setup steps in **[`docs/CONFIG.md`](docs/CONFIG.md)**
-(reference) and **[`docs/TUTORIEL.md`](docs/TUTORIEL.md)** (`Options
-avancées`, with generic, copy-pasteable scheduled-task prompts).
+(reference), **[`docs/TUTORIAL.md`](docs/TUTORIAL.md)** ("Advanced
+options", English) and **[`docs/TUTORIEL.md`](docs/TUTORIEL.md)**
+(`Options avancées`, French), both with generic, copy-pasteable
+scheduled-task prompts.
 
 ## Privacy
 

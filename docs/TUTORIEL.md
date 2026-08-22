@@ -1,5 +1,7 @@
 # Tutoriel : installer et utiliser JobBlast
 
+English version: docs/TUTORIAL.md
+
 Guide pas-à-pas pour quelqu'un qui n'a jamais utilisé Node.js, Docker ou la
 CLI Claude Code. Si vous êtes déjà à l'aise avec ces outils, le
 `README.md` (Quick start) ira plus vite.
