@@ -1,0 +1,1 @@
+- [Orval and Zod compatibility](orval-zod-version.md) — pin generated validator syntax when the workspace runtime is still on Zod 3.

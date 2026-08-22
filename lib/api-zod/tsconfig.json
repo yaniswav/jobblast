@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    // Orval's zod generator emits `zod.instanceof(File)` / a `Blob` type for
+    // multipart/form-data file uploads (see UploadDocumentBody) regardless
+    // of target platform. Node 20+ has global File/Blob at runtime, but the
+    // ambient *types* for them live in the DOM lib, so it's added here
+    // (scoped to this generated-code package only) purely for typechecking.
+    "lib": ["es2022", "dom"]
+  },
+  "include": ["src"]
+}

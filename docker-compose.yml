@@ -1,0 +1,34 @@
+# Postgres for local development / self-hosted production.
+#
+# Matches the default DATABASE_URL in .env.example:
+#   postgres://postgres:postgres@localhost:5432/jobblast
+#
+# Usage:
+#   docker compose up -d       # start (creates the volume on first run)
+#   docker compose down        # stop (keeps the volume / your data)
+#   docker compose down -v     # stop AND delete all data
+#
+# If you already run Postgres another way (a existing container, a system
+# install, a managed service), skip this file entirely and just point
+# DATABASE_URL in .env at it - JobBlast doesn't care how Postgres gets there.
+
+services:
+  db:
+    image: postgres:16
+    container_name: jobblast-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: jobblast
+    ports:
+      - "5432:5432"
+    volumes:
+      - jobblast-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  jobblast-pg-data:

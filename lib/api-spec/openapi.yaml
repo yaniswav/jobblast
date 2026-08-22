@@ -1,0 +1,634 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: JobBlast application assistant API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: dashboard
+    description: Dashboard aggregates
+  - name: jobs
+    description: Ranked job listings
+  - name: applications
+    description: Application tracking
+  - name: profile
+    description: Job seeker profile
+  - name: documents
+    description: CV / cover letter document management
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List ranked job matches
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/JobStatus"
+      responses:
+        "200":
+          description: Ranked job matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobListing"
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get a job listing with tailored documents
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Job listing details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListing"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/skip:
+    post:
+      operationId: skipJob
+      tags: [jobs]
+      summary: Skip a job in the review queue
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Job skipped
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/cover-letter.pdf:
+    get:
+      operationId: getJobCoverLetterPdf
+      tags: [jobs]
+      summary: Generate a PDF of the job's tailored cover letter
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Cover letter PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/refresh:
+    post:
+      operationId: refreshJobs
+      tags: [jobs]
+      summary: Trigger a background job aggregation + AI tailoring refresh
+      responses:
+        "202":
+          description: Refresh triggered (or already in progress)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRefreshStatus"
+  /applications:
+    get:
+      operationId: listApplications
+      tags: [applications]
+      summary: List tracked applications
+      parameters:
+        - $ref: "#/components/parameters/ApplicationStatus"
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+    post:
+      operationId: createApplication
+      tags: [applications]
+      summary: Approve a job and log the application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationInput"
+      responses:
+        "201":
+          description: Application logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        "400":
+          description: Invalid application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /applications/{id}:
+    patch:
+      operationId: updateApplication
+      tags: [applications]
+      summary: Update an application status or notes
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationUpdate"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get the job seeker profile
+      responses:
+        "200":
+          description: Job seeker profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update job seeker preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List stored documents (CV, cover letter)
+      responses:
+        "200":
+          description: Stored documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentMeta"
+  /documents/{type}:
+    post:
+      operationId: uploadDocument
+      tags: [documents]
+      summary: Upload (replace) a PDF document
+      parameters:
+        - $ref: "#/components/parameters/DocumentType"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DocumentUploadPayload"
+      responses:
+        "200":
+          description: Document stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentUploadResult"
+        "400":
+          description: Invalid upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /documents/{type}/file:
+    get:
+      operationId: getDocumentFile
+      tags: [documents]
+      summary: Stream the stored PDF for a document type
+      parameters:
+        - $ref: "#/components/parameters/DocumentType"
+      responses:
+        "200":
+          description: Document PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: number
+    Search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+    JobStatus:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [queued, skipped, applied]
+    ApplicationStatus:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [queued, approved, applied, responded, interview, rejected, offer]
+    DocumentType:
+      name: type
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/DocumentType"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    JobStatus:
+      type: string
+      enum: [queued, skipped, applied]
+    ApplicationStatus:
+      type: string
+      enum: [queued, approved, applied, responded, interview, rejected, offer]
+    JobListing:
+      type: object
+      properties:
+        id:
+          type: number
+        source:
+          type: string
+        title:
+          type: string
+        company:
+          type: string
+        companyInitials:
+          type: string
+        location:
+          type: string
+        workMode:
+          type: string
+          enum: [Remote, Hybrid, On-site]
+        url:
+          type: string
+        description:
+          type: string
+        postedDate:
+          type: string
+          format: date
+        salaryRange:
+          type: string
+        fetchedAt:
+          type: string
+          format: date-time
+        relevanceScore:
+          type: number
+        matchReasons:
+          type: array
+          items:
+            type: string
+        highlightedSkills:
+          type: array
+          items:
+            type: string
+        tailoredBullets:
+          type: array
+          items:
+            type: string
+        coverLetter:
+          type: string
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        applicationId:
+          type: ["number", "null"]
+        aiGenerated:
+          type: boolean
+      required:
+        - id
+        - source
+        - title
+        - company
+        - companyInitials
+        - location
+        - workMode
+        - url
+        - description
+        - postedDate
+        - salaryRange
+        - fetchedAt
+        - relevanceScore
+        - matchReasons
+        - highlightedSkills
+        - tailoredBullets
+        - coverLetter
+        - status
+        - applicationId
+        - aiGenerated
+    JobRefreshStatus:
+      type: object
+      properties:
+        started:
+          type: boolean
+      required:
+        - started
+    Application:
+      type: object
+      properties:
+        id:
+          type: number
+        jobId:
+          type: number
+        title:
+          type: string
+        company:
+          type: string
+        companyInitials:
+          type: string
+        location:
+          type: string
+        appliedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/ApplicationStatus"
+        resumeVersion:
+          type: string
+        coverLetterVersion:
+          type: string
+        notes:
+          type: string
+        followUpDate:
+          type: ["string", "null"]
+          format: date
+      required:
+        - id
+        - jobId
+        - title
+        - company
+        - companyInitials
+        - location
+        - appliedAt
+        - status
+        - resumeVersion
+        - coverLetterVersion
+        - notes
+        - followUpDate
+    ApplicationInput:
+      type: object
+      properties:
+        jobId:
+          type: number
+        resumeVersion:
+          type: string
+        coverLetterVersion:
+          type: string
+        notes:
+          type: string
+      required:
+        - jobId
+        - resumeVersion
+        - coverLetterVersion
+    ApplicationUpdate:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/ApplicationStatus"
+        notes:
+          type: string
+        followUpDate:
+          type: ["string", "null"]
+          format: date
+    DashboardSummary:
+      type: object
+      properties:
+        dailyGoal:
+          type: number
+        appliedToday:
+          type: number
+        queuedCount:
+          type: number
+        strongMatchCount:
+          type: number
+        responseRate:
+          type: number
+        interviewCount:
+          type: number
+        offerCount:
+          type: number
+        needsFollowUp:
+          type: number
+        streakDays:
+          type: number
+        recentApplications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Application"
+      required:
+        - dailyGoal
+        - appliedToday
+        - queuedCount
+        - strongMatchCount
+        - responseRate
+        - interviewCount
+        - offerCount
+        - needsFollowUp
+        - streakDays
+        - recentApplications
+    Profile:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        email:
+          type: string
+        headline:
+          type: string
+        targetRoles:
+          type: array
+          items:
+            type: string
+        targetLocations:
+          type: array
+          items:
+            type: string
+        salaryFloor:
+          type: number
+        excludedCompanies:
+          type: array
+          items:
+            type: string
+        masterResume:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - headline
+        - targetRoles
+        - targetLocations
+        - salaryFloor
+        - excludedCompanies
+        - masterResume
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        headline:
+          type: string
+        targetRoles:
+          type: array
+          items:
+            type: string
+        targetLocations:
+          type: array
+          items:
+            type: string
+        salaryFloor:
+          type: number
+        excludedCompanies:
+          type: array
+          items:
+            type: string
+        masterResume:
+          type: string
+    DocumentType:
+      type: string
+      enum: [cv, cover_letter]
+    DocumentMeta:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/DocumentType"
+        filename:
+          type: string
+        sizeBytes:
+          type: number
+        uploadedAt:
+          type: string
+          format: date-time
+      required:
+        - type
+        - filename
+        - sizeBytes
+        - uploadedAt
+    DocumentUploadPayload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+        - file
+    DocumentUploadResult:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/DocumentType"
+        filename:
+          type: string
+        sizeBytes:
+          type: number
+        uploadedAt:
+          type: string
+          format: date-time
+        resumeUpdated:
+          type: boolean
+      required:
+        - type
+        - filename
+        - sizeBytes
+        - uploadedAt

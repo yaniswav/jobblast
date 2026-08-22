@@ -1,0 +1,195 @@
+{
+  "_comment": "Copy this file to jobblast.config.json (gitignored) and edit it. Every key is optional - anything you leave out falls back to the built-in default shown here, and the app runs fine with no config file at all. Full documentation: docs/CONFIG.md.",
+
+  "contact": {
+    "_comment": "Used for the cover letter PDF letterhead, the AI sign-off name, and the contact address in the outbound HTTP User-Agent. Leave a field empty to omit it.",
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "phone": "(+44) 20 7946 0000",
+    "city": "London"
+  },
+
+  "candidate": {
+    "_comment": "Language rule for AI-generated cover letters: if the posting is written in one of letterLanguages, the letter is written in that language; otherwise it is written in fallbackLetterLanguage. ISO 639-1 codes. nativeLanguage also selects the date locale on the cover letter PDF.",
+    "nativeLanguage": "en",
+    "letterLanguages": ["en"],
+    "fallbackLetterLanguage": "en"
+  },
+
+  "coverLetterTemplatePath": "config/cover-letter-template.txt",
+
+  "scoring": {
+    "_comment": "Weighted-keyword relevance scorer. The rules below are tuned for an embedded / C++ / systems profile - EDIT THEM TO MATCH YOUR PROFILE. Regexes are {pattern, flags} pairs; a title hit is worth double the weight of a description hit.",
+
+    "rules": [
+      { "pattern": "c\\+\\+", "flags": "i", "skill": "C++", "weight": 18, "reason": "C++ mentioned in the posting", "titleReason": "C++ mentioned in the title" },
+      { "pattern": "\\b(dds|rti connext|connext|opensplice|cyclone ?dds|data distribution service)\\b", "flags": "i", "skill": "DDS", "weight": 22, "reason": "DDS middleware (OpenSplice/RTI Connext/Cyclone) mentioned", "titleReason": "DDS middleware mentioned in the title" },
+      { "pattern": "\\b(embedded|embarqu[ée]s?|firmware)\\b|嵌入式|韌體", "flags": "i", "skill": "Embedded systems", "weight": 14, "reason": "Embedded systems / firmware mentioned", "titleReason": "Embedded/firmware role in the title" },
+      { "pattern": "\\b(linux|ubuntu)\\b", "flags": "i", "skill": "Linux", "weight": 8, "reason": "Linux stack mentioned" },
+      { "pattern": "\\bcmake\\b", "flags": "i", "skill": "CMake", "weight": 6, "reason": "CMake mentioned" },
+      { "pattern": "\\bpython\\b", "flags": "i", "skill": "Python", "weight": 6, "reason": "Python mentioned" },
+      { "pattern": "\\bdocker\\b", "flags": "i", "skill": "Docker", "weight": 4, "reason": "Docker mentioned" },
+      { "pattern": "\\b(react|typescript)\\b", "flags": "i", "skill": "React/TypeScript", "weight": 6, "reason": "React/TypeScript mentioned" },
+      { "pattern": "\\b(computer vision|opencv|yolo|tensorflow|deep learning|object detection)\\b|影像", "flags": "i", "skill": "Computer vision", "weight": 10, "reason": "Computer vision (OpenCV/YOLO/TensorFlow/object detection) mentioned", "titleReason": "Computer vision in the title" },
+      { "pattern": "\\bmiddleware\\b", "flags": "i", "skill": "Middleware", "weight": 8, "reason": "Middleware mentioned" },
+      { "pattern": "\\b(junior|graduate|d[ée]butant|entry.level|jeune diplôm[ée])\\b", "flags": "i", "skill": "Junior-friendly", "weight": 8, "reason": "Open to junior / entry-level profiles" },
+      { "pattern": "\\b(english[- ]speaking|no japanese required|english level|anglais courant)\\b", "flags": "i", "skill": "English-speaking team", "weight": 6, "reason": "English-speaking working environment" },
+      { "pattern": "\\b(nlp|natural language processing|llm|large language model|semantic embedding)\\b", "flags": "i", "skill": "NLP/LLM", "weight": 8, "reason": "NLP / LLM mentioned" },
+      { "pattern": "\\b(systemd|debian packag(?:e|ing)|multithread(?:ed|ing)?|real-?time systems?)\\b", "flags": "i", "skill": "Systems programming", "weight": 6, "reason": "Systems programming (systemd/real-time/multithreading) mentioned" },
+      { "pattern": "\\bdistributed systems?\\b", "flags": "i", "skill": "Distributed systems", "weight": 10, "reason": "Distributed systems mentioned", "titleReason": "Distributed systems in the title" },
+      { "pattern": "\\bc#\\b", "flags": "i", "skill": "C#", "weight": 5, "reason": "C# mentioned" },
+      { "pattern": "\\breact native\\b", "flags": "i", "skill": "React Native", "weight": 5, "reason": "React Native mentioned" },
+      { "pattern": "\\b(postgresql|postgres|mysql)\\b", "flags": "i", "skill": "PostgreSQL/MySQL", "weight": 4, "reason": "PostgreSQL/MySQL mentioned" },
+      { "pattern": "\\bpower ?bi\\b", "flags": "i", "skill": "Power BI", "weight": 3, "reason": "Power BI mentioned" },
+      { "pattern": "\\b(etl|talend)\\b", "flags": "i", "skill": "ETL/Talend", "weight": 3, "reason": "ETL/Talend mentioned" },
+      { "pattern": "\\bollama\\b", "flags": "i", "skill": "Ollama/local LLM tooling", "weight": 6, "reason": "Ollama / local LLM tooling mentioned" },
+      { "pattern": "\\bbash\\b", "flags": "i", "skill": "Bash", "weight": 4, "reason": "Bash scripting mentioned" },
+      { "pattern": "軟體工程師", "flags": "", "skill": "Software engineer role (TW)", "weight": 6, "reason": "Software engineer role (軟體工程師) mentioned" }
+    ],
+
+    "locationBonus": 10,
+    "locationBonusReason": "Target location matched ({location})",
+    "scoreCap": 98,
+    "targetLocationKeywords": [],
+    "targetishLocationPattern": null,
+    "remoteSignalPattern": {
+      "pattern": "\\bremote\\b|télétravail|teletravail|work from home|\\banywhere\\b|full[- ]remote",
+      "flags": "i"
+    },
+
+    "penalties": {
+      "_comment": "Negative weights. `reason` may contain a {location} placeholder. These defaults assume a junior candidate based in Europe with no US work authorization - review them.",
+      "workAuthorization": {
+        "pattern": "u\\.?s\\.?\\s+citizens?|green\\s?card|\\bw-?2\\b|authorized to work in the (?:u\\.?s\\.?a?\\.?|united states)|us work authorization|(?:unable|not able) to sponsor|no (?:visa |new )?(?:visa )?sponsorship|h-?1b (?:transfer|holders?)|security clearance|\\bts\\/sci\\b|\\bus persons?\\b",
+        "flags": "i",
+        "weight": -40,
+        "reason": "⚠ US work-authorization restriction (citizens/green card/W2/no sponsorship)"
+      },
+      "seniorYears": {
+        "pattern": "\\b(?:[5-9]|1[0-9])\\s*(?:\\+|à \\d+|-\\d+)?\\s*(?:years?|yrs?|ans)\\b.{0,50}(?:experience|expérience)|(?:experience|expérience)\\D{0,30}\\b(?:[5-9]|1[0-9])\\s*\\+?\\s*(?:years?|yrs?|ans)\\b",
+        "flags": "i",
+        "weight": -20,
+        "reason": "⚠ Requires 5+ years of experience"
+      },
+      "seniorTitle": {
+        "pattern": "\\b(senior|principal|staff|lead)\\b",
+        "flags": "i",
+        "weight": -18,
+        "reason": "⚠ Senior/staff/lead role in the title"
+      },
+      "usLocation": {
+        "pattern": "\\b(?:united states|usa|u\\.s\\.)\\b",
+        "flags": "i",
+        "weight": -15,
+        "reason": "⚠ US location outside the target areas"
+      },
+      "offsiteNonTarget": {
+        "weight": -25,
+        "reason": "⚠ On-site outside the target areas ({location})"
+      }
+    },
+
+    "minRelevanceScore": 30
+  },
+
+  "sources": {
+    "_comment": "Turn a source off with \"enabled\": false. Credentials for France Travail and Adzuna come from .env, not from here.",
+
+    "franceTravail": {
+      "enabled": true,
+      "keywords": ["C++", "embarqué", "développeur logiciel C++", "computer vision"],
+      "departements": ["75", "92", "78", "91", "94"]
+    },
+    "adzuna": {
+      "enabled": true,
+      "country": "fr",
+      "queries": ["développeur C++", "ingénieur logiciel embarqué", "computer vision"],
+      "where": "Paris",
+      "resultsPerPage": 50
+    },
+    "greenhouse": {
+      "_comment": "Verify a slug returns 200 with real postings before adding it: curl -s -o /dev/null -w '%{http_code}' https://boards-api.greenhouse.io/v1/boards/<slug>/jobs",
+      "enabled": true,
+      "boards": [
+        { "slug": "appier", "name": "Appier" },
+        { "slug": "datadog", "name": "Datadog" },
+        { "slug": "algolia", "name": "Algolia" },
+        { "slug": "doctolib", "name": "Doctolib" },
+        { "slug": "scandit", "name": "Scandit" },
+        { "slug": "agilityrobotics", "name": "Agility Robotics" },
+        { "slug": "gitai", "name": "GITAI" }
+      ]
+    },
+    "lever": {
+      "_comment": "Verify with: curl -s -o /dev/null -w '%{http_code}' 'https://api.lever.co/v0/postings/<slug>?mode=json'",
+      "enabled": true,
+      "boards": [
+        { "slug": "qonto", "name": "Qonto" },
+        { "slug": "swile", "name": "Swile" }
+      ]
+    },
+    "remoteok": {
+      "enabled": true,
+      "tags": ["cplusplus", "embedded"]
+    },
+    "remotive": {
+      "_comment": "Remotive documents ~4 calls/day; this source makes exactly one per refresh cycle. Do not add queries.",
+      "enabled": true,
+      "category": "software-dev",
+      "search": "c++",
+      "limit": 50
+    },
+    "himalayas": {
+      "enabled": true,
+      "queries": ["c++", "embedded", "computer vision"],
+      "limit": 20
+    },
+    "yourator": {
+      "_comment": "Taiwan startup board. relevanceFilter is a cheap client-side pre-filter (the API has no keyword search); scoring still does the real work.",
+      "enabled": true,
+      "pages": [1, 2, 3],
+      "relevanceFilter": {
+        "pattern": "(c\\+\\+|embedded|firmware|linux|backend|software engineer|computer vision|opencv|machine learning|devops|full[- ]?stack|工程師|軟體|嵌入式|韌體|後端|影像|演算法|resear?ch engineer)",
+        "flags": "i"
+      }
+    },
+    "tokyodev": { "enabled": true },
+    "japandev": { "enabled": true },
+    "arbeitnow": { "enabled": true },
+    "job104": {
+      "_comment": "104.com.tw (Taiwan). Disabled by default: its search endpoint sits behind Cloudflare bot protection and currently returns zero jobs, so enabling it only wastes request budget.",
+      "enabled": false,
+      "queries": ["C++", "嵌入式", "軟體工程師"],
+      "areaCodes": ["6001001000", "6001002000", "6001016000"]
+    },
+    "aiScout": {
+      "_comment": "Headless `claude` CLI agent that searches your claude.ai job connectors plus the live web. Requires the `claude` CLI installed and logged in. Throttled to one run per 24h. List your connectors with `claude mcp list`.",
+      "enabled": false,
+      "allowedConnectors": [
+        "mcp__claude_ai_Snagajob",
+        "mcp__claude_ai_Aquent_Job_Search",
+        "mcp__claude_ai_JobDataLake",
+        "mcp__claude_ai_Indeed"
+      ],
+      "targetCompanies": [],
+      "targetSites": [],
+      "maxPostings": 15,
+      "effortLevel": "high"
+    },
+    "notionInbox": {
+      "_comment": "Bridges a Notion database of job postings (fed by e.g. a scheduled claude.ai routine) into the pipeline. Requires the claude.ai Notion connector. Rename `properties` to match your database's own property names.",
+      "enabled": false,
+      "pageUrl": "https://app.notion.com/p/<your-page-id>",
+      "dataSourceUrl": "collection://<your-data-source-id>",
+      "properties": {
+        "title": "Title",
+        "company": "Company",
+        "url": "URL",
+        "location": "Location",
+        "why": "Why",
+        "source": "Source",
+        "imported": "Imported"
+      }
+    }
+  }
+}

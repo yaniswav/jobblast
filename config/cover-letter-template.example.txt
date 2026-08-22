@@ -1,0 +1,36 @@
+Your Name
+Your Job Title
+
+Contact details
+you@example.com
+City, Country
+(+00) 0 00 00 00 00
+LinkedIn
+
+
+Dear Sir or Madam,
+
+Write the opening paragraph of your standard cover letter here: who you
+are, what you are looking for, and the one sentence that explains why you
+are writing. The AI tailoring pass never copies this text verbatim - it
+uses it as the reference for structure, tone, paragraph count and sign-off
+style, then rewrites the content for each specific job posting.
+
+Use the second paragraph for your most relevant experience: where you
+worked, what you built, and the technologies involved. Keep it concrete.
+This is the paragraph the tailoring pass will rewrite most heavily, so the
+more clearly it shows the shape you want ("employer, responsibility,
+technologies, outcome"), the better the generated letters read.
+
+Use a third paragraph for a second experience, a research project, or an
+academic background that supports your application. Mention the transferable
+skills you want to be reminded of.
+
+Close with a short paragraph summarizing your core skills and the way you
+like to work, plus any language levels or certifications worth naming.
+
+I would welcome the opportunity to discuss how my background could
+contribute to your team. Thank you for your consideration.
+
+Yours faithfully,
+Your Name

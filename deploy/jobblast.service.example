@@ -1,0 +1,34 @@
+# systemd unit for running JobBlast as a background service on Linux.
+#
+# Setup:
+#   1. Build first:            bash deploy/build.sh
+#   2. Copy this file:         sudo cp deploy/jobblast.service.example /etc/systemd/system/jobblast.service
+#   3. Edit the placeholders below (WorkingDirectory, User, node path).
+#   4. Reload + enable:        sudo systemctl daemon-reload && sudo systemctl enable --now jobblast
+#   5. Logs:                   journalctl -u jobblast -f
+#
+# Postgres is NOT managed by this unit. Either run it via `docker compose up
+# -d` (add `After=docker.service` and start it separately / via its own
+# `restart: unless-stopped` policy), or point DATABASE_URL in .env at an
+# existing instance.
+
+[Unit]
+Description=JobBlast job-application assistant
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Absolute path to artifacts/api-server in your clone.
+WorkingDirectory=/path/to/jobblast/artifacts/api-server
+Environment=SERVE_STATIC=1
+# `--env-file-if-exists` needs Node >= 24 - use `which node` to find the
+# absolute path if you're not using a system-wide install.
+ExecStart=/usr/bin/node --enable-source-maps --env-file-if-exists=../../.env ./dist/index.mjs
+Restart=on-failure
+RestartSec=5
+# Run as your own (non-root) user.
+User=youruser
+
+[Install]
+WantedBy=multi-user.target

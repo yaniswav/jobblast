@@ -1,0 +1,143 @@
+// Placeholder tailored content for fetched job listings: resume bullets
+// derived from the DB profile, plus a cover letter built from the reference
+// template with a one-line header naming the role. This is NOT AI-generated
+// - it's a deterministic draft so the review queue / application flow keeps
+// working end to end until the AI tailoring pass (lib/ai/tailor.ts) replaces
+// it. Users should still review and edit both before applying.
+//
+// Nothing here is hardcoded to a particular candidate: the bullets come from
+// `profiles.headline` / `profiles.masterResume`, and the reference cover
+// letter comes from (in order) the file named by `coverLetterTemplatePath`
+// in jobblast.config.json, the text of the uploaded cover_letter document,
+// or a neutral built-in placeholder.
+
+import fs from "node:fs";
+import { coverLetterTemplatePath } from "../config";
+import { getDocument } from "../documents-data";
+import { logger } from "../logger";
+import { extractPdfTextFromBuffer } from "../pdf-text";
+
+const MIN_BULLETS = 3;
+const MAX_BULLETS = 4;
+const MIN_SENTENCE_CHARS = 24;
+
+/** Shown when the profile has nothing usable yet. */
+const PLACEHOLDER_BULLETS: string[] = [
+  "Placeholder bullet - add your master resume in Profile (or upload your CV) so these reflect your real experience.",
+  "The AI tailoring pass replaces these with job-specific bullets once it runs.",
+  "Review and edit every bullet before applying.",
+];
+
+/** Neutral fallback used when no template file and no uploaded letter exist. */
+export const BUILT_IN_COVER_LETTER_TEMPLATE = `Dear Hiring Team,
+
+I am writing to apply for this role. My background lines up closely with what
+the posting describes, and I would welcome the chance to contribute to your
+team.
+
+In my most recent experience I worked on projects that required the core
+skills listed in this posting, delivering them end to end and collaborating
+closely with the people around me.
+
+I would be glad to discuss how my background could be useful to your team.
+Thank you for your consideration.
+
+Yours faithfully,`;
+
+/** Splits a free-text resume into sentence-sized bullet candidates. */
+function resumeSentences(masterResume: string): string[] {
+  return masterResume
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length >= MIN_SENTENCE_CHARS);
+}
+
+export type BulletProfile = {
+  headline: string;
+  masterResume: string;
+};
+
+/**
+ * Builds placeholder bullets for a job from the matched skills plus the
+ * profile's own words. Deterministic, never invents anything.
+ */
+export function tailoredBulletsFor(highlightedSkills: string[], profile: BulletProfile): string[] {
+  const bullets: string[] = [];
+
+  if (highlightedSkills.length > 0) {
+    bullets.push(`Matches this posting on: ${highlightedSkills.slice(0, 6).join(", ")}.`);
+  }
+
+  const headline = profile.headline.trim();
+  if (headline.length > 0) bullets.push(headline);
+
+  for (const sentence of resumeSentences(profile.masterResume)) {
+    if (bullets.length >= MAX_BULLETS) break;
+    if (!bullets.includes(sentence)) bullets.push(sentence);
+  }
+
+  for (const fallback of PLACEHOLDER_BULLETS) {
+    if (bullets.length >= MIN_BULLETS) break;
+    if (!bullets.includes(fallback)) bullets.push(fallback);
+  }
+
+  return bullets.slice(0, MAX_BULLETS);
+}
+
+let cachedTemplate: string | null = null;
+
+/** Forget the memoized template (call after a cover_letter document upload). */
+export function resetCoverLetterTemplateCache(): void {
+  cachedTemplate = null;
+}
+
+/**
+ * Resolves the reference cover letter, in order of preference:
+ *   1. the text file at `coverLetterTemplatePath` (gitignored by default),
+ *   2. the text extracted from the uploaded `cover_letter` PDF document,
+ *   3. BUILT_IN_COVER_LETTER_TEMPLATE.
+ * Memoized; never throws.
+ */
+export async function getCoverLetterTemplate(): Promise<string> {
+  if (cachedTemplate !== null) return cachedTemplate;
+
+  const templateFile = coverLetterTemplatePath();
+  try {
+    const text = await fs.promises.readFile(templateFile, "utf8");
+    if (text.trim().length > 0) {
+      cachedTemplate = text.trim();
+      return cachedTemplate;
+    }
+  } catch {
+    // No template file - fall through to the uploaded document.
+  }
+
+  try {
+    const document = await getDocument("cover_letter");
+    if (document) {
+      const buffer = await fs.promises.readFile(document.path);
+      const text = (await extractPdfTextFromBuffer(buffer)).trim();
+      if (text.length > 0) {
+        logger.info(
+          { templateFile },
+          "Cover letter template file not found, using the uploaded cover_letter document instead",
+        );
+        cachedTemplate = text;
+        return cachedTemplate;
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Could not read the uploaded cover letter document for the template");
+  }
+
+  logger.info(
+    { templateFile },
+    "No cover letter template file or uploaded letter found, using the built-in placeholder",
+  );
+  cachedTemplate = BUILT_IN_COVER_LETTER_TEMPLATE;
+  return cachedTemplate;
+}
+
+export function coverLetterFor(title: string, company: string, template: string): string {
+  return `Application: ${title} at ${company}\n\n${template}`;
+}

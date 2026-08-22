@@ -1,0 +1,71 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# compiled output
+dist
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+
+# dependencies
+node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# Local caches
+.cache/
+.local/
+
+# Local secrets - see .env.example for the documented placeholder version
+.env
+identifiants_*.json
+
+# Personal configuration (name, contact details, scoring rules, job sources,
+# Notion IDs...). Committed counterpart: jobblast.config.example.json
+/jobblast.config.json
+
+# Personal cover letter used as the AI tailoring reference. Committed
+# counterpart: config/cover-letter-template.example.txt
+/config/cover-letter-template.txt
+
+# Uploaded document storage (CV / cover letter PDFs), see
+# artifacts/api-server/src/lib/storage.ts
+/data/
+
+# Production deployment logs (deploy/start-jobblast.ps1 / start-jobblast.sh)
+/deploy/logs/
+
+# PID file written by deploy/start-jobblast.sh (Linux/macOS)
+/deploy/jobblast.pid
