@@ -17,13 +17,20 @@
 
 import { spawn } from "node:child_process";
 import { logger } from "../logger";
+import { ProviderUnavailableError } from "./errors";
 
 const DEFAULT_TIMEOUT_MS = 180_000;
-const BASE_CLI_ARGS = ["-p", "--output-format", "json", "--model", "sonnet"];
+const DEFAULT_MODEL = "sonnet";
+
+function baseCliArgs(model: string): string[] {
+  return ["-p", "--output-format", "json", "--model", model];
+}
 
 export type RunClaudePromptOptions = {
   /** Overrides the default 180s timeout. */
   timeoutMs?: number;
+  /** Overrides the default "sonnet" model (from `ai.model` in jobblast.config.json). */
+  model?: string;
   /** Extra CLI args appended after the base args (e.g. ["--allowedTools", "WebSearch,WebFetch"] to enable web tools). */
   extraArgs?: string[];
 };
@@ -151,7 +158,11 @@ async function runClaudeCli(prompt: string, args: string[], timeoutMs: number): 
     }
   }
 
-  throw new ClaudeCliError("Could not find a working `claude` CLI invocation", {
+  // Permanent on this machine (the CLI simply isn't installed), so this is a
+  // ProviderUnavailableError rather than a ClaudeCliError: lib/ai/provider.ts
+  // catches it and switches the process to template-only letters instead of
+  // retrying the spawn once per job, every 30 minutes.
+  throw new ProviderUnavailableError("claude-cli", "Could not find a working `claude` CLI invocation", {
     cause: lastError,
   });
 }
@@ -170,7 +181,7 @@ function stripCodeFence(text: string): string {
  *
  * `options.timeoutMs` overrides the default 180s timeout (e.g. for a
  * longer-running web-search-backed prompt). `options.extraArgs` are appended
- * after the base `-p --output-format json --model sonnet` args (e.g.
+ * after the base `-p --output-format json --model <model>` args (e.g.
  * `["--allowedTools", "WebSearch,WebFetch"]` to enable web tools headlessly).
  *
  * Throws `ClaudeCliError` on spawn failure, non-zero exit, timeout, a
@@ -181,7 +192,8 @@ export async function runClaudePrompt(
   options: RunClaudePromptOptions = {},
 ): Promise<string> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const args = options.extraArgs ? [...BASE_CLI_ARGS, ...options.extraArgs] : BASE_CLI_ARGS;
+  const base = baseCliArgs(options.model?.trim() || DEFAULT_MODEL);
+  const args = options.extraArgs ? [...base, ...options.extraArgs] : base;
   const stdout = await runClaudeCli(prompt, args, timeoutMs);
 
   let envelope: ClaudeCliEnvelope;

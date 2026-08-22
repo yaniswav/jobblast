@@ -18,6 +18,33 @@
 
   "coverLetterTemplatePath": "config/cover-letter-template.txt",
 
+  "ai": {
+    "_comment": "Which engine writes your cover letters. The whole section is optional: leave it out entirely and JobBlast uses the local `claude` CLI, exactly as it always has. Full reference, including which provider supports AI Scout and the Notion Inbox: docs/CONFIG.md.",
+    "provider": "claude-cli",
+    "model": "sonnet",
+    "timeoutMs": 180000,
+
+    "_alternative_none": "No AI at all, zero dependencies: every posting keeps the template cover letter and profile-derived bullets. Everything else (aggregation, scoring, review queue, PDF export, tracker) works normally. Use: \"provider\": \"none\"",
+
+    "_alternative_codexCli": "OpenAI Codex CLI, headless. Supports AI Scout (web search via -c tools.web_search=true) and, if you added a Notion MCP server to ~/.codex/config.toml, the Notion Inbox. Use: \"provider\": \"codex-cli\" plus the codexCli block below.",
+    "codexCli": { "model": "", "extraArgs": [] },
+
+    "_alternative_geminiCli": "Google Gemini CLI, headless. Cover letters plus web-search-only AI Scout; no Notion Inbox. Use: \"provider\": \"gemini-cli\" plus the geminiCli block below.",
+    "geminiCli": { "model": "", "extraArgs": [] },
+
+    "_alternative_anthropicApi": "Anthropic Messages API (metered). Cover letters only. Use: \"provider\": \"anthropic-api\" and put ANTHROPIC_API_KEY in .env - never here.",
+    "anthropicApi": { "model": "claude-opus-5", "maxTokens": 4096 },
+
+    "_alternative_openaiCompatible": "Any OpenAI Chat Completions endpoint (OpenAI, OpenRouter, Mistral, Groq, vLLM...). Cover letters only. Use: \"provider\": \"openai-compatible\" and put the key in .env under the name you set in apiKeyEnv.",
+    "_alternative_ollama": "FREE AND FULLY LOCAL: install Ollama, run `ollama pull llama3.1`, then just \"provider\": \"ollama\" - baseUrl http://localhost:11434/v1, model llama3.1 and no API key are all filled in for you. \"lmstudio\" does the same for LM Studio on http://localhost:1234/v1. Anything you set in openaiCompatible below overrides the preset, key by key.",
+    "openaiCompatible": {
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "model": "gpt-4o-mini",
+      "temperature": null
+    }
+  },
+
   "scoring": {
     "_comment": "Weighted-keyword relevance scorer. The rules below are tuned for an embedded / C++ / systems profile - EDIT THEM TO MATCH YOUR PROFILE. Regexes are {pattern, flags} pairs; a title hit is worth double the weight of a description hit.",
 

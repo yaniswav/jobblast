@@ -1,9 +1,13 @@
-// "AI Scout" job source: a headless Claude agent (local `claude` CLI, riding
-// the user's Claude subscription - no metered API key, $0 marginal cost)
-// searches the claude.ai job connector MCP servers listed in
-// `sources.aiScout.allowedConnectors` plus the live web for current job
-// postings matching the profile, and feeds them into the same aggregation
-// pipeline as the other sources.
+// "AI Scout" job source: a headless, tool-using agent searches the job
+// connector MCP servers listed in `sources.aiScout.allowedConnectors` plus
+// the live web for current job postings matching the profile, and feeds them
+// into the same aggregation pipeline as the other sources.
+//
+// It needs an agent-capable provider (lib/ai/provider.ts): claude-cli, which
+// rides the user's Claude subscription at $0 marginal cost, or codex-cli.
+// gemini-cli can do the web half but not the connectors. On a text-only
+// provider (anthropic-api, openai-compatible/ollama/lmstudio) or with
+// `ai.provider: "none"`, this source logs once and contributes nothing.
 //
 // Exists to cover job boards / company career pages our structured-API
 // sources (Greenhouse, Lever, Adzuna, France Travail...) don't reach at all,
@@ -17,7 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db, profilesTable } from "@workspace/db";
-import { runClaudePrompt } from "../ai/claude-cli";
+import { configuredProviderName, getAgentProvider } from "../ai/provider";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { REPO_ROOT } from "../storage";
@@ -30,20 +34,17 @@ const MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const CLI_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes - real web search + browsing takes a while
 const URL_CHECK_TIMEOUT_MS = 10_000;
 
-// The claude.ai "job connector" MCP servers to query, from
-// `sources.aiScout.allowedConnectors` in jobblast.config.json. These are
-// account-level connectors (configured via `claude mcp login` / claude.ai
-// connector settings - not project config, so no --mcp-config /
-// --strict-mcp-config is needed here); list yours with `claude mcp list`.
-// Server names are normalized by replacing spaces/dots with underscores and
-// prefixing "mcp__". Allowing the whole server (no third `__tool` segment)
-// means any tool the connector exposes is usable without hardcoding tool
-// names that could change server-side. A connector that is unauthorized in
-// headless sessions or rate-limited is not fatal: the prompt tells the agent
-// to move on, and this fetcher tolerates web-search-only results.
-function allowedTools(): string {
-  return [...loadConfig().sources.aiScout.allowedConnectors, "WebSearch", "WebFetch"].join(",");
-}
+/** So a text-only provider doesn't print the same line on every refresh cycle. */
+let disabledNoticeLogged = false;
+
+// The job connector MCP servers to query come from
+// `sources.aiScout.allowedConnectors`; the provider adapter turns them into
+// whatever its CLI needs (for claude-cli, an --allowedTools list). For
+// claude.ai these are account-level connectors configured via `claude mcp
+// login` / claude.ai connector settings - list yours with `claude mcp list`.
+// A connector that is unauthorized in headless sessions or rate-limited is
+// not fatal: the prompt tells the agent to move on, and this fetcher
+// tolerates web-search-only results.
 
 /** The strict JSON shape we ask the agent to return per posting. */
 type ScoutPosting = {
@@ -160,7 +161,7 @@ Output ONLY the raw JSON array, no markdown code fences, no commentary before or
 }
 
 /**
- * Fetches the live profile, asks the headless Claude CLI (with the job
+ * Fetches the live profile, asks the configured agent provider (with the job
  * connector MCP tools plus web search / fetch enabled) to scout current job
  * postings, validates the response, verifies every returned URL actually
  * resolves, and maps survivors to RawJob[] with source "AI Scout".
@@ -171,6 +172,19 @@ Output ONLY the raw JSON array, no markdown code fences, no commentary before or
  * as every other source fetcher in the allSettled pipeline in refresh.ts.
  */
 export async function fetchAiScoutJobs(): Promise<RawJob[]> {
+  // Checked before the throttle so a text-only provider never burns the
+  // once-per-24h slot on a run that cannot happen.
+  const provider = getAgentProvider();
+  if (!provider || !provider.supportsTool("web")) {
+    if (!disabledNoticeLogged) {
+      disabledNoticeLogged = true;
+      logger.info(
+        `AI Scout disabled: provider "${configuredProviderName()}" cannot run tool-using agents (use claude-cli or codex-cli)`,
+      );
+    }
+    return [];
+  }
+
   if (shouldSkipDueToFrequency()) {
     logger.info("AI Scout: skipped, last run was under 24h ago");
     return [];
@@ -199,18 +213,20 @@ export async function fetchAiScoutJobs(): Promise<RawJob[]> {
   let rawResult: string;
   const startedAt = Date.now();
   try {
-    rawResult = await runClaudePrompt(prompt, {
+    rawResult = await provider.runAgent(prompt, {
       timeoutMs: CLI_TIMEOUT_MS,
-      // --effort: this run is slow and infrequent (throttled to 1/24h) and
-      // the quality of the returned postings matters more than latency, so
-      // the default is "high" (see `sources.aiScout.effortLevel`).
-      extraArgs: ["--allowedTools", allowedTools(), "--effort", effortLevel],
+      tools: ["job-connectors", "web"],
+      // effort: this run is slow and infrequent (throttled to 1/24h) and the
+      // quality of the returned postings matters more than latency, so the
+      // default is "high" (see `sources.aiScout.effortLevel`). Providers that
+      // have no effort knob ignore it.
+      effort: effortLevel,
     });
   } catch (err) {
-    logger.error({ err, ms: Date.now() - startedAt }, "AI Scout: Claude CLI call failed");
+    logger.error({ err, provider: provider.name, ms: Date.now() - startedAt }, "AI Scout: agent call failed");
     return [];
   }
-  logger.info({ ms: Date.now() - startedAt }, "AI Scout: Claude CLI call completed");
+  logger.info({ provider: provider.name, ms: Date.now() - startedAt }, "AI Scout: agent call completed");
 
   const parsed = parseJsonArrayResponse(rawResult);
   if (!parsed) {

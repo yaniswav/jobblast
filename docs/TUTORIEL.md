@@ -2,8 +2,8 @@
 
 English version: docs/TUTORIAL.md
 
-Guide pas-à-pas pour quelqu'un qui n'a jamais utilisé Node.js, Docker ou la
-CLI Claude Code. Si vous êtes déjà à l'aise avec ces outils, le
+Guide pas-à-pas pour quelqu'un qui n'a jamais utilisé Node.js, Docker ou une
+CLI d'IA. Si vous êtes déjà à l'aise avec ces outils, le
 `README.md` (Quick start) ira plus vite.
 
 Tout ce dont vous avez besoin est gratuit : Postgres tourne chez vous (via
@@ -22,7 +22,7 @@ plutôt qu'une clé API facturée à l'usage.
 7. [Remplir votre profil](#7-remplir-votre-profil)
 8. [Obtenir des clés API gratuites](#8-obtenir-des-clés-api-gratuites)
 9. [Adapter `jobblast.config.json` à votre profil](#9-adapter-jobblastconfigjson-à-votre-profil)
-10. [Installer la CLI Claude Code (pour les lettres IA)](#10-installer-la-cli-claude-code-pour-les-lettres-ia)
+10. [Choisir un fournisseur d'IA (pour les lettres IA)](#10-choisir-un-fournisseur-dia-pour-les-lettres-ia)
 11. [Déployer en « production locale »](#11-déployer-en-production-locale)
 12. [Routine quotidienne d'utilisation](#12-routine-quotidienne-dutilisation)
 13. [Options avancées](#13-options-avancées)
@@ -296,12 +296,55 @@ dev:api` (le fichier est relu au démarrage du serveur).
 
 ---
 
-## 10. Installer la CLI Claude Code (pour les lettres IA)
+## 10. Choisir un fournisseur d'IA (pour les lettres IA)
 
-Facultatif, mais recommandé : sans la CLI `claude`, JobBlast fonctionne très
-bien mais génère une lettre de motivation basée sur un simple template
-(sans personnalisation par IA) au lieu d'une lettre et de puces de CV
-réellement adaptées à chaque offre.
+Facultatif. JobBlast sait rédiger des puces de CV et une lettre de motivation
+adaptées à chaque offre, et vous laisse choisir quel moteur s'en charge. Sans
+fournisseur d'IA, l'application fonctionne quand même de bout en bout : vous
+obtenez une lettre propre construite à partir de votre template, plus des
+puces dérivées de votre profil, signalées dans l'interface comme un brouillon
+template.
+
+Choisissez une des six options ci-dessous et inscrivez-la dans
+`jobblast.config.json`. Toute la section `ai` est facultative, et l'omettre
+revient à choisir l'option 1.
+
+| Option | Lettres | AI Scout | Notion Inbox | Coût |
+|---|---|---|---|---|
+| **0.** `none` | template seulement | non | non | gratuit |
+| **1.** `claude-cli` *(par défaut)* | oui | oui | oui | votre abonnement Claude |
+| **2.** `codex-cli` | oui | oui | si vous avez ajouté un serveur MCP Notion | votre offre ChatGPT / Codex |
+| **3.** `gemini-cli` | oui | recherche web seulement | non | votre offre Gemini ou une clé API |
+| **4.** `anthropic-api` | oui | non | non | facturé au token |
+| **5.** `openai-compatible`, dont **Ollama** | oui | non | non | facturé, ou **gratuit avec Ollama** |
+
+« AI Scout » et « Notion Inbox » sont les deux sources d'offres facultatives
+de l'étape 13 (« Options avancées ») ; elles ont besoin d'un agent capable d'appeler des outils, ce
+que seules les options 1 à 3 permettent.
+
+Toutes les clés de toutes les options sont documentées dans
+[`docs/CONFIG.md`](CONFIG.md#ai).
+
+---
+
+### Option 0 : aucune IA
+
+```json
+"ai": { "provider": "none" }
+```
+
+Rien à installer. Aucune CLI n'est lancée, aucune API n'est appelée. Chaque
+offre conserve la lettre template et les puces dérivées de votre profil.
+L'agrégation, le scoring, la file de revue, l'export PDF et le suivi des
+candidatures fonctionnent normalement. C'est aussi une bonne façon de faire
+tourner l'application d'abord et de choisir un fournisseur plus tard.
+
+### Option 1 : CLI Claude Code (par défaut, recommandée)
+
+C'est ce que JobBlast utilise si vous n'écrivez aucune section `ai`. C'est la
+seule option où les deux sources facultatives fonctionnent pleinement, parce
+que vos connecteurs claude.ai (Notion, Indeed, Snagajob...) sont accessibles
+depuis une session headless.
 
 1. Installez la CLI avec l'installeur natif (recommandé) :
 
@@ -339,12 +382,122 @@ réellement adaptées à chaque offre.
    Vous devez obtenir un JSON avec `"is_error": false` et un `"result"`
    non vide.
 
-C'est tout : JobBlast appelle ensuite `claude -p` tout seul (toutes les 30
-minutes, sur les nouvelles offres) - il n'y a rien d'autre à configurer.
-L'IA tourne sous l'utilisateur Windows/Linux/macOS qui exécute le processus
-serveur, donc si vous déployez en tâche planifiée / service (étape 11),
-c'est **ce compte-là** qui doit être connecté (`claude` doit avoir été lancé
-et authentifié au moins une fois sous cet utilisateur).
+4. Rien à configurer. Si vous voulez être explicite, ou changer de modèle :
+
+   ```json
+   "ai": { "provider": "claude-cli", "model": "sonnet" }
+   ```
+
+### Option 2 : CLI Codex d'OpenAI
+
+```json
+"ai": { "provider": "codex-cli", "codexCli": { "model": "" } }
+```
+
+Installez-la (`npm install -g @openai/codex`, ou Homebrew), puis lancez
+`codex login` une fois. Laissez `model` vide pour utiliser le modèle déjà
+configuré dans Codex.
+
+JobBlast appelle `codex exec` en mode non interactif avec un bac à sable en
+lecture seule et récupère le message final. AI Scout fonctionne (la recherche
+web est activée à chaque exécution) ; la Notion Inbox aussi, mais seulement
+si vous avez ajouté un serveur MCP Notion à votre propre
+`~/.codex/config.toml` : Codex n'a pas de liste de connecteurs par exécution.
+
+### Option 3 : CLI Gemini de Google
+
+```json
+"ai": { "provider": "gemini-cli", "geminiCli": { "model": "" } }
+```
+
+Installez-la (`npm install -g @google/gemini-cli`), puis lancez `gemini` une
+fois pour vous authentifier, ou renseignez `GEMINI_API_KEY` dans `.env`.
+
+Les lettres fonctionnent. AI Scout ne fonctionne que pour la moitié
+« recherche web », et la Notion Inbox ne fonctionne pas : les serveurs MCP de
+Gemini sont nommés dans votre propre `~/.gemini/settings.json`, que JobBlast
+ne peut pas lire. Notez que les exécutions d'agent doivent passer
+`--approval-mode yolo`, qui approuve automatiquement tous les outils que
+l'agent décide d'appeler : préférez l'option 1 ou 2 si vous comptez activer
+AI Scout.
+
+### Option 4 : API Anthropic (facturée)
+
+```json
+"ai": { "provider": "anthropic-api", "anthropicApi": { "model": "claude-opus-5", "maxTokens": 4096 } }
+```
+
+Créez une clé sur [console.anthropic.com](https://console.anthropic.com/) et
+mettez-la dans `.env` sous `ANTHROPIC_API_KEY` : jamais dans
+`jobblast.config.json`, que vous pourriez vouloir partager. Lettres
+uniquement, facturées au token.
+
+### Option 5 : tout endpoint compatible OpenAI, y compris des modèles locaux gratuits
+
+Un seul appel HTTP au format OpenAI Chat Completions, ce qui couvre OpenAI,
+OpenRouter, Mistral, Groq, vLLM, LM Studio et Ollama.
+
+**Gratuit et 100 % local, avec Ollama.** Rien ne quitte votre machine, et il
+n'y a aucune facture :
+
+```bash
+# 1. Installer Ollama
+winget install Ollama.Ollama              # Windows
+brew install ollama                        # macOS
+curl -fsSL https://ollama.com/install.sh | sh   # Linux
+
+# 2. Télécharger un modèle (environ 4,7 Go ; llama3.2:3b ou qwen2.5:3b sont plus légers)
+ollama pull llama3.1
+```
+
+```json
+"ai": { "provider": "ollama" }
+```
+
+C'est toute la configuration : l'endpoint (`http://localhost:11434/v1`), le
+modèle (`llama3.1`) et « pas de clé API » sont préréglés pour vous.
+`"provider": "lmstudio"` fait la même chose pour LM Studio sur
+`http://localhost:1234/v1`.
+
+Deux choses à attendre d'un petit modèle local : les lettres sont plus
+grossières et suivent moins fidèlement la structure et la règle de langue,
+et lorsqu'une réponse revient malformée JobBlast la rejette au lieu de vous
+la montrer, donc l'offre concernée conserve simplement sa lettre template.
+Elle est réessayée à la passe suivante, au maximum 3 fois par exécution du
+serveur.
+
+Pour un endpoint hébergé à la place :
+
+```json
+"ai": {
+  "provider": "openai-compatible",
+  "openaiCompatible": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "model": "gpt-4o-mini"
+  }
+}
+```
+
+et mettez `OPENAI_API_KEY` dans `.env`.
+
+---
+
+Quelle que soit votre option, redémarrez l'API après avoir modifié
+`jobblast.config.json` : le fichier est lu au démarrage. La première ligne de
+log après « Server listening » indique quel fournisseur est actif et s'il
+peut exécuter des agents.
+
+Une remarque de déploiement pour les options 1 à 3 : la CLI tourne sous le
+compte système qui exécute le processus serveur, donc si vous déployez en
+tâche planifiée / service (étape 11), c'est **ce compte-là** qui doit être
+connecté (la CLI doit avoir été authentifiée au moins une fois sous cet
+utilisateur).
+
+Si le fournisseur choisi s'avère inutilisable (CLI non installée, clé
+absente, serveur local éteint), JobBlast écrit un avertissement, bascule sur
+les lettres template pour le reste de l'exécution et n'insiste pas. Corrigez
+la cause et redémarrez.
 
 ---
 

@@ -1,4 +1,5 @@
 import app from "./app";
+import { logAiProviderStatus } from "./lib/ai/provider";
 import { runTailoringPass } from "./lib/ai/tailor";
 import { logger } from "./lib/logger";
 import { refreshJobListings } from "./lib/sources/refresh";
@@ -28,6 +29,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  logAiProviderStatus();
 
   // Populate/refresh real job listings without blocking server startup, then
   // kick off an AI tailoring pass (also non-blocking) once it settles.

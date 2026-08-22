@@ -1,9 +1,14 @@
 // AI-powered tailoring pass: replaces the static placeholder bullets/cover
-// letter (lib/sources/tailoring.ts) with content generated per-job by the
-// local Claude Code CLI (lib/ai/claude-cli.ts), grounded in the user's real
-// master resume. Runs serially (one CLI call at a time - it rides the
-// user's Claude subscription, not a metered API key) and is safe to trigger
-// repeatedly: a module-level guard makes overlapping calls a no-op.
+// letter (lib/sources/tailoring.ts) with content generated per-job by
+// whichever AI provider is configured (lib/ai/provider.ts - Claude Code CLI
+// by default), grounded in the user's real master resume. Runs serially (one
+// call at a time) and is safe to trigger repeatedly: a module-level guard
+// makes overlapping calls a no-op.
+//
+// The whole pass is optional. With `ai.provider: "none"`, or once a provider
+// has reported itself unreachable on this machine, getTextProvider() returns
+// null and every job simply keeps the template letter and profile-derived
+// bullets it already has (the UI shows them as a template draft).
 //
 // The prompt describes the applicant purely from data: the master resume and
 // headline stored in the `profiles` row, the sign-off name from
@@ -16,10 +21,17 @@ import { db, jobListingsTable, profilesTable, type JobListing } from "@workspace
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { getCoverLetterTemplate } from "../sources/tailoring";
-import { runClaudePrompt } from "./claude-cli";
+import { configuredProviderName, disableAi, getTextProvider, isProviderUnavailable, type TextProvider } from "./provider";
 import { sanitizeAiText, sanitizeAiTexts } from "./sanitize";
 
 const DEFAULT_LIMIT = 10;
+/**
+ * How many times one job may be attempted over this process's lifetime.
+ * A small local model that keeps returning malformed JSON for one awkward
+ * posting would otherwise be retried on it every 30 minutes forever, and
+ * crowd out jobs that would have succeeded.
+ */
+const MAX_ATTEMPTS_PER_JOB = 3;
 const DESCRIPTION_TRUNCATE_CHARS = 4000;
 const BULLET_COUNT = 4;
 const MIN_COVER_LETTER_CHARS = 800;
@@ -150,6 +162,7 @@ type TailoringContext = {
 async function generateTailoredContent(
   job: JobListing,
   context: TailoringContext,
+  provider: TextProvider,
 ): Promise<TailoredContent | null> {
   const prompt = buildPrompt({
     masterResume: context.masterResume,
@@ -161,7 +174,7 @@ async function generateTailoredContent(
     description: job.description,
   });
 
-  const rawResult = await runClaudePrompt(prompt);
+  const rawResult = await provider.generateText(prompt);
 
   let parsed: unknown;
   try {
@@ -186,21 +199,39 @@ async function generateTailoredContent(
 }
 
 let passRunning = false;
+/** jobId -> failed attempts so far, this process. See MAX_ATTEMPTS_PER_JOB. */
+const attemptsByJob = new Map<number, number>();
+let noAiNoticeLogged = false;
 
 /**
  * Tailors up to `limit` queued, non-seed, not-yet-AI-tailored jobs (highest
- * relevanceScore first), one CLI call at a time. Successes overwrite
+ * relevanceScore first), one provider call at a time. Successes overwrite
  * tailoredBullets/coverLetter and set aiGenerated=true. On failure or
  * invalid output, aiGenerated is left false and the row keeps its
- * placeholder content, so the job is naturally retried on the next pass.
+ * placeholder content, so the job is retried on the next pass - up to
+ * MAX_ATTEMPTS_PER_JOB times per process.
  *
- * No-ops (via a module-level guard) if a pass is already in progress.
+ * No-ops (via a module-level guard) if a pass is already in progress, and
+ * no-ops entirely when no text provider is configured or available.
  */
 export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<void> {
   if (passRunning) {
     logger.debug("AI tailoring pass already running, skipping this trigger");
     return;
   }
+
+  const provider = getTextProvider();
+  if (!provider) {
+    if (!noAiNoticeLogged) {
+      noAiNoticeLogged = true;
+      logger.info(
+        { provider: configuredProviderName() },
+        "AI disabled: letters use the template + profile-derived bullets",
+      );
+    }
+    return;
+  }
+
   passRunning = true;
 
   try {
@@ -223,7 +254,15 @@ export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<v
       .orderBy(desc(jobListingsTable.relevanceScore))
       .limit(limit);
 
-    if (jobs.length === 0) {
+    // Jobs this process has already failed MAX_ATTEMPTS_PER_JOB times keep
+    // their template content and are not tried again until a restart.
+    const eligible = jobs.filter((job) => (attemptsByJob.get(job.id) ?? 0) < MAX_ATTEMPTS_PER_JOB);
+    const exhausted = jobs.length - eligible.length;
+    if (exhausted > 0) {
+      logger.debug({ exhausted }, "AI tailoring pass: skipping jobs that hit the per-job retry cap");
+    }
+
+    if (eligible.length === 0) {
       logger.debug("AI tailoring pass: no eligible jobs found");
       return;
     }
@@ -234,19 +273,20 @@ export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<v
       coverLetterTemplate: await getCoverLetterTemplate(),
     };
 
-    logger.info({ count: jobs.length }, "AI tailoring pass starting");
+    logger.info({ count: eligible.length, provider: provider.name }, "AI tailoring pass starting");
 
     let succeeded = 0;
     let failed = 0;
 
-    for (const job of jobs) {
+    for (const job of eligible) {
       const startedAt = Date.now();
       try {
-        const content = await generateTailoredContent(job, context);
+        const content = await generateTailoredContent(job, context, provider);
         const ms = Date.now() - startedAt;
 
         if (!content) {
           failed++;
+          attemptsByJob.set(job.id, (attemptsByJob.get(job.id) ?? 0) + 1);
           logger.warn({ jobId: job.id, ms, ok: false }, "AI tailoring: invalid output, leaving placeholder");
           continue;
         }
@@ -261,15 +301,28 @@ export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<v
           .where(eq(jobListingsTable.id, job.id));
 
         succeeded++;
+        attemptsByJob.delete(job.id);
         logger.info({ jobId: job.id, ms, ok: true }, "AI tailoring: job tailored");
       } catch (err) {
         const ms = Date.now() - startedAt;
         failed++;
+
+        // "This provider can never work here" (CLI not installed, API key
+        // unset, local server down): stop the pass and fall back to template
+        // letters for the rest of this process's life, rather than repeating
+        // the same error for every remaining job every 30 minutes.
+        if (isProviderUnavailable(err)) {
+          disableAi(err.message);
+          logger.error({ jobId: job.id, ms, ok: false, err }, "AI tailoring: provider unavailable, aborting pass");
+          break;
+        }
+
+        attemptsByJob.set(job.id, (attemptsByJob.get(job.id) ?? 0) + 1);
         logger.error({ jobId: job.id, ms, ok: false, err }, "AI tailoring: job failed");
       }
     }
 
-    logger.info({ succeeded, failed, total: jobs.length }, "AI tailoring pass complete");
+    logger.info({ succeeded, failed, total: eligible.length }, "AI tailoring pass complete");
   } finally {
     passRunning = false;
   }

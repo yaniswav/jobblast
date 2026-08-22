@@ -3,7 +3,7 @@
 French version: docs/TUTORIEL.md
 
 Step-by-step guide for someone who has never used Node.js, Docker, or the
-Claude Code CLI before. If you're already comfortable with those tools, the
+an AI CLI before. If you're already comfortable with those tools, the
 `README.md` (Quick start) will be faster.
 
 Everything you need is free: Postgres runs on your own machine (via
@@ -22,7 +22,7 @@ pay-per-use API key.
 7. [Fill in your profile](#7-fill-in-your-profile)
 8. [Get free API keys](#8-get-free-api-keys)
 9. [Adapt `jobblast.config.json` to your profile](#9-adapt-jobblastconfigjson-to-your-profile)
-10. [Install the Claude Code CLI (for AI letters)](#10-install-the-claude-code-cli-for-ai-letters)
+10. [Choose an AI provider (for AI letters)](#10-choose-an-ai-provider-for-ai-letters)
 11. [Deploy in "local production"](#11-deploy-in-local-production)
 12. [Daily usage routine](#12-daily-usage-routine)
 13. [Advanced options](#13-advanced-options)
@@ -291,12 +291,52 @@ file is re-read when the server starts).
 
 ---
 
-## 10. Install the Claude Code CLI (for AI letters)
+## 10. Choose an AI provider (for AI letters)
 
-Optional, but recommended: without the `claude` CLI, JobBlast still works
-fine but generates a cover letter based on a plain template (no AI
-personalization) instead of a letter and resume bullets actually tailored
-to each posting.
+Optional. JobBlast can write a resume-bullets-and-cover-letter pair tailored
+to each posting, and it lets you pick which engine does it. Without an AI
+provider the app still works end to end: you get a clean cover letter built
+from your template plus bullets derived from your profile, marked in the UI
+as a template draft.
+
+Pick one of the six options below and put it in `jobblast.config.json`. The
+whole `ai` section is optional, and leaving it out means option 1.
+
+| Option | Cover letters | AI Scout | Notion Inbox | Cost |
+|---|---|---|---|---|
+| **0.** `none` | template only | no | no | free |
+| **1.** `claude-cli` *(default)* | yes | yes | yes | your Claude subscription |
+| **2.** `codex-cli` | yes | yes | if you added a Notion MCP server | your ChatGPT / Codex plan |
+| **3.** `gemini-cli` | yes | web search only | no | your Gemini plan or an API key |
+| **4.** `anthropic-api` | yes | no | no | metered per token |
+| **5.** `openai-compatible`, incl. **Ollama** | yes | no | no | metered, or **free with Ollama** |
+
+"AI Scout" and "Notion Inbox" are the two optional job sources from step 13 ("Advanced options");
+they need an agent that can call tools, which only options 1 to 3 provide.
+
+Every key of every option is documented in
+[`docs/CONFIG.md`](CONFIG.md#ai).
+
+---
+
+### Option 0: no AI at all
+
+```json
+"ai": { "provider": "none" }
+```
+
+Nothing to install. No CLI is ever launched and no API is ever called. Every
+posting keeps the template cover letter and the bullets derived from your
+profile. Aggregation, scoring, the review queue, PDF export and the
+application tracker all work normally. This is also a good way to get the
+app running first and decide on a provider later.
+
+### Option 1: Claude Code CLI (default, recommended)
+
+This is what JobBlast uses when you write no `ai` section at all. It is the
+only option where the two optional sources work fully, because your claude.ai
+connectors (Notion, Indeed, Snagajob, ...) are reachable from a headless
+session.
 
 1. Install the CLI with the native installer (recommended):
 
@@ -334,12 +374,115 @@ to each posting.
    You should get JSON back with `"is_error": false` and a non-empty
    `"result"`.
 
-That's it: JobBlast then calls `claude -p` on its own (every 30 minutes,
-on new postings) - there's nothing else to configure. The AI runs under
-whichever Windows/Linux/macOS user account runs the server process, so if
-you deploy it as a scheduled task / service (step 11), it's **that
-account** that needs to be logged in (`claude` must have been run and
-authenticated at least once under that user).
+4. Nothing to configure. If you want to be explicit, or to change the model:
+
+   ```json
+   "ai": { "provider": "claude-cli", "model": "sonnet" }
+   ```
+
+### Option 2: OpenAI Codex CLI
+
+```json
+"ai": { "provider": "codex-cli", "codexCli": { "model": "" } }
+```
+
+Install it (`npm install -g @openai/codex`, or Homebrew), then `codex login`
+once. Leave `model` empty to use whatever Codex is already configured with.
+
+JobBlast calls `codex exec` non-interactively with a read-only sandbox and
+reads back the final message. AI Scout works (web search is enabled per run);
+the Notion Inbox works too, but only if you added a Notion MCP server to your
+own `~/.codex/config.toml` - Codex has no per-run connector list.
+
+### Option 3: Google Gemini CLI
+
+```json
+"ai": { "provider": "gemini-cli", "geminiCli": { "model": "" } }
+```
+
+Install it (`npm install -g @google/gemini-cli`), then run `gemini` once to
+authenticate, or set `GEMINI_API_KEY` in `.env`.
+
+Cover letters work. AI Scout works for the web-search half only, and the
+Notion Inbox does not work: Gemini's MCP servers are named in your own
+`~/.gemini/settings.json`, which JobBlast cannot read. Note that agent runs
+have to pass `--approval-mode yolo`, which auto-approves every tool the agent
+decides to call - prefer option 1 or 2 if you plan to enable AI Scout.
+
+### Option 4: Anthropic API (metered)
+
+```json
+"ai": { "provider": "anthropic-api", "anthropicApi": { "model": "claude-opus-5", "maxTokens": 4096 } }
+```
+
+Create a key at [console.anthropic.com](https://console.anthropic.com/) and
+put it in `.env` as `ANTHROPIC_API_KEY` - never in `jobblast.config.json`,
+which you might want to share. Cover letters only, billed per token.
+
+### Option 5: any OpenAI-compatible endpoint, including free local models
+
+One HTTP call in the OpenAI Chat Completions shape, which covers OpenAI,
+OpenRouter, Mistral, Groq, vLLM, LM Studio and Ollama.
+
+**Free and 100 % local, with Ollama.** Nothing leaves your machine, and
+there is no bill:
+
+```bash
+# 1. Install Ollama
+winget install Ollama.Ollama              # Windows
+brew install ollama                        # macOS
+curl -fsSL https://ollama.com/install.sh | sh   # Linux
+
+# 2. Pull a model (about 4.7 GB; llama3.2:3b or qwen2.5:3b are smaller)
+ollama pull llama3.1
+```
+
+```json
+"ai": { "provider": "ollama" }
+```
+
+That is the entire configuration: the endpoint
+(`http://localhost:11434/v1`), the model (`llama3.1`) and "no API key" are
+all preset for you. `"provider": "lmstudio"` does the same for LM Studio on
+`http://localhost:1234/v1`.
+
+Two things to expect from a small local model: the letters are rougher and
+follow the structure and language rules less reliably, and when a response
+comes back malformed JobBlast rejects it rather than showing it to you, so
+that posting simply keeps its template letter. It is retried on the next
+pass, up to 3 times per server run.
+
+For a hosted endpoint instead:
+
+```json
+"ai": {
+  "provider": "openai-compatible",
+  "openaiCompatible": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "model": "gpt-4o-mini"
+  }
+}
+```
+
+and put `OPENAI_API_KEY` in `.env`.
+
+---
+
+Whichever you pick, restart the API after editing `jobblast.config.json` -
+the file is read at startup. The first log line after "Server listening"
+tells you which provider is active and whether it can run agents.
+
+One deployment note for options 1 to 3: the CLI runs under the operating
+system account that runs the server process, so if you deploy it as a
+scheduled task or service (step 11), it is **that account** that must be
+logged in (the CLI must have been authenticated at least once under that
+user).
+
+If the provider you chose turns out to be unusable - CLI not installed, key
+not set, local server not running - JobBlast logs one warning, falls back to
+template letters for the rest of that run, and does not keep retrying. Fix
+the cause and restart.
 
 ---
 
@@ -605,9 +748,12 @@ explicit and all things you configured:
   (France Travail, Adzuna, Greenhouse, Lever, RemoteOK, Remotive,
   Himalayas, Arbeitnow, Yourator, TokyoDev, japan-dev) - read-only search
   requests, with your own API credentials where a key is required.
-- Calls to Anthropic through the `claude` CLI for AI tailoring (resume
-  bullets, cover letters) and, if enabled, AI Scout - billed against your
-  existing Claude subscription, not a separate metered API key.
+- Calls to whichever AI provider you chose in step 10, for AI tailoring
+  (resume bullets, cover letters) and, if enabled, AI Scout. With the
+  default `claude-cli` that is Anthropic, billed against your existing
+  Claude subscription rather than a separate metered API key. With
+  `ollama` or `lmstudio` nothing leaves the machine at all, and with
+  `none` there is no such traffic in the first place.
 - If you set up the optional cloud routines (AI Scout's connectors,
   Notion Inbox, Gmail digest, or any claude.ai Routine) - those run on
   Anthropic's infrastructure under your claude.ai account, independently

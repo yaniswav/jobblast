@@ -7,7 +7,7 @@ three places your own data can live, and only these three:
 |---|---|---|
 | **Postgres `profiles` row** | Your name, e-mail, headline, target roles, target locations, salary floor, master resume | no (database) |
 | **`.env`** | Secrets and ports: `DATABASE_URL`, API credentials, `PORT`… | no - see `.env.example` |
-| **`jobblast.config.json`** | Everything else: letterhead details, language rules, scoring rules, which job sources to poll and with what parameters | no - see `jobblast.config.example.json` |
+| **`jobblast.config.json`** | Everything else: letterhead details, language rules, scoring rules, which AI provider writes your letters, which job sources to poll and with what parameters | no - see `jobblast.config.example.json` |
 
 Plus one optional text file, `config/cover-letter-template.txt`, holding the
 cover letter the AI tailoring pass imitates.
@@ -97,6 +97,192 @@ Resolution order, first hit wins:
 
 So you can skip the file entirely and just upload your letter as a PDF.
 
+## `ai`
+
+Which engine writes your cover letters, and whether the two agent-backed
+sources (AI Scout, Notion Inbox) can run at all. **The whole section is
+optional**: a config file with no `ai` key behaves exactly as JobBlast did
+before providers existed, i.e. the local `claude` CLI.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `provider` | `"claude-cli"` | One of `none`, `claude-cli`, `codex-cli`, `gemini-cli`, `anthropic-api`, `openai-compatible`, `ollama`, `lmstudio`. Anything else aborts startup |
+| `model` | `"sonnet"` | Model for `claude-cli` (passed as `claude --model`). The other providers have their own model key |
+| `timeoutMs` | `180000` | Default per-call timeout. AI Scout (10 min) and Notion Inbox (4 min) use their own |
+| `openaiCompatible` | see below | Only for `openai-compatible` / `ollama` / `lmstudio` |
+| `anthropicApi.model` | `"claude-opus-5"` | Only for `anthropic-api` |
+| `anthropicApi.maxTokens` | `4096` | Only for `anthropic-api` |
+| `codexCli.model` | `""` | Only for `codex-cli`. Empty means "let Codex use its own default" |
+| `codexCli.extraArgs` | `[]` | Extra `codex exec` arguments, appended verbatim |
+| `geminiCli.model` | `""` | Only for `gemini-cli`. Empty means "let Gemini use its own default" |
+| `geminiCli.extraArgs` | `[]` | Extra `gemini` arguments, appended verbatim |
+
+### What each provider can do
+
+| `provider` | Cover letters | AI Scout | Notion Inbox | Cost | Needs |
+|---|---|---|---|---|---|
+| `none` | template only | no | no | free | nothing |
+| `claude-cli` *(default)* | yes | yes | yes | your Claude subscription, $0 per letter | `claude` CLI, logged in |
+| `codex-cli` | yes | yes | yes, if you configured a Notion MCP server | your ChatGPT / Codex plan | `codex` CLI, logged in |
+| `gemini-cli` | yes | web search only, no job connectors | no | your Gemini plan or `GEMINI_API_KEY` | `gemini` CLI, authenticated |
+| `anthropic-api` | yes | no | no | metered per token | `ANTHROPIC_API_KEY` in `.env` |
+| `openai-compatible` | yes | no | no | metered per token | an API key, usually `OPENAI_API_KEY` |
+| `ollama` / `lmstudio` | yes | no | no | **free, fully local** | Ollama or LM Studio running, one model pulled |
+
+AI Scout and Notion Inbox need an agent that can call tools (web search, MCP
+connectors). On a provider that cannot, the source logs one line and
+contributes nothing - it does not error every cycle.
+
+### `provider: "none"` - the zero-dependency option
+
+No CLI is spawned and no API is called, ever. Each posting keeps the template
+cover letter and the profile-derived bullets that the pipeline already wrote,
+which the UI marks as a template draft. Everything else - aggregation,
+scoring, the review queue, PDF export, the application tracker - works
+normally. Pick this if you do not want any AI in the loop, or to get the app
+running before you decide on a provider.
+
+The same fallback happens automatically if the provider you chose turns out
+to be unusable on this machine: a missing CLI binary, an unset API key, or a
+local server that is not listening. JobBlast logs one warning, switches to
+template letters for the rest of that process, and does not retry every 30
+minutes. Fix the cause and restart the server to re-enable AI.
+
+### `provider: "claude-cli"` (default)
+
+The local Claude Code CLI run headless (`claude -p`). The only provider where
+all three agent capabilities work out of the box, because the claude.ai
+account-level MCP connectors (Notion, Indeed, Snagajob, Aquent, ...) are
+reachable from a headless session and can be restricted per run with
+`--allowedTools`. `ai.model` is passed as `claude --model` (`sonnet`, `opus`,
+`haiku`, or a full model id).
+
+### `provider: "codex-cli"`
+
+The OpenAI Codex CLI in non-interactive mode. JobBlast runs:
+
+```
+codex exec - --sandbox read-only --skip-git-repo-check --color never -o <tmpfile> [-m <model>]
+```
+
+with the prompt on stdin (`-` reads stdin, which avoids Windows argv length
+and quoting limits) and the final answer read back from the `-o` file. For an
+agent run it adds `-c tools.web_search=true` for live web search and
+`-c model_reasoning_effort="<level>"` for `sources.aiScout.effortLevel`.
+
+MCP connectors are per-user, in `~/.codex/config.toml` under
+`[mcp_servers.<name>]`. Codex has no per-run tool allowlist flag, so whatever
+you configured there is what the agent can reach - which is why Notion Inbox
+is listed as "if you configured a Notion MCP server" above.
+
+Flags verified against a local `codex --help` / `codex exec --help` on
+**codex-cli 0.145.0 (2026-08-22)**. Note that `--search` and `--effort` exist
+on the top-level `codex` command but **not** on `codex exec` in that version,
+which is why the `-c` overrides are used instead.
+
+### `provider: "gemini-cli"`
+
+The Google Gemini CLI headless:
+
+```
+gemini --output-format json --approval-mode <default|yolo> [-m <model>] -p "<prompt>"
+```
+
+The response is read from the `response` field of the JSON object it prints.
+Prompts longer than 20 000 characters go on stdin instead of `-p` (Windows
+caps a command line at about 32 767 characters); `-p` then carries a short
+"follow the instructions above" line, because `-p` is what puts the CLI in
+headless mode.
+
+Agent support is **web search only**. Gemini's `google_web_search` is built
+in, but its MCP servers live in your own `~/.gemini/settings.json` under
+names JobBlast cannot guess, so Notion Inbox stays off. Note also that in
+headless mode Gemini treats a tool call that would normally prompt as
+*denied*, so agent runs pass `--approval-mode yolo`, which auto-approves
+every tool the agent calls - and the prompt contains job descriptions fetched
+from the open web. If you want AI Scout with a real per-run tool allowlist,
+use `claude-cli`. Gemini's own `--allowed-tools` flag is marked deprecated in
+0.56.0 and is therefore not used automatically; add it through
+`ai.geminiCli.extraArgs` if you want it.
+
+Flags verified against a local `gemini --help` on **gemini-cli 0.56.0
+(2026-08-22)** and the repo's `docs/cli/headless.md`.
+
+### `provider: "anthropic-api"`
+
+The official Anthropic Messages API via `@anthropic-ai/sdk`. Text only: no
+web search, no connectors, so AI Scout and Notion Inbox stay off.
+
+The key is **not** a config key - put `ANTHROPIC_API_KEY` in `.env`, so your
+config file stays safe to share. Configure `ai.anthropicApi.model` (default
+`claude-opus-5`) and `ai.anthropicApi.maxTokens` (default `4096`; a cover
+letter plus four bullets fits comfortably, raise it if you enlarge the
+prompt).
+
+### `provider: "openai-compatible"`, `"ollama"`, `"lmstudio"`
+
+One `POST {baseUrl}/chat/completions` in the OpenAI Chat Completions shape.
+That covers OpenAI, Ollama, LM Studio, OpenRouter, Mistral, Groq, vLLM and
+anything else speaking the same protocol. Text only.
+
+| Key | Meaning |
+|---|---|
+| `openaiCompatible.baseUrl` | Endpoint root, **without** a trailing `/chat/completions` |
+| `openaiCompatible.apiKeyEnv` | Name of the `.env` variable holding the bearer token. Set it to `""` for a local server that needs no key |
+| `openaiCompatible.model` | Model id to request |
+| `openaiCompatible.temperature` | Optional. Omitted from the request when `null` |
+
+Every key is optional. What you leave out comes from the preset for the
+provider you named, so `"provider": "ollama"` on its own is already a
+complete configuration:
+
+| `provider` | `baseUrl` | `apiKeyEnv` | `model` |
+|---|---|---|---|
+| `openai-compatible` | `https://api.openai.com/v1` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+| `ollama` | `http://localhost:11434/v1` | `""` (none) | `llama3.1` |
+| `lmstudio` | `http://localhost:1234/v1` | `""` (none) | `local-model` |
+
+Anything you *do* set wins over the preset, key by key.
+
+**Free, 100 % local AI with Ollama.** Install Ollama
+(`winget install Ollama.Ollama` on Windows, `brew install ollama` on macOS,
+`curl -fsSL https://ollama.com/install.sh | sh` on Linux), pull a model, and
+point JobBlast at it:
+
+```bash
+ollama pull llama3.1        # about 4.7 GB; llama3.2:3b or qwen2.5:3b are smaller
+```
+
+```json
+"ai": { "provider": "ollama" }
+```
+
+Nothing leaves your machine and there is no bill. Two caveats worth knowing
+before you rely on it:
+
+- **Small models write rougher letters.** They follow the structure and the
+  language rules less reliably than a frontier model. The sanitizer and the
+  strict-JSON validation still apply, so a bad response is rejected rather
+  than shown to you - the posting simply keeps its template letter.
+- **A rejected response is retried, but not forever.** A posting whose
+  generation fails or returns invalid JSON is retried on the next pass, at
+  most **3 times per server process**. After that it keeps the template
+  letter until you restart. This stops one awkward posting from consuming
+  every pass.
+
+Other endpoints follow the same shape, for example OpenRouter:
+
+```json
+"ai": {
+  "provider": "openai-compatible",
+  "openaiCompatible": {
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "apiKeyEnv": "OPENROUTER_API_KEY",
+    "model": "meta-llama/llama-3.1-70b-instruct"
+  }
+}
+```
+
 ## `scoring`
 
 A weighted-keyword relevance scorer - not ML. Each rule looks for a pattern
@@ -179,11 +365,14 @@ rather than failing the refresh.
 
 ### `sources.aiScout`
 
-A headless `claude` CLI agent that queries your claude.ai job connectors and
-the live web, then hands verified postings to the same pipeline. Requires the
-`claude` CLI installed and logged in. Throttled to one run per 24 h via a
-timestamp file under `data/`; every URL it returns is checked for liveness
-before being accepted.
+A headless agent that queries your job connectors and the live web, then
+hands verified postings to the same pipeline. Requires an agent-capable
+provider: `claude-cli` (the default, and the only one that reaches the
+claude.ai job connectors) or `codex-cli`. On `gemini-cli` only the web half
+runs; on every other provider the source logs one line and contributes
+nothing - see [`ai`](#ai). Throttled to one run per 24 h via a timestamp file
+under `data/`; every URL it returns is checked for liveness before being
+accepted.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -192,7 +381,7 @@ before being accepted.
 | `targetCompanies[]` | `[]` | Optional shortlist of companies whose career pages the agent should also check |
 | `targetSites[]` | `[]` | Optional shortlist of job boards / sites to prioritize |
 | `maxPostings` | `15` | Cap on returned postings |
-| `effortLevel` | `"high"` | `low` \| `medium` \| `high` - passed to `claude --effort` |
+| `effortLevel` | `"high"` | `low` \| `medium` \| `high` - passed to `claude --effort`, or to `codex -c model_reasoning_effort`. Ignored by providers with no effort knob |
 
 The candidate description in the prompt comes entirely from your DB profile
 (headline, target roles, target locations, master resume). Nothing about the
@@ -202,7 +391,10 @@ applicant is hardcoded.
 
 Bridges a Notion database of job postings - typically fed by a scheduled
 claude.ai routine that runs while your machine is off - into the pipeline.
-Requires the claude.ai Notion connector. Throttled to one run per 3 h.
+Requires a provider whose agent can reach Notion over MCP: `claude-cli` with
+the claude.ai Notion connector authorized, or `codex-cli` with a Notion MCP
+server in `~/.codex/config.toml`. On any other provider the source logs one
+line and contributes nothing - see [`ai`](#ai). Throttled to one run per 3 h.
 
 | Key | Default | Meaning |
 |---|---|---|

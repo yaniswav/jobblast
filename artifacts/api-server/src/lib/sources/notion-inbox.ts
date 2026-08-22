@@ -1,9 +1,9 @@
 // "Notion Inbox" job source: a cloud-scheduled Claude routine (running on
 // the user's claude.ai, independent of this app) drops job postings it finds
 // into a Notion database throughout the day. This fetcher bridges that inbox
-// into the local aggregation pipeline by running the headless `claude` CLI
-// (which has the user's claude.ai Notion connector authorized) twice per
-// cycle:
+// into the local aggregation pipeline by running a tool-using agent (the
+// configured AI provider, which must have the Notion MCP connector
+// authorized) twice per cycle:
 //
 //   1. READ PASS - ask the CLI agent to query the inbox database for rows
 //      where the "imported" checkbox is unchecked, and return them as strict
@@ -39,7 +39,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { runClaudePrompt } from "../ai/claude-cli";
+import { configuredProviderName, getAgentProvider, type AgentProvider } from "../ai/provider";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { REPO_ROOT } from "../storage";
@@ -52,14 +52,34 @@ const MIN_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3h - refresh cycle is every 6h, s
 const CLI_TIMEOUT_MS = 4 * 60 * 1000; // 4 minutes - a Notion query/update, not a web-search-backed scout run
 const URL_CHECK_TIMEOUT_MS = 10_000;
 
-// The claude.ai "Notion" MCP connector (account-level, authorized via
-// claude.ai connector settings - not project config; check yours with
-// `claude mcp list`). Server names are normalized by replacing spaces/dots
-// with underscores and prefixing "mcp__"; we allow the whole server (no
-// third `__tool` segment, same pattern as aiscout.ts) so notion-search,
-// notion-query-data-sources, notion-fetch, notion-update-page etc. are all
-// usable without hardcoding each tool name.
-const ALLOWED_TOOLS = "mcp__claude_ai_Notion";
+// The Notion MCP connector, requested from the provider as the abstract
+// "notion" tool; the adapter maps it onto its own CLI (for claude-cli, the
+// account-level `mcp__claude_ai_Notion` server, authorized via claude.ai
+// connector settings - check yours with `claude mcp list`). The whole server
+// is allowed rather than individual tools, so notion-search,
+// notion-query-data-sources, notion-fetch, notion-update-page etc. all work
+// without hardcoding names that can change server-side.
+//
+// Providers with no Notion connector (gemini-cli, the API-based ones,
+// `ai.provider: "none"`) report the tool unsupported and this source logs
+// once, then contributes nothing.
+
+/** So an unsupported provider doesn't print the same line on every refresh cycle. */
+let disabledNoticeLogged = false;
+
+/** The agent provider if it can reach Notion, else null (logged once). */
+function notionAgent(): AgentProvider | null {
+  const provider = getAgentProvider();
+  if (provider?.supportsTool("notion")) return provider;
+
+  if (!disabledNoticeLogged) {
+    disabledNoticeLogged = true;
+    logger.info(
+      `Notion Inbox disabled: provider "${configuredProviderName()}" cannot run tool-using agents with a Notion connector (use claude-cli or codex-cli)`,
+    );
+  }
+  return null;
+}
 
 /** The strict JSON shape we ask the agent to return per inbox row. */
 export type InboxRow = {
@@ -170,13 +190,13 @@ When done, reply with exactly one line: "Marked N of ${pageUrls.length} pages." 
  * `pageUrls`. Never throws: a failure here just means those rows get
  * re-read next cycle (see the module-level comment for why that's safe).
  */
-async function markRowsImported(pageUrls: string[]): Promise<void> {
+async function markRowsImported(provider: AgentProvider, pageUrls: string[]): Promise<void> {
   if (pageUrls.length === 0) return;
 
   try {
-    const result = await runClaudePrompt(buildMarkPrompt(pageUrls), {
+    const result = await provider.runAgent(buildMarkPrompt(pageUrls), {
       timeoutMs: CLI_TIMEOUT_MS,
-      extraArgs: ["--allowedTools", ALLOWED_TOOLS],
+      tools: ["notion"],
     });
     logger.info(
       { pageCount: pageUrls.length, result: result.slice(0, 300) },
@@ -210,23 +230,26 @@ export function toRawJob(row: InboxRow): RawJob {
 
 /**
  * Reads unimported rows from the "JobBlast Inbox" Notion database via the
- * headless CLI. Exported separately from fetchNotionInboxJobs so it can be
+ * agent provider. Exported separately from fetchNotionInboxJobs so it can be
  * exercised on its own (read-only, no mark pass) for live verification.
  * Never throws - returns [] on any failure, logging why.
  */
 export async function readInboxRows(): Promise<InboxRow[]> {
+  const provider = notionAgent();
+  if (!provider) return [];
+
   let rawResult: string;
   const startedAt = Date.now();
   try {
-    rawResult = await runClaudePrompt(buildReadPrompt(), {
+    rawResult = await provider.runAgent(buildReadPrompt(), {
       timeoutMs: CLI_TIMEOUT_MS,
-      extraArgs: ["--allowedTools", ALLOWED_TOOLS],
+      tools: ["notion"],
     });
   } catch (err) {
-    logger.error({ err, ms: Date.now() - startedAt }, "Notion Inbox: read-pass Claude CLI call failed");
+    logger.error({ err, provider: provider.name, ms: Date.now() - startedAt }, "Notion Inbox: read-pass agent call failed");
     return [];
   }
-  logger.info({ ms: Date.now() - startedAt }, "Notion Inbox: read-pass Claude CLI call completed");
+  logger.info({ provider: provider.name, ms: Date.now() - startedAt }, "Notion Inbox: read-pass agent call completed");
 
   const parsed = parseJsonArrayResponse(rawResult);
   if (!parsed) {
@@ -256,6 +279,11 @@ export async function readInboxRows(): Promise<InboxRow[]> {
  * pipeline in refresh.ts.
  */
 export async function fetchNotionInboxJobs(): Promise<RawJob[]> {
+  // Checked before the throttle so an unsupported provider never burns the
+  // once-per-3h slot on a run that cannot happen.
+  const provider = notionAgent();
+  if (!provider) return [];
+
   const { pageUrl, dataSourceUrl } = loadConfig().sources.notionInbox;
   if (!pageUrl.trim() || !dataSourceUrl.trim()) {
     logger.warn(
@@ -309,7 +337,7 @@ export async function fetchNotionInboxJobs(): Promise<RawJob[]> {
     logger.info({ droppedCount, checked: rows.length }, "Notion Inbox: dropped dead URLs");
   }
 
-  await markRowsImported(rows.map((row) => row.pageUrl));
+  await markRowsImported(provider, rows.map((row) => row.pageUrl));
 
   return verified.map(toRawJob);
 }

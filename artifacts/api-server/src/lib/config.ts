@@ -376,6 +376,73 @@ const SourcesSchema = z
   })
   .default({});
 
+/**
+ * Which engine writes the cover letters (and, for the two agent-capable
+ * options, drives AI Scout / Notion Inbox).
+ *
+ * `claude-cli` is the default so an existing install keeps behaving exactly
+ * as before when its config file has no `ai` section at all. `none` disables
+ * AI entirely: letters fall back to the template, no process is ever spawned
+ * and no API is ever called. `ollama` / `lmstudio` are `openai-compatible`
+ * with local-server presets applied (see docs/CONFIG.md).
+ */
+export const AI_PROVIDERS = [
+  "none",
+  "claude-cli",
+  "codex-cli",
+  "gemini-cli",
+  "anthropic-api",
+  "openai-compatible",
+  "ollama",
+  "lmstudio",
+] as const;
+export type AiProviderName = (typeof AI_PROVIDERS)[number];
+
+const AiSchema = z
+  .object({
+    provider: z.enum(AI_PROVIDERS).default("claude-cli"),
+    /** Model for the CLI providers that take one directly (`claude --model`). */
+    model: z.string().default("sonnet"),
+    /** Default per-call timeout. AI Scout and Notion Inbox override it. */
+    timeoutMs: z.number().int().positive().default(180_000),
+    /**
+     * OpenAI Chat Completions-shaped endpoints. Every key is optional: what
+     * you leave out comes from the preset for the selected provider
+     * (openai-compatible / ollama / lmstudio), so `"provider": "ollama"` on
+     * its own is a complete configuration.
+     */
+    openaiCompatible: z
+      .object({
+        baseUrl: z.string().optional(),
+        /** Env var holding the bearer token. Empty string => send no key. */
+        apiKeyEnv: z.string().optional(),
+        model: z.string().optional(),
+        temperature: z.number().nullable().optional(),
+      })
+      .default({}),
+    anthropicApi: z
+      .object({
+        model: z.string().default("claude-opus-5"),
+        maxTokens: z.number().int().positive().default(4096),
+      })
+      .default({}),
+    codexCli: z
+      .object({
+        /** Empty => let Codex use its own configured default model. */
+        model: z.string().default(""),
+        extraArgs: z.array(z.string()).default([]),
+      })
+      .default({}),
+    geminiCli: z
+      .object({
+        /** Empty => let Gemini use its own configured default model. */
+        model: z.string().default(""),
+        extraArgs: z.array(z.string()).default([]),
+      })
+      .default({}),
+  })
+  .default({});
+
 export const JobBlastConfigSchema = z
   .object({
     // Allows a leading "_comment" key (and any other underscore-prefixed
@@ -384,6 +451,7 @@ export const JobBlastConfigSchema = z
     candidate: CandidateSchema,
     scoring: ScoringSchema,
     sources: SourcesSchema,
+    ai: AiSchema,
     /**
      * Path (absolute, or relative to the repo root) to a plain-text cover
      * letter used as the structural/tonal reference for AI tailoring. When
