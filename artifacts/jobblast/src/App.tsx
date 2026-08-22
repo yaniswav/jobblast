@@ -11,6 +11,7 @@ import Applications from '@/pages/applications';
 import Profile from '@/pages/profile';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { AppShell } from '@/components/app-shell';
+import { I18nProvider } from '@/i18n';
 
 const queryClient = new QueryClient();
 
@@ -24,7 +25,7 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
 }
 
 function App() {
-  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /><SonnerToaster /></TooltipProvider></QueryClientProvider>;
+  return <I18nProvider><QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /><SonnerToaster /></TooltipProvider></QueryClientProvider></I18nProvider>;
 }
 
 export default App;
