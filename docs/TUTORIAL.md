@@ -688,3 +688,11 @@ sources"` then `"Job refresh complete"`). If the number of inserted
 postings stays at 0, check that your scoring rules
 (`jobblast.config.json` -> `scoring.rules` / `scoring.minRelevanceScore`)
 aren't too strict for the postings your enabled sources actually return.
+
+### I already run Postgres (or another JobBlast) in Docker. `docker compose up -d` fails or reuses the wrong container
+
+`docker-compose.yml` names the container `jobblast-pg` and publishes port 5432. For a second instance, edit the compose file (for example `container_name: jobblast-pg-2`, `"5433:5432"`), then in `.env` set `DATABASE_URL` to port 5433, `PG_CONTAINER_NAME=jobblast-pg-2`, and pick free ports with `PORT=5010`, `FRONTEND_PORT=5174`, `API_PROXY_TARGET=http://localhost:5010`. Both the API and the Vite dev server read the root `.env`.
+
+### Windows: `deploy\*.ps1` fails with a syntax error
+
+The deploy scripts need PowerShell 7 (`pwsh`), not the Windows PowerShell 5.1 that ships with Windows. Install it with `winget install Microsoft.PowerShell`, then run the scripts from a `pwsh` terminal.

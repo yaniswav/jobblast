@@ -18,15 +18,19 @@ $apiDir = Join-Path $repoRoot "artifacts\api-server"
 $distEntry = Join-Path $apiDir "dist\index.mjs"
 $logDir = Join-Path $repoRoot "deploy\logs"
 $logFile = Join-Path $logDir "jobblast.log"
-$containerName = "jobblast-pg"
 
-# Read PORT from the root .env (fallback 5000) so this stays in sync even if
-# it's changed later.
+# Read PORT and PG_CONTAINER_NAME from the root .env (fallback 5000 /
+# jobblast-pg) so this stays in sync even if they're changed later - e.g. a
+# second local checkout using a differently-named container/port to avoid
+# colliding with another JobBlast instance's docker-compose.yml.
 $envFile = Join-Path $repoRoot ".env"
 $port = 5000
+$containerName = "jobblast-pg"
 if (Test-Path $envFile) {
     $match = Select-String -Path $envFile -Pattern '^PORT=(\d+)' | Select-Object -First 1
     if ($match) { $port = [int]$match.Matches[0].Groups[1].Value }
+    $containerMatch = Select-String -Path $envFile -Pattern '^PG_CONTAINER_NAME=(.+)$' | Select-Object -First 1
+    if ($containerMatch) { $containerName = $containerMatch.Matches[0].Groups[1].Value.Trim() }
 }
 
 if (-not (Test-Path $distEntry)) {

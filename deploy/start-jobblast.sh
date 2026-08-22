@@ -18,15 +18,20 @@ DIST_ENTRY="$API_DIR/dist/index.mjs"
 LOG_DIR="$REPO_ROOT/deploy/logs"
 LOG_FILE="$LOG_DIR/jobblast.log"
 PID_FILE="$REPO_ROOT/deploy/jobblast.pid"
-CONTAINER_NAME="jobblast-pg"
 
-# --- Read PORT from the root .env (fallback 5000) ---------------------------
+# --- Read PORT and PG_CONTAINER_NAME from the root .env (fallback 5000 /
+# jobblast-pg) - e.g. a second local checkout using a differently-named
+# container/port to avoid colliding with another JobBlast instance's
+# docker-compose.yml. ------------------------------------------------------
 
 PORT=5000
+CONTAINER_NAME="jobblast-pg"
 ENV_FILE="$REPO_ROOT/.env"
 if [ -f "$ENV_FILE" ]; then
   file_port=$(grep -E '^PORT=' "$ENV_FILE" | tail -n1 | cut -d '=' -f2 | tr -d '[:space:]')
   [ -n "$file_port" ] && PORT="$file_port"
+  file_container=$(grep -E '^PG_CONTAINER_NAME=' "$ENV_FILE" | tail -n1 | cut -d '=' -f2- | tr -d '[:space:]')
+  [ -n "$file_container" ] && CONTAINER_NAME="$file_container"
 fi
 
 # Portable "is something listening on this TCP port" check using bash's

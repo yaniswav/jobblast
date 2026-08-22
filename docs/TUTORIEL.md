@@ -641,3 +641,11 @@ pour voir la progression (`"Job refresh: fetching enabled sources"` puis
 vérifiez que vos règles de scoring (`jobblast.config.json` →
 `scoring.rules` / `scoring.minRelevanceScore`) ne sont pas trop strictes
 pour les offres réellement remontées par vos sources activées.
+
+### J'ai déjà un Postgres (ou un autre JobBlast) dans Docker : `docker compose up -d` échoue ou réutilise le mauvais conteneur
+
+`docker-compose.yml` nomme le conteneur `jobblast-pg` et publie le port 5432. Pour une seconde instance, modifiez le fichier compose (par exemple `container_name: jobblast-pg-2`, `"5433:5432"`), puis dans `.env` : `DATABASE_URL` sur le port 5433, `PG_CONTAINER_NAME=jobblast-pg-2`, et des ports libres avec `PORT=5010`, `FRONTEND_PORT=5174`, `API_PROXY_TARGET=http://localhost:5010`. L'API et le serveur Vite lisent tous deux le `.env` racine.
+
+### Windows : `deploy\*.ps1` échoue avec une erreur de syntaxe
+
+Les scripts de déploiement nécessitent PowerShell 7 (`pwsh`), pas le Windows PowerShell 5.1 livré avec Windows. Installez-le avec `winget install Microsoft.PowerShell`, puis lancez les scripts depuis un terminal `pwsh`.
