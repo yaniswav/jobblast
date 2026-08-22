@@ -65,7 +65,7 @@ function main(): void {
 
   console.log(
     createdCount > 0
-      ? "\nDone. Next: start Postgres (docker compose up -d), then `pnpm install` && `pnpm --filter @workspace/db run push`."
+      ? "\nDone. Next: start Postgres (docker compose up -d), then `pnpm --filter @workspace/db run push`."
       : "\nNothing to do - all local config files already exist.",
   );
 }
