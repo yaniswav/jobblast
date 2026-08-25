@@ -29,6 +29,7 @@ import type {
   DocumentUploadResult,
   Error,
   HealthStatus,
+  InterviewBrief,
   JobListing,
   JobRefreshStatus,
   ListApplicationsParams,
@@ -825,6 +826,231 @@ export const useUpdateApplication = <TError = ErrorType<Error>,
       > => {
       return useMutation(getUpdateApplicationMutationOptions(options));
     }
+
+export const getGetInterviewBriefUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/interview-brief`
+}
+
+/**
+ * @summary Get the interview preparation brief for an application
+ */
+export const getInterviewBrief = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InterviewBrief> => {
+
+  return customFetch<InterviewBrief>(getGetInterviewBriefUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetInterviewBriefQueryKey = (id: number,) => {
+    return [
+    `/api/applications/${id}/interview-brief`
+    ] as const;
+    }
+
+
+export const getGetInterviewBriefQueryOptions = <TData = Awaited<ReturnType<typeof getInterviewBrief>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInterviewBrief>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInterviewBriefQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInterviewBrief>>> = ({ signal }) => getInterviewBrief(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInterviewBrief>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetInterviewBriefQueryResult = NonNullable<Awaited<ReturnType<typeof getInterviewBrief>>>
+export type GetInterviewBriefQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Get the interview preparation brief for an application
+ */
+
+export function useGetInterviewBrief<TData = Awaited<ReturnType<typeof getInterviewBrief>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInterviewBrief>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetInterviewBriefQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRegenerateInterviewBriefUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/interview-brief/regenerate`
+}
+
+/**
+ * @summary Queue a fresh interview brief, discarding the current one
+ */
+export const regenerateInterviewBrief = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InterviewBrief> => {
+
+  return customFetch<InterviewBrief>(getRegenerateInterviewBriefUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRegenerateInterviewBriefMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateInterviewBrief>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof regenerateInterviewBrief>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['regenerateInterviewBrief'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof regenerateInterviewBrief>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  regenerateInterviewBrief(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegenerateInterviewBriefMutationResult = NonNullable<Awaited<ReturnType<typeof regenerateInterviewBrief>>>
+
+    export type RegenerateInterviewBriefMutationError = ErrorType<Error>
+
+    /**
+ * @summary Queue a fresh interview brief, discarding the current one
+ */
+export const useRegenerateInterviewBrief = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateInterviewBrief>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof regenerateInterviewBrief>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRegenerateInterviewBriefMutationOptions(options));
+    }
+
+export const getGetInterviewBriefPdfUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/interview-brief.pdf`
+}
+
+/**
+ * @summary Generate a PDF of the interview preparation brief
+ */
+export const getInterviewBriefPdf = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetInterviewBriefPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetInterviewBriefPdfQueryKey = (id: number,) => {
+    return [
+    `/api/applications/${id}/interview-brief.pdf`
+    ] as const;
+    }
+
+
+export const getGetInterviewBriefPdfQueryOptions = <TData = Awaited<ReturnType<typeof getInterviewBriefPdf>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInterviewBriefPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInterviewBriefPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInterviewBriefPdf>>> = ({ signal }) => getInterviewBriefPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInterviewBriefPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetInterviewBriefPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getInterviewBriefPdf>>>
+export type GetInterviewBriefPdfQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Generate a PDF of the interview preparation brief
+ */
+
+export function useGetInterviewBriefPdf<TData = Awaited<ReturnType<typeof getInterviewBriefPdf>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInterviewBriefPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetInterviewBriefPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetProfileUrl = () => {
 

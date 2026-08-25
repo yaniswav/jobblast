@@ -405,6 +405,12 @@ const AiSchema = z
     model: z.string().default("sonnet"),
     /** Default per-call timeout. AI Scout and Notion Inbox override it. */
     timeoutMs: z.number().int().positive().default(180_000),
+    fitAnalysis: z
+      .object({
+        /** Whether the fit-analysis pass (lib/ai/fit-analysis.ts) runs at all. */
+        enabled: z.boolean().default(true),
+      })
+      .default({}),
     /**
      * OpenAI Chat Completions-shaped endpoints. Every key is optional: what
      * you leave out comes from the preset for the selected provider
@@ -443,6 +449,24 @@ const AiSchema = z
   })
   .default({});
 
+/**
+ * Gmail sync (lib/gmail-sync.ts): reads recruiter mail through a read-only
+ * agent pass and moves matching `applications` rows forward.
+ *
+ * Off by default and deliberately opt-in twice over: it is the only feature
+ * in the app that writes to the application tracker on its own, so enabling
+ * it is a decision the user makes explicitly, ideally after a `dryRun` cycle.
+ */
+const GmailSyncSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    /** Journal every decision, write nothing to the database. */
+    dryRun: z.boolean().default(false),
+    /** How far back the mailbox search looks (`newer_than:<n>d`). */
+    lookbackDays: z.number().int().positive().max(30).default(2),
+  })
+  .default({});
+
 export const JobBlastConfigSchema = z
   .object({
     // Allows a leading "_comment" key (and any other underscore-prefixed
@@ -452,6 +476,7 @@ export const JobBlastConfigSchema = z
     scoring: ScoringSchema,
     sources: SourcesSchema,
     ai: AiSchema,
+    gmailSync: GmailSyncSchema,
     /**
      * Path (absolute, or relative to the repo root) to a plain-text cover
      * letter used as the structural/tonal reference for AI tailoring. When

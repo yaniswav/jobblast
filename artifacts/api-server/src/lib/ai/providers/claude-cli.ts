@@ -15,9 +15,32 @@ import { runClaudePrompt } from "../claude-cli";
 import type { AgentProvider, AgentTool } from "../provider";
 
 /**
+ * The four Gmail tools the read-only mail passes are allowed to call.
+ *
+ * This is the one capability that is NOT granted as a whole MCP server, and
+ * the exception is deliberate. `mcp__claude_ai_Gmail` also exposes
+ * send_message, reply, forward, trash_thread, update_message_labels,
+ * mark_message_spam and friends; a prompt saying "read only" is a request,
+ * whereas --allowedTools is enforced by the CLI - a tool outside the list
+ * needs a permission decision, and a headless `claude -p` session has nobody
+ * to ask, so the call is refused. lib/gmail-sync.ts reads recruiter mail to
+ * move application statuses and must never write to the mailbox, so the
+ * guarantee is worth the cost of naming tools that could change server-side
+ * (if one is renamed the pass degrades to finding nothing, which is the safe
+ * direction to fail in).
+ */
+const GMAIL_READ_ONLY_TOOLS = [
+  "mcp__claude_ai_Gmail__search_threads",
+  "mcp__claude_ai_Gmail__get_thread",
+  "mcp__claude_ai_Gmail__get_message",
+  "mcp__claude_ai_Gmail__list_labels",
+];
+
+/**
  * Claude Code tool patterns per capability. Allowing a whole MCP server (no
  * third `__tool` segment) means every tool it exposes is usable without
- * hardcoding names that can change server-side.
+ * hardcoding names that can change server-side - see GMAIL_READ_ONLY_TOOLS
+ * for the one capability where that trade-off goes the other way.
  */
 function toolPatterns(tool: AgentTool): string[] {
   switch (tool) {
@@ -25,6 +48,8 @@ function toolPatterns(tool: AgentTool): string[] {
       return ["WebSearch", "WebFetch"];
     case "notion":
       return ["mcp__claude_ai_Notion"];
+    case "gmail":
+      return GMAIL_READ_ONLY_TOOLS;
     case "job-connectors":
       return loadConfig().sources.aiScout.allowedConnectors;
   }

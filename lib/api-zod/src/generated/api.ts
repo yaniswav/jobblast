@@ -75,7 +75,13 @@ export const ListJobsResponseItem = zod.object({
   "coverLetter": zod.string(),
   "status": zod.enum(['queued', 'skipped', 'applied']),
   "applicationId": zod.number().nullable(),
-  "aiGenerated": zod.boolean()
+  "aiGenerated": zod.boolean(),
+  "fitAnalysis": zod.object({
+  "verdict": zod.enum(['strong', 'good', 'stretch', 'poor']),
+  "greenFlags": zod.array(zod.string()),
+  "redFlags": zod.array(zod.string()),
+  "gaps": zod.array(zod.string())
+}).nullable()
 })
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
 
@@ -107,7 +113,13 @@ export const GetJobResponse = zod.object({
   "coverLetter": zod.string(),
   "status": zod.enum(['queued', 'skipped', 'applied']),
   "applicationId": zod.number().nullable(),
-  "aiGenerated": zod.boolean()
+  "aiGenerated": zod.boolean(),
+  "fitAnalysis": zod.object({
+  "verdict": zod.enum(['strong', 'good', 'stretch', 'poor']),
+  "greenFlags": zod.array(zod.string()),
+  "redFlags": zod.array(zod.string()),
+  "gaps": zod.array(zod.string())
+}).nullable()
 })
 
 
@@ -216,6 +228,46 @@ export const UpdateApplicationResponse = zod.object({
   "notes": zod.string(),
   "followUpDate": zod.coerce.date().nullable()
 })
+
+
+/**
+ * @summary Get the interview preparation brief for an application
+ */
+export const GetInterviewBriefParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetInterviewBriefResponse = zod.object({
+  "status": zod.enum(['pending', 'generating', 'ready', 'failed']),
+  "contentMarkdown": zod.string().nullable(),
+  "generatedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * @summary Queue a fresh interview brief, discarding the current one
+ */
+export const RegenerateInterviewBriefParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RegenerateInterviewBriefResponse = zod.object({
+  "status": zod.enum(['pending', 'generating', 'ready', 'failed']),
+  "contentMarkdown": zod.string().nullable(),
+  "generatedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * @summary Generate a PDF of the interview preparation brief
+ */
+export const GetInterviewBriefPdfParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetInterviewBriefPdfResponse = zod.unknown()
 
 
 /**

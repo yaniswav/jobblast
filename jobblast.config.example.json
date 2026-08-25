@@ -23,6 +23,7 @@
     "provider": "claude-cli",
     "model": "sonnet",
     "timeoutMs": 180000,
+    "fitAnalysis": { "enabled": true },
 
     "_alternative_none": "No AI at all, zero dependencies: every posting keeps the template cover letter and profile-derived bullets. Everything else (aggregation, scoring, review queue, PDF export, tracker) works normally. Use: \"provider\": \"none\"",
 
@@ -218,5 +219,12 @@
         "imported": "Imported"
       }
     }
+  },
+
+  "gmailSync": {
+    "_comment": "Reads the last few days of recruiter mail (read-only) and moves matching applications forward: reply -> responded, interview invitation -> interview, rejection -> rejected. The only feature that writes to your tracker on its own, so it is off by default. Requires the claude.ai Gmail connector and `ai.provider` = claude-cli. Turn it on with dryRun true first, read data/gmail-sync-journal.jsonl, then set dryRun false. Rows in status approved/interview/rejected/offer are never touched, and offer is never set automatically.",
+    "enabled": false,
+    "dryRun": false,
+    "lookbackDays": 2
   }
 }

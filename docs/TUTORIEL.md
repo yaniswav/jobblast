@@ -309,18 +309,21 @@ Choisissez une des six options ci-dessous et inscrivez-la dans
 `jobblast.config.json`. Toute la section `ai` est facultative, et l'omettre
 revient à choisir l'option 1.
 
-| Option | Lettres | AI Scout | Notion Inbox | Coût |
-|---|---|---|---|---|
-| **0.** `none` | template seulement | non | non | gratuit |
-| **1.** `claude-cli` *(par défaut)* | oui | oui | oui | votre abonnement Claude |
-| **2.** `codex-cli` | oui | oui | si vous avez ajouté un serveur MCP Notion | votre offre ChatGPT / Codex |
-| **3.** `gemini-cli` | oui | recherche web seulement | non | votre offre Gemini ou une clé API |
-| **4.** `anthropic-api` | oui | non | non | facturé au token |
-| **5.** `openai-compatible`, dont **Ollama** | oui | non | non | facturé, ou **gratuit avec Ollama** |
+| Option | Lettres | AI Scout | Notion Inbox | Sync Gmail | Coût |
+|---|---|---|---|---|---|
+| **0.** `none` | template seulement | non | non | non | gratuit |
+| **1.** `claude-cli` *(par défaut)* | oui | oui | oui | oui | votre abonnement Claude |
+| **2.** `codex-cli` | oui | oui | si vous avez ajouté un serveur MCP Notion | non | votre offre ChatGPT / Codex |
+| **3.** `gemini-cli` | oui | recherche web seulement | non | non | votre offre Gemini ou une clé API |
+| **4.** `anthropic-api` | oui | non | non | non | facturé au token |
+| **5.** `openai-compatible`, dont **Ollama** | oui | non | non | non | facturé, ou **gratuit avec Ollama** |
 
 « AI Scout » et « Notion Inbox » sont les deux sources d'offres facultatives
 de l'étape 13 (« Options avancées ») ; elles ont besoin d'un agent capable d'appeler des outils, ce
 que seules les options 1 à 3 permettent.
+« Sync Gmail » (également étape 13) met à jour le statut de vos candidatures
+à partir des mails de recruteurs et exige précisément l'option 1 : c'est la
+seule qui garantisse que l'agent lit votre boîte sans pouvoir y écrire.
 
 Toutes les clés de toutes les options sont documentées dans
 [`docs/CONFIG.md`](CONFIG.md#ai).
@@ -680,12 +683,77 @@ Le pont `sources.notionInbox` du serveur JobBlast lit ensuite cette base
 
 Référence complète : `docs/CONFIG.md` → `sources.notionInbox`.
 
+### Sync Gmail (mise à jour automatique des statuts)
+
+Intégrée au serveur JobBlast, contrairement au résumé ci-dessous. Elle lit
+les mails de recruteurs des derniers jours et fait avancer vos candidatures
+toute seule : `responded`, `interview` et `rejected` ne dépendent plus de
+votre mémoire.
+
+C'est la seule fonctionnalité qui écrit dans votre tracker d'elle-même. Elle
+est désactivée par défaut, et elle a un mode répétition - servez-vous-en.
+
+**Prérequis :** le connecteur Gmail de claude.ai, et `claude-cli` comme
+fournisseur IA (option 1 de l'étape 12). Vérifiez le connecteur :
+
+```bash
+claude mcp list      # cherchez « claude.ai Gmail: ... - Connected »
+```
+
+Aucun autre fournisseur ne fonctionne, volontairement : `codex-cli` et
+`gemini-cli` sont refusés parce qu'aucun des deux ne peut garantir que
+l'agent se contente de lire. Avec `claude-cli`, l'agent reçoit exactement
+quatre outils Gmail (`search_threads`, `get_thread`, `get_message`,
+`list_labels`) et la CLI refuse tout le reste : il ne peut donc ni envoyer,
+ni répondre, ni étiqueter, ni archiver, ni supprimer quoi que ce soit, même
+s'il essayait.
+
+**Étape 1 - commencez par un essai à blanc.** Dans `jobblast.config.json` :
+
+```json
+"gmailSync": {
+  "enabled": true,
+  "dryRun": true,
+  "lookbackDays": 2
+}
+```
+
+Redémarrez le serveur, laissez passer un cycle, puis lisez le journal :
+
+```bash
+cat data/gmail-sync-journal.jsonl
+```
+
+Une ligne JSON par décision, appliquée ou ignorée, chacune avec sa raison.
+Rien n'a été écrit en base.
+
+**Étape 2 - passez en réel.** Quand les décisions vous conviennent, mettez
+`"dryRun": false`.
+
+**Ce qu'elle peut faire, et rien d'autre :** `applied` -> `responded` (un
+recruteur a répondu), `applied`/`responded` -> `interview` (une invitation)
+et `applied`/`responded` -> `rejected`. Un accusé de réception ajoute
+seulement une note. Les candidatures encore en `approved` (préparées, mais
+pas réellement envoyées par vous) et tout ce qui est déjà en `interview`,
+`rejected` ou `offer` ne sont jamais touchés - et `offer` n'est jamais
+positionné automatiquement, jamais. Les notes sont ajoutées, jamais
+écrasées. Quand deux candidatures d'une même entreprise pourraient
+correspondre au même mail, l'ambiguïté est consignée et rien n'est fait.
+
+Chaque décision reste dans `data/gmail-sync-journal.jsonl` : des mois plus
+tard, vous pourrez encore répondre à « pourquoi celle-ci est-elle passée en
+rejected ? ».
+
+Référence complète : `docs/CONFIG.md` → `gmailSync`.
+
 ### Résumé matinal Gmail (lecture seule)
 
 Une routine planifiée facultative, indépendante de JobBlast, qui scanne
 votre boîte Gmail chaque matin pour repérer les réponses de recruteurs et
-vous éviter de fouiller manuellement. Exemple de prompt générique (à
-programmer via claude.ai, connecteur Gmail autorisé au préalable, en
+vous éviter de fouiller manuellement. Là où la Sync Gmail ci-dessus met à
+jour votre tracker, celle-ci se contente de vous dire ce qui est arrivé - et
+elle tourne dans le cloud, donc machine éteinte. Exemple de prompt générique
+(à programmer via claude.ai, connecteur Gmail autorisé au préalable, en
 **lecture seule** - ne rien envoyer ni archiver) :
 
 ```

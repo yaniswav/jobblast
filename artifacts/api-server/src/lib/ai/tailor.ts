@@ -21,6 +21,7 @@ import { db, jobListingsTable, profilesTable, type JobListing } from "@workspace
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { getCoverLetterTemplate } from "../sources/tailoring";
+import { letterLanguageRule } from "./language";
 import { configuredProviderName, disableAi, getTextProvider, isProviderUnavailable, type TextProvider } from "./provider";
 import { sanitizeAiText, sanitizeAiTexts } from "./sanitize";
 
@@ -46,34 +47,6 @@ function truncate(text: string, maxChars: number): string {
   return text.length > maxChars ? `${text.slice(0, maxChars)}…` : text;
 }
 
-/** ISO 639-1 -> English language name, for prompts. Unknown codes pass through. */
-const LANGUAGE_NAMES: Record<string, string> = {
-  ar: "Arabic",
-  de: "German",
-  en: "English",
-  es: "Spanish",
-  fr: "French",
-  it: "Italian",
-  ja: "Japanese",
-  ko: "Korean",
-  nl: "Dutch",
-  pl: "Polish",
-  pt: "Portuguese",
-  ru: "Russian",
-  sv: "Swedish",
-  tr: "Turkish",
-  zh: "Chinese",
-};
-
-function languageName(code: string): string {
-  return LANGUAGE_NAMES[code.trim().toLowerCase()] ?? code;
-}
-
-function formatList(items: string[]): string {
-  if (items.length <= 1) return items[0] ?? "";
-  return `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
-}
-
 function buildPrompt(params: {
   masterResume: string;
   headline: string;
@@ -84,12 +57,8 @@ function buildPrompt(params: {
   description: string;
 }): string {
   const { masterResume, headline, coverLetterTemplate, title, company, location, description } = params;
-  const { contact, candidate } = loadConfig();
-
-  const letterLanguages =
-    candidate.letterLanguages.length > 0 ? candidate.letterLanguages : [candidate.fallbackLetterLanguage];
-  const letterLanguageNames = formatList(letterLanguages.map(languageName));
-  const fallbackLanguageName = languageName(candidate.fallbackLetterLanguage);
+  const { contact } = loadConfig();
+  const { letterLanguageNames, fallbackLanguageName } = letterLanguageRule();
 
   const signOffName = contact.name.trim();
   const signOffRule = signOffName

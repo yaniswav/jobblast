@@ -10,6 +10,7 @@ import {
   SkipJobParams,
 } from "@workspace/api-zod";
 import { db, jobListingsTable } from "@workspace/db";
+import { runFitAnalysisPass } from "../lib/ai/fit-analysis";
 import { runTailoringPass } from "../lib/ai/tailor";
 import {
   ensureJobBlastSeeded,
@@ -109,8 +110,11 @@ router.post("/jobs/refresh", async (_req, res): Promise<void> => {
   // tailoring cycle, which can take a while. refreshJobListings() has its
   // own overlapping-call guard, so this is safe even if triggered again
   // before it settles.
+  // Tailoring, then fit analysis - sequential, never in parallel, so at most
+  // one AI provider call for this job pipeline is ever in flight at a time.
   refreshJobListings()
     .then(() => runTailoringPass(10))
+    .then(() => runFitAnalysisPass(10))
     .catch((err: unknown) => {
       logger.error({ err }, "Manual job refresh failed");
     });

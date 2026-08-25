@@ -83,7 +83,17 @@ export function createCodexCliProvider(): AgentProvider {
       return run(prompt, opts.timeoutMs ?? loadConfig().ai.timeoutMs, []);
     },
 
-    supportsTool() {
+    supportsTool(tool) {
+      // "gmail" is refused outright. It is the only capability that promises
+      // read-only access to something destructible, and Codex has no per-run
+      // tool allowlist: if the user has a Gmail MCP server in their
+      // config.toml, the agent can reach send_message and trash_thread just
+      // as easily as search_threads, and the only thing standing between a
+      // recruiter e-mail and a sent reply would be the prompt. Declining
+      // means lib/gmail-sync.ts logs one line and does nothing on this
+      // provider, which is the right failure.
+      if (tool === "gmail") return false;
+
       // web via -c tools.web_search=true; notion / job-connectors depend on
       // the user's own ~/.codex/config.toml MCP servers (see the header).
       return true;

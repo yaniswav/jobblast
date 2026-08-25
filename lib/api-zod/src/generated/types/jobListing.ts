@@ -5,6 +5,7 @@
  * JobBlast application assistant API
  * OpenAPI spec version: 0.1.0
  */
+import type { JobListingFitAnalysis } from './jobListingFitAnalysis';
 import type { JobListingWorkMode } from './jobListingWorkMode';
 import type { JobStatus } from './jobStatus';
 
@@ -30,4 +31,6 @@ export interface JobListing {
   /** @nullable */
   applicationId: number | null;
   aiGenerated: boolean;
+  /** @nullable */
+  fitAnalysis: JobListingFitAnalysis;
 }

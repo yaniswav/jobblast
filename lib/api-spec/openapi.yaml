@@ -197,6 +197,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /applications/{id}/interview-brief:
+    get:
+      operationId: getInterviewBrief
+      tags: [applications]
+      summary: Get the interview preparation brief for an application
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Interview brief state (and content once ready)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewBrief"
+        "404":
+          description: No brief for this application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /applications/{id}/interview-brief/regenerate:
+    post:
+      operationId: regenerateInterviewBrief
+      tags: [applications]
+      summary: Queue a fresh interview brief, discarding the current one
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "202":
+          description: Brief reset to pending and queued for regeneration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewBrief"
+        "404":
+          description: No brief for this application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /applications/{id}/interview-brief.pdf:
+    get:
+      operationId: getInterviewBriefPdf
+      tags: [applications]
+      summary: Generate a PDF of the interview preparation brief
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Interview brief PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No brief ready for this application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /profile:
     get:
       operationId: getProfile
@@ -394,6 +455,29 @@ components:
           type: ["number", "null"]
         aiGenerated:
           type: boolean
+        fitAnalysis:
+          type: ["object", "null"]
+          properties:
+            verdict:
+              type: string
+              enum: [strong, good, stretch, poor]
+            greenFlags:
+              type: array
+              items:
+                type: string
+            redFlags:
+              type: array
+              items:
+                type: string
+            gaps:
+              type: array
+              items:
+                type: string
+          required:
+            - verdict
+            - greenFlags
+            - redFlags
+            - gaps
       required:
         - id
         - source
@@ -415,6 +499,7 @@ components:
         - status
         - applicationId
         - aiGenerated
+        - fitAnalysis
     JobRefreshStatus:
       type: object
       properties:
@@ -489,6 +574,26 @@ components:
         followUpDate:
           type: ["string", "null"]
           format: date
+    InterviewBriefStatus:
+      type: string
+      enum: [pending, generating, ready, failed]
+    InterviewBrief:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/InterviewBriefStatus"
+        contentMarkdown:
+          type: ["string", "null"]
+        generatedAt:
+          type: ["string", "null"]
+          format: date-time
+        error:
+          type: ["string", "null"]
+      required:
+        - status
+        - contentMarkdown
+        - generatedAt
+        - error
     DashboardSummary:
       type: object
       properties:

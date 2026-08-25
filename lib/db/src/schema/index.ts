@@ -19,5 +19,6 @@
 
 export * from "./applications";
 export * from "./documents";
+export * from "./interviewBriefs";
 export * from "./jobListings";
 export * from "./profiles";

@@ -39,8 +39,16 @@ export { ProviderUnavailableError } from "./errors";
  *   notion          - the user's Notion workspace, via an MCP connector
  *   job-connectors  - the job-board MCP connectors listed in
  *                     `sources.aiScout.allowedConnectors`
+ *   gmail           - READ-ONLY access to the user's Gmail, via an MCP
+ *                     connector. Unlike the others this one carries a
+ *                     capability promise, not just "can you reach it": a
+ *                     provider may only report it supported if it can hand
+ *                     the agent search/read tools *without* also handing it
+ *                     send/reply/label/trash. Used by lib/gmail-sync.ts,
+ *                     which updates application statuses from recruiter
+ *                     mail and must never touch the mailbox itself.
  */
-export type AgentTool = "web" | "notion" | "job-connectors";
+export type AgentTool = "web" | "notion" | "job-connectors" | "gmail";
 
 export type AgentEffort = "low" | "medium" | "high";
 

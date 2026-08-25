@@ -44,6 +44,26 @@ export const JobListingWorkMode = {
   'On-site': 'On-site',
 } as const;
 
+export type JobListingFitAnalysisVerdict = typeof JobListingFitAnalysisVerdict[keyof typeof JobListingFitAnalysisVerdict];
+
+
+export const JobListingFitAnalysisVerdict = {
+  strong: 'strong',
+  good: 'good',
+  stretch: 'stretch',
+  poor: 'poor',
+} as const;
+
+/**
+ * @nullable
+ */
+export type JobListingFitAnalysis = {
+  verdict: JobListingFitAnalysisVerdict;
+  greenFlags: string[];
+  redFlags: string[];
+  gaps: string[];
+} | null;
+
 export interface JobListing {
   id: number;
   source: string;
@@ -66,6 +86,8 @@ export interface JobListing {
   /** @nullable */
   applicationId: number | null;
   aiGenerated: boolean;
+  /** @nullable */
+  fitAnalysis: JobListingFitAnalysis;
 }
 
 export interface JobRefreshStatus {
@@ -100,6 +122,26 @@ export interface ApplicationUpdate {
   notes?: string;
   /** @nullable */
   followUpDate?: string | null;
+}
+
+export type InterviewBriefStatus = typeof InterviewBriefStatus[keyof typeof InterviewBriefStatus];
+
+
+export const InterviewBriefStatus = {
+  pending: 'pending',
+  generating: 'generating',
+  ready: 'ready',
+  failed: 'failed',
+} as const;
+
+export interface InterviewBrief {
+  status: InterviewBriefStatus;
+  /** @nullable */
+  contentMarkdown: string | null;
+  /** @nullable */
+  generatedAt: string | null;
+  /** @nullable */
+  error: string | null;
 }
 
 export interface DashboardSummary {

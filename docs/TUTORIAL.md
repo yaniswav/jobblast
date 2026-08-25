@@ -302,17 +302,20 @@ as a template draft.
 Pick one of the six options below and put it in `jobblast.config.json`. The
 whole `ai` section is optional, and leaving it out means option 1.
 
-| Option | Cover letters | AI Scout | Notion Inbox | Cost |
-|---|---|---|---|---|
-| **0.** `none` | template only | no | no | free |
-| **1.** `claude-cli` *(default)* | yes | yes | yes | your Claude subscription |
-| **2.** `codex-cli` | yes | yes | if you added a Notion MCP server | your ChatGPT / Codex plan |
-| **3.** `gemini-cli` | yes | web search only | no | your Gemini plan or an API key |
-| **4.** `anthropic-api` | yes | no | no | metered per token |
-| **5.** `openai-compatible`, incl. **Ollama** | yes | no | no | metered, or **free with Ollama** |
+| Option | Cover letters | AI Scout | Notion Inbox | Gmail sync | Cost |
+|---|---|---|---|---|---|
+| **0.** `none` | template only | no | no | no | free |
+| **1.** `claude-cli` *(default)* | yes | yes | yes | yes | your Claude subscription |
+| **2.** `codex-cli` | yes | yes | if you added a Notion MCP server | no | your ChatGPT / Codex plan |
+| **3.** `gemini-cli` | yes | web search only | no | no | your Gemini plan or an API key |
+| **4.** `anthropic-api` | yes | no | no | no | metered per token |
+| **5.** `openai-compatible`, incl. **Ollama** | yes | no | no | no | metered, or **free with Ollama** |
 
 "AI Scout" and "Notion Inbox" are the two optional job sources from step 13 ("Advanced options");
 they need an agent that can call tools, which only options 1 to 3 provide.
+"Gmail sync" (also step 13) updates your application statuses from recruiter
+mail and needs option 1 specifically - it is the only one that can guarantee
+the agent reads your mailbox without being able to write to it.
 
 Every key of every option is documented in
 [`docs/CONFIG.md`](CONFIG.md#ai).
@@ -666,13 +669,73 @@ the usual pipeline (scoring, tailoring, review).
 
 Full reference: `docs/CONFIG.md` -> `sources.notionInbox`.
 
+### Gmail sync (automatic status updates)
+
+Part of the JobBlast server itself, unlike the digest below. It reads the
+last couple of days of recruiter mail and moves your applications forward on
+its own, so `responded`, `interview` and `rejected` stop depending on you
+remembering to change a dropdown.
+
+It is the only feature that writes to your tracker by itself. It is off by
+default, and it has a rehearsal mode - use it.
+
+**Prerequisite:** the claude.ai Gmail connector, and `claude-cli` as your AI
+provider (option 1 in step 12). Check the connector:
+
+```bash
+claude mcp list      # look for "claude.ai Gmail: ... - Connected"
+```
+
+No other provider works here, on purpose: `codex-cli` and `gemini-cli` are
+refused because neither can guarantee the agent only reads. On `claude-cli`
+the agent is handed exactly four Gmail tools (`search_threads`, `get_thread`,
+`get_message`, `list_labels`) and the CLI refuses everything else, so it
+cannot send, reply, label, archive or delete anything even if it tried to.
+
+**Step 1 - dry run first.** In `jobblast.config.json`:
+
+```json
+"gmailSync": {
+  "enabled": true,
+  "dryRun": true,
+  "lookbackDays": 2
+}
+```
+
+Restart the server, let a cycle run, then read the journal:
+
+```bash
+cat data/gmail-sync-journal.jsonl
+```
+
+One JSON line per decision, acted on or skipped, each with its reason.
+Nothing was written to the database.
+
+**Step 2 - go live.** Once the decisions look right, set `"dryRun": false`.
+
+**What it can do, and nothing more:** `applied` -> `responded` (a recruiter
+wrote back), `applied`/`responded` -> `interview` (an invitation), and
+`applied`/`responded` -> `rejected`. An application confirmation only adds a
+note. Applications still marked `approved` (prepared, but not actually sent
+by you) and anything already at `interview`, `rejected` or `offer` are never
+touched - and `offer` is never set automatically, ever. Notes are appended,
+never overwritten. When two applications at the same company could both match
+one e-mail, it records the ambiguity and does nothing.
+
+Every decision stays in `data/gmail-sync-journal.jsonl`, so months later you
+can still answer "why did this one become rejected?".
+
+Full reference: `docs/CONFIG.md` -> `gmailSync`.
+
 ### Gmail morning digest (read-only)
 
 An optional scheduled routine, independent of JobBlast, that scans your
 Gmail inbox every morning to spot recruiter replies and save you from
-digging through it manually. Generic example prompt (to schedule via
-claude.ai, with the Gmail connector authorized beforehand, **read-only** -
-don't send or archive anything):
+digging through it manually. Where Gmail sync above updates your tracker,
+this one just tells you what arrived - and it runs in the cloud, so it works
+with your machine off. Generic example prompt (to schedule via claude.ai,
+with the Gmail connector authorized beforehand, **read-only** - don't send or
+archive anything):
 
 ```
 Scan my Gmail inbox (read-only, don't modify or send anything) for the
@@ -735,7 +798,7 @@ the source tree. These files/folders hold your data and are gitignored
 | `.env` | Secrets and ports: `DATABASE_URL`, job-source API credentials, `PORT` |
 | `jobblast.config.json` | Your name/email/phone/city, scoring rules, which sources are enabled, Notion IDs if you use the Notion Inbox |
 | `config/cover-letter-template.txt` | Your template cover letter |
-| `data/` | Uploaded CV/cover-letter PDFs, plus a couple of throttle-state timestamp files |
+| `data/` | Uploaded CV/cover-letter PDFs, throttle-state timestamp files, and - if you enable Gmail sync - `gmail-sync-journal.jsonl`, which contains short excerpts of the recruiter e-mails it read |
 | `deploy/logs/` | Server logs (may contain postings, application data, and stack traces) |
 
 Your profile itself (name, headline, target roles/locations, master

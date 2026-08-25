@@ -1,11 +1,25 @@
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, ExternalLink, FileDown, FileText, MapPin, Pause, RefreshCw, SkipForward, Sparkles, X } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronLeft, ChevronRight, ExternalLink, FileDown, FileText, MapPin, Pause, RefreshCw, ShieldCheck, SkipForward, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useCreateApplication, useGetJob, useListJobs, useRefreshJobs, useSkipJob, getGetDashboardQueryKey, getListJobsQueryKey, getGetJobQueryKey, getGetDocumentFileUrl, getGetJobCoverLetterPdfUrl } from '@workspace/api-client-react';
 import { Link } from 'wouter';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
-import { useT } from '@/i18n';
+import { useT, type TranslationKey } from '@/i18n';
+
+const FIT_VERDICT_BADGE: Record<string, string> = {
+  strong: 'badge-fit-strong',
+  good: 'badge-fit-good',
+  stretch: 'badge-fit-stretch',
+  poor: 'badge-fit-poor',
+};
+
+const FIT_VERDICT_LABEL: Record<string, TranslationKey> = {
+  strong: 'review.fitVerdictStrong',
+  good: 'review.fitVerdictGood',
+  stretch: 'review.fitVerdictStretch',
+  poor: 'review.fitVerdictPoor',
+};
 
 export default function Review() {
   const t = useT();
@@ -53,6 +67,21 @@ export default function Review() {
           <h2>{listing.title}</h2><div className="flex flex-wrap items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]"><span className="flex items-center gap-1"><MapPin size={13} />{listing.location}</span><span>·</span><span>{listing.workMode}</span><span>·</span><span>{listing.salaryRange}</span></div>
           <div className="flex flex-wrap gap-2 mt-5">{listing.highlightedSkills?.map((skill) => <span key={skill} className="tag">{skill}</span>)}</div>
           <div className="mt-7 border-t border-[hsl(var(--border))] pt-5"><div className="flex items-center gap-2 font-bold text-sm"><Sparkles size={15} className="text-[hsl(var(--accent))]" /> {t('review.whyThisSurfaced')}</div><ul className="bullet-list">{listing.matchReasons?.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>
+          <div className="mt-7 border-t border-[hsl(var(--border))] pt-5" data-testid="panel-fit-analysis">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-bold text-sm"><ShieldCheck size={15} className="text-[hsl(var(--accent))]" /> {t('review.fitAnalysis')}</div>
+              {listing.fitAnalysis && <span className={`badge ${FIT_VERDICT_BADGE[listing.fitAnalysis.verdict]}`} data-testid={`badge-fit-verdict-${listing.id}`}>{t(FIT_VERDICT_LABEL[listing.fitAnalysis.verdict])}</span>}
+            </div>
+            {listing.fitAnalysis ? (
+              <div className="fit-groups">
+                {listing.fitAnalysis.greenFlags.length > 0 && <div className="fit-group"><div className="fit-group-title">✅ {t('review.fitStrengths')}</div><ul className="bullet-list">{listing.fitAnalysis.greenFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
+                {listing.fitAnalysis.redFlags.length > 0 && <div className="fit-group"><div className="fit-group-title">⚠ {t('review.fitConcerns')}</div><ul className="bullet-list">{listing.fitAnalysis.redFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
+                {listing.fitAnalysis.gaps.length > 0 && <div className="fit-group"><div className="fit-group-title">📉 {t('review.fitGaps')}</div><ul className="bullet-list">{listing.fitAnalysis.gaps.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
+              </div>
+            ) : (
+              <p className="fit-pending">{t('review.fitAnalysisPending')}</p>
+            )}
+          </div>
           <p className="mt-7 text-sm leading-7 text-[hsl(var(--muted-foreground))]">{listing.description}</p>
           <a href={listing.url} target="_blank" rel="noreferrer" className="mt-6 inline-flex items-center gap-2 text-xs font-bold text-[hsl(var(--primary))]" data-testid={`link-employer-${listing.id}`}>{t('review.viewOriginalPosting')} <ExternalLink size={14} /></a>
         </article>

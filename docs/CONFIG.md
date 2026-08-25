@@ -99,16 +99,17 @@ So you can skip the file entirely and just upload your letter as a PDF.
 
 ## `ai`
 
-Which engine writes your cover letters, and whether the two agent-backed
-sources (AI Scout, Notion Inbox) can run at all. **The whole section is
-optional**: a config file with no `ai` key behaves exactly as JobBlast did
-before providers existed, i.e. the local `claude` CLI.
+Which engine writes your cover letters, and whether the agent-backed features
+(AI Scout, Notion Inbox, [Gmail sync](#gmailsync)) can run at all. **The whole
+section is optional**: a config file with no `ai` key behaves exactly as
+JobBlast did before providers existed, i.e. the local `claude` CLI.
 
 | Key | Default | Meaning |
 |---|---|---|
 | `provider` | `"claude-cli"` | One of `none`, `claude-cli`, `codex-cli`, `gemini-cli`, `anthropic-api`, `openai-compatible`, `ollama`, `lmstudio`. Anything else aborts startup |
 | `model` | `"sonnet"` | Model for `claude-cli` (passed as `claude --model`). The other providers have their own model key |
-| `timeoutMs` | `180000` | Default per-call timeout. AI Scout (10 min) and Notion Inbox (4 min) use their own |
+| `timeoutMs` | `180000` | Default per-call timeout. AI Scout (10 min), Notion Inbox (4 min), Gmail sync (4 min) and interview briefs (12 min) use their own |
+| `fitAnalysis.enabled` | `true` | Whether the fit-analysis pass (red/green flags, `lib/ai/fit-analysis.ts`) runs. Set `false` to skip it while keeping cover-letter tailoring on |
 | `openaiCompatible` | see below | Only for `openai-compatible` / `ollama` / `lmstudio` |
 | `anthropicApi.model` | `"claude-opus-5"` | Only for `anthropic-api` |
 | `anthropicApi.maxTokens` | `4096` | Only for `anthropic-api` |
@@ -119,19 +120,29 @@ before providers existed, i.e. the local `claude` CLI.
 
 ### What each provider can do
 
-| `provider` | Cover letters | AI Scout | Notion Inbox | Cost | Needs |
-|---|---|---|---|---|---|
-| `none` | template only | no | no | free | nothing |
-| `claude-cli` *(default)* | yes | yes | yes | your Claude subscription, $0 per letter | `claude` CLI, logged in |
-| `codex-cli` | yes | yes | yes, if you configured a Notion MCP server | your ChatGPT / Codex plan | `codex` CLI, logged in |
-| `gemini-cli` | yes | web search only, no job connectors | no | your Gemini plan or `GEMINI_API_KEY` | `gemini` CLI, authenticated |
-| `anthropic-api` | yes | no | no | metered per token | `ANTHROPIC_API_KEY` in `.env` |
-| `openai-compatible` | yes | no | no | metered per token | an API key, usually `OPENAI_API_KEY` |
-| `ollama` / `lmstudio` | yes | no | no | **free, fully local** | Ollama or LM Studio running, one model pulled |
+| `provider` | Cover letters | AI Scout | Notion Inbox | Gmail sync | Interview briefs | Cost | Needs |
+|---|---|---|---|---|---|---|---|
+| `none` | template only | no | no | no | no | free | nothing |
+| `claude-cli` *(default)* | yes | yes | yes | yes | yes | your Claude subscription, $0 per letter | `claude` CLI, logged in |
+| `codex-cli` | yes | yes | yes, if you configured a Notion MCP server | **no, by design** | yes | your ChatGPT / Codex plan | `codex` CLI, logged in |
+| `gemini-cli` | yes | web search only, no job connectors | no | no | yes | your Gemini plan or `GEMINI_API_KEY` | `gemini` CLI, authenticated |
+| `anthropic-api` | yes | no | no | no | no | metered per token | `ANTHROPIC_API_KEY` in `.env` |
+| `openai-compatible` | yes | no | no | no | no | metered per token | an API key, usually `OPENAI_API_KEY` |
+| `ollama` / `lmstudio` | yes | no | no | no | no | **free, fully local** | Ollama or LM Studio running, one model pulled |
 
-AI Scout and Notion Inbox need an agent that can call tools (web search, MCP
-connectors). On a provider that cannot, the source logs one line and
-contributes nothing - it does not error every cycle.
+These features need an agent that can call tools (web search, MCP
+connectors). On a provider that cannot, the feature logs one line and does
+nothing - it does not error every cycle.
+
+Gmail sync is stricter than the others and refuses providers that could
+otherwise run it. It only works on `claude-cli`, because `--allowedTools` is
+a real per-run allowlist: the agent is handed `search_threads`, `get_thread`,
+`get_message` and `list_labels`, and the CLI itself refuses everything else,
+so "read-only" is enforced rather than merely requested. `codex-cli` has no
+per-run tool allowlist and `gemini-cli` runs agents under
+`--approval-mode yolo`, so on both of those the only thing standing between
+your mailbox and a sent reply would be the wording of a prompt. Gmail sync
+declines to run there.
 
 ### `provider: "none"` - the zero-dependency option
 
@@ -420,3 +431,112 @@ line and contributes nothing - see [`ai`](#ai). Throttled to one run per 3 h.
 `imported` must be a checkbox and is reserved for the app: it is ticked after
 each row is read, so the same posting isn't imported twice. Both `pageUrl`
 and `dataSourceUrl` must be set or the source skips with a warning.
+
+---
+
+## `gmailSync`
+
+Reads the last few days of recruiter mail and moves matching applications
+forward on their own, so the tracker stays current without you editing a
+dropdown after every reply.
+
+This is the only part of JobBlast that writes to your application tracker by
+itself. It is off by default, and worth understanding before switching on.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `false` | Opt-in. Nothing runs until this is `true` |
+| `dryRun` | `false` | Decide everything, write nothing. Every decision still lands in the journal |
+| `lookbackDays` | `2` | How far back the mailbox search looks (`newer_than:<n>d`). Max 30 |
+
+**Prerequisites.** `ai.provider` must be `claude-cli` (see [the capability
+table](#what-each-provider-can-do)), with the claude.ai Gmail connector
+authorized. Check it with:
+
+```bash
+claude mcp list      # look for "claude.ai Gmail: ... - ✔ Connected"
+```
+
+If the connector is missing, authorize it in your claude.ai connector
+settings. Without it the pass logs one line and does nothing.
+
+**Turn it on carefully.** Set `enabled` to `true` *and* `dryRun` to `true`,
+let one cycle run, then read `data/gmail-sync-journal.jsonl`. It records what
+would have happened. Once the decisions look right, set `dryRun` back to
+`false`.
+
+### How it works
+
+Three passes, and the separation is the point:
+
+1. **Read** (AI). A read-only agent searches your mail and returns a JSON
+   list of application-related messages: company, guessed role, kind
+   (`confirmation` / `reply` / `interview` / `rejection`), date, sender, and
+   a short excerpt. The model never sees your database and cannot act.
+2. **Match** (no AI). Plain TypeScript compares the company name from the
+   e-mail against your applications, after folding both to a canonical form:
+   lowercased, accents removed, punctuation and `&` turned into spaces,
+   trailing legal forms (`SAS`, `SARL`, `GmbH`, `Inc`, `Ltd`, ...) stripped.
+   Names match on exact equality, or when one is a whole-word run inside the
+   other and the shorter is at least 4 characters. `Thales Group` matches
+   `THALES`; `Orange` does not match `Orangerie`.
+3. **Apply**. The allowed move is made and a dated line is appended to the
+   application's notes.
+
+### What it will and will not do
+
+| | |
+|---|---|
+| Rows it can touch | only `applied` and `responded` |
+| Rows it never touches | `approved` (prepared but not actually sent by you), `interview`, `rejected`, `offer` |
+| Moves it can make | `applied` -> `responded`, `applied`/`responded` -> `interview`, `applied`/`responded` -> `rejected` |
+| Moves it can never make | anything backwards, and **anything to `offer`** - an offer is yours to enter |
+| `notes` | appended to, never overwritten |
+| A `confirmation` e-mail | adds a note only, no status change |
+
+Ambiguity always loses. Two applications at the same company matching one
+e-mail, a company name too short to compare safely, or a rejection at a
+company where you have several applications on file and the e-mail does not
+clearly name which role: all of these are recorded and skipped rather than
+guessed at. The pass is built so that a wrong destructive move is difficult,
+not so that it catches everything.
+
+Rejections get one extra check, because they are the move you are least
+likely to notice going wrong. If the e-mail names a role and that role is
+clearly not the one JobBlast is tracking, it is skipped even when the
+company matches exactly and there is only one application on file. Your
+tracker is not the whole truth - you may well have applied to the same
+employer through another channel - so a rejection for "Order Engineer" will
+not close your "Embedded Software Engineer" application. A rejection naming
+no role at all still counts when there is only one application it could
+possibly mean.
+
+### The journal
+
+Every decision, acted on or skipped, is appended as one JSON line to
+`data/gmail-sync-journal.jsonl` (gitignored along with the rest of `data/`).
+Each line carries the timestamp, whether it was a dry run, the e-mail as the
+agent read it, the decision, the reason, and - when something changed - the
+application id with its old and new status.
+
+```jsonc
+{"ts":"2026-08-25T14:02:11.204Z","mode":"live","key":"qonto|interview|2026-08-25|alice <alice@qonto.eu>",
+ "decision":"acted","reason":"applied",
+ "email":{"company":"Qonto","jobTitleGuess":"Backend Engineer","kind":"interview","date":"2026-08-25","from":"Alice <alice@qonto.eu>","excerpt":"Are you free Thursday for a 45 minute call?"},
+ "application":{"id":10,"company":"Qonto","title":"Backend Engineer","fromStatus":"applied","toStatus":"interview"},
+ "noteAppended":"[gmail-sync 2026-08-25] Interview invitation from Alice <alice@qonto.eu> - Are you free Thursday for a 45 minute call?"}
+```
+
+It is also how the same message is only ever acted on once: the search window
+is days wide while the pass runs every 3 hours, so most messages are seen a
+dozen times, and every sighting after the first is skipped with reason
+`already-processed`. Dry-run lines deliberately do not count, so a rehearsal
+never blocks the real run that follows it.
+
+Common skip reasons: `no-matching-application`, `no-eligible-application`
+(the company matched, but the row is `approved` or already past this pass),
+`ambiguous-multiple-applications`, `rejection-role-ambiguous`,
+`rejection-role-mismatch`, `status-already-set`, `transition-not-allowed`.
+
+Throttled to one run per 3 h via `data/gmail-sync-last-run.txt`, and it runs
+after the tailoring and fit-analysis passes, never alongside them.

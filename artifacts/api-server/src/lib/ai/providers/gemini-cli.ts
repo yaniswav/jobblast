@@ -23,8 +23,12 @@
 // Agent support is web-search only. Gemini's built-in google_web_search /
 // web_fetch tools need no flag to exist, but its MCP servers are declared in
 // the user's own ~/.gemini/settings.json under `mcpServers` with names we
-// cannot guess, so "notion" and "job-connectors" are reported unsupported and
-// Notion Inbox / AI Scout's connector pass will not run on this provider.
+// cannot guess, so "notion", "job-connectors" and "gmail" are reported
+// unsupported and Notion Inbox / AI Scout's connector pass / Gmail sync will
+// not run on this provider. For "gmail" that is doubly true: agent runs here
+// use --approval-mode yolo, which auto-approves every tool the model decides
+// to call, and Gmail sync's whole premise is that the mailbox is read and
+// never written.
 //
 // Security note worth knowing before enabling AI Scout here: --approval-mode
 // yolo auto-approves every tool the agent decides to call, and the prompt
