@@ -247,6 +247,25 @@ export const en = {
   'settings.saveAutomations': 'Save automations',
   'settings.savingAutomations': 'Saving…',
 
+  // BYOK section (SaaS mode only): bring-your-own-key AI provider credentials
+  'settings.byokSectionTitle': 'Your API keys',
+  'settings.byokSectionSubtitle': 'Bring your own key for each provider. It is encrypted and never shown again after you save it.',
+  'settings.byokConfiguredBadge': 'Key saved (ending {hint})',
+  'settings.byokNotConfiguredBadge': 'No key saved',
+  'settings.byokApiKeyLabel': 'API key',
+  'settings.byokApiKeyPlaceholder': 'Paste your API key',
+  'settings.byokApiKeyPlaceholderConfigured': 'Enter a new key to replace the saved one',
+  'settings.byokSaveButton': 'Save key',
+  'settings.byokSaving': 'Saving…',
+  'settings.byokRemoveButton': 'Remove key',
+  'settings.byokRemoving': 'Removing…',
+  'settings.byokLastOk': 'Last verified {date}',
+  'settings.byokLastError': 'Last test failed: {error}',
+  'settings.byokToastSaved': 'Key saved.',
+  'settings.byokToastSaveFailed': 'Could not save the key.',
+  'settings.byokToastDeleted': 'Key removed.',
+  'settings.byokToastDeleteFailed': 'Could not remove the key.',
+
   // Application status labels (API enum: queued/approved/applied/responded/interview/rejected/offer)
   'status.queued': 'Queued',
   'status.approved': 'To send',

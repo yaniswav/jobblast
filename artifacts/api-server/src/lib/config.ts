@@ -400,6 +400,15 @@ export const AI_PROVIDERS = [
 ] as const;
 export type AiProviderName = (typeof AI_PROVIDERS)[number];
 
+/**
+ * The subset of AI_PROVIDERS selectable via BYOK in `saas` mode
+ * (docs/SAAS-ARCHITECTURE.md section 5). Everything else needs either a CLI
+ * on the machine or a local server, neither of which means anything for a
+ * multi-tenant server process.
+ */
+export const BYOK_PROVIDERS = ["anthropic-api", "openai-compatible"] as const;
+export type ByokProviderName = (typeof BYOK_PROVIDERS)[number];
+
 const AiSchema = z
   .object({
     provider: z.enum(AI_PROVIDERS).default("claude-cli"),

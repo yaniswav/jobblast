@@ -6,8 +6,36 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { IS_SAAS } from "./lib/mode";
 
 const app: Express = express();
+
+/**
+ * Express only reads `X-Forwarded-For` when this is set - otherwise `req.ip`
+ * is the socket address, which is correct for a direct connection and wrong
+ * (and spoofable by any client) behind a reverse proxy.
+ *
+ * `saas` runs behind Caddy (docs/SAAS-ARCHITECTURE.md section 7), which sets
+ * that header, so it defaults on there - `1` trusts exactly one hop, Caddy
+ * itself. `selfhosted` has no reverse proxy in front of it by default, so it
+ * defaults off; a self-hoster who puts one there can opt in with TRUST_PROXY
+ * (a hop count, or any value express's `trust proxy` setting accepts).
+ * Wrong in either direction is a real problem: off behind a real proxy means
+ * every rate limit and the session's ip_hash key on the proxy's own address;
+ * on with no proxy means a client can forge its own IP with a header.
+ */
+function resolveTrustProxy(): boolean | number | string {
+  const override = process.env["TRUST_PROXY"]?.trim();
+  if (override) {
+    if (override.toLowerCase() === "true") return true;
+    if (override.toLowerCase() === "false") return false;
+    const asNumber = Number(override);
+    return Number.isFinite(asNumber) ? asNumber : override;
+  }
+  return IS_SAAS ? 1 : false;
+}
+
+app.set("trust proxy", resolveTrustProxy());
 
 app.use(
   pinoHttp({

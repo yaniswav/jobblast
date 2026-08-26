@@ -1,18 +1,25 @@
-import { FlaskConical, Save } from 'lucide-react';
+import { FlaskConical, KeyRound, Save, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   getGetSettingsQueryKey,
+  getListAiCredentialsQueryKey,
+  useDeleteAiCredential,
+  useGetAuthSession,
   useGetSettings,
+  useListAiCredentials,
   useListAiProviderOptions,
+  useSaveAiCredential,
+  useTestAiCredential,
   useTestAiProvider,
   useUpdateSettings,
+  type AiCredentialStatus,
   type AiProviderId,
   type AiTestResult,
 } from '@workspace/api-client-react';
 import { ErrorState, LoadingState } from '@/components/app-shell';
-import { useT } from '@/i18n';
+import { useLocale, useT, type Locale } from '@/i18n';
 
 // Cosmetic only - purely presentational labels for known provider ids. An id
 // the backend returns that isn't in this map still renders fine (falls back
@@ -31,6 +38,16 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 export default function Settings() {
   const t = useT();
+  const session = useGetAuthSession();
+  // BYOK credentials and the automations section only make sense in one mode
+  // each: selfhosted's provider is picked from what is detected on the
+  // machine (CLIs, local servers, .env keys); saas has no machine to detect
+  // anything on, so it is BYOK-only, and the automations (Gmail sync, AI
+  // Scout, Notion Inbox) all need a tool-using local CLI that saas does not
+  // run at all - see docs/SAAS-ARCHITECTURE.md section 10's capability
+  // matrix, which explicitly hides those toggles in saas rather than
+  // showing them disabled with no explanation.
+  const isSaas = session.data?.mode === 'saas';
   const settings = useGetSettings();
   const options = useListAiProviderOptions();
   const update = useUpdateSettings();
@@ -211,6 +228,9 @@ export default function Settings() {
         )}
       </section>
 
+      {isSaas && <ByokSection t={t} />}
+
+      {!isSaas && (
       <section className="surface p-6 mt-5">
         <div className="section-heading">
           <div>
@@ -282,6 +302,197 @@ export default function Settings() {
           </button>
         </div>
       </section>
+      )}
+    </div>
+  );
+}
+
+function ByokSection({ t }: { t: ReturnType<typeof useT> }) {
+  const [locale] = useLocale();
+  const credentials = useListAiCredentials();
+
+  return (
+    <section className="surface p-6 mt-5">
+      <div className="section-heading">
+        <div>
+          <h2>{t('settings.byokSectionTitle')}</h2>
+          <p>{t('settings.byokSectionSubtitle')}</p>
+        </div>
+      </div>
+
+      {credentials.isLoading && <p className="text-sm text-[hsl(var(--muted-foreground))] mt-3">{t('loading.settings')}</p>}
+      {credentials.isError && (
+        <div className="mt-3">
+          <ErrorState onRetry={() => credentials.refetch()} />
+        </div>
+      )}
+
+      {credentials.data && (
+        <div className="grid gap-4 mt-4">
+          {credentials.data.map((credential) => (
+            <ByokCredentialCard key={credential.provider} credential={credential} t={t} locale={locale} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ByokCredentialCard({
+  credential,
+  t,
+  locale,
+}: {
+  credential: AiCredentialStatus;
+  t: ReturnType<typeof useT>;
+  locale: Locale;
+}) {
+  const queryClient = useQueryClient();
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [testResult, setTestResult] = useState<AiTestResult | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListAiCredentialsQueryKey() });
+
+  const save = useSaveAiCredential();
+  const remove = useDeleteAiCredential();
+  const test = useTestAiCredential();
+
+  const handleSave = () => {
+    const apiKey = apiKeyInput.trim();
+    if (!apiKey) return;
+    save.mutate(
+      { provider: credential.provider, data: { apiKey } },
+      {
+        onSuccess: () => {
+          invalidate();
+          setApiKeyInput('');
+          setTestResult(null);
+          toast(t('settings.byokToastSaved'));
+        },
+        onError: () => toast(t('settings.byokToastSaveFailed')),
+      },
+    );
+  };
+
+  const handleTest = () => {
+    setTestResult(null);
+    const apiKey = apiKeyInput.trim();
+    test.mutate(
+      { provider: credential.provider, data: apiKey ? { apiKey } : undefined },
+      {
+        onSuccess: (result) => {
+          setTestResult(result);
+          invalidate();
+          toast(result.ok ? t('settings.toastTestOk') : t('settings.toastTestFailed'));
+        },
+        onError: () => toast(t('settings.toastTestFailed')),
+      },
+    );
+  };
+
+  const handleRemove = () => {
+    remove.mutate(
+      { provider: credential.provider },
+      {
+        onSuccess: () => {
+          invalidate();
+          setTestResult(null);
+          toast(t('settings.byokToastDeleted'));
+        },
+        onError: () => toast(t('settings.byokToastDeleteFailed')),
+      },
+    );
+  };
+
+  const canTest = apiKeyInput.trim().length > 0 || credential.configured;
+
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border))] p-4" data-testid={`card-byok-${credential.provider}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-bold text-sm">
+          <KeyRound size={15} />
+          {PROVIDER_LABELS[credential.provider] ?? credential.provider}
+        </div>
+        <span
+          className={`badge ${credential.configured ? 'badge-green' : 'badge-muted'}`}
+          data-testid={`status-byok-configured-${credential.provider}`}
+        >
+          {credential.configured
+            ? t('settings.byokConfiguredBadge', { hint: credential.hint ?? '' })
+            : t('settings.byokNotConfiguredBadge')}
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] items-end mt-3">
+        <div>
+          <label className="label" htmlFor={`byok-key-${credential.provider}`}>
+            {t('settings.byokApiKeyLabel')}
+          </label>
+          <input
+            id={`byok-key-${credential.provider}`}
+            className="input"
+            type="password"
+            autoComplete="off"
+            value={apiKeyInput}
+            onChange={(event) => setApiKeyInput(event.target.value)}
+            placeholder={credential.configured ? t('settings.byokApiKeyPlaceholderConfigured') : t('settings.byokApiKeyPlaceholder')}
+            data-testid={`input-byok-key-${credential.provider}`}
+          />
+        </div>
+        <button
+          className="btn btn-ghost"
+          onClick={handleTest}
+          disabled={test.isPending || !canTest}
+          data-testid={`button-test-byok-${credential.provider}`}
+        >
+          <FlaskConical size={15} /> {test.isPending ? t('settings.testing') : t('settings.testButton')}
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={save.isPending || !apiKeyInput.trim()}
+          data-testid={`button-save-byok-${credential.provider}`}
+        >
+          <Save size={15} /> {save.isPending ? t('settings.byokSaving') : t('settings.byokSaveButton')}
+        </button>
+      </div>
+
+      {credential.configured && (
+        <button
+          type="button"
+          className="btn btn-ghost mt-3"
+          onClick={handleRemove}
+          disabled={remove.isPending}
+          data-testid={`button-remove-byok-${credential.provider}`}
+        >
+          <Trash2 size={14} /> {remove.isPending ? t('settings.byokRemoving') : t('settings.byokRemoveButton')}
+        </button>
+      )}
+
+      {(credential.lastOkAt || credential.lastError) && (
+        <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2">
+          {credential.lastError
+            ? t('settings.byokLastError', { error: credential.lastError })
+            : credential.lastOkAt
+              ? t('settings.byokLastOk', {
+                  date: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
+                    new Date(credential.lastOkAt),
+                  ),
+                })
+              : ''}
+        </p>
+      )}
+
+      {testResult && (
+        <div
+          className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${testResult.ok ? 'bg-[hsl(var(--primary)/.13)] text-[hsl(var(--primary))]' : 'bg-[hsl(var(--accent)/.18)] text-[hsl(12_65%_42%)]'}`}
+          data-testid={`status-byok-test-result-${credential.provider}`}
+        >
+          {testResult.ok
+            ? t('settings.testResultOk', { ms: testResult.latencyMs })
+            : t('settings.testResultError', { error: testResult.error ?? '' })}
+        </div>
+      )}
     </div>
   );
 }

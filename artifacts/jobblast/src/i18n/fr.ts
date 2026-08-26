@@ -249,6 +249,25 @@ export const fr: Record<keyof typeof en, string> = {
   'settings.saveAutomations': 'Enregistrer les automatisations',
   'settings.savingAutomations': 'Enregistrement…',
 
+  // Section BYOK (mode SaaS uniquement) : clés API des fournisseurs d'IA
+  'settings.byokSectionTitle': 'Vos clés API',
+  'settings.byokSectionSubtitle': "Utilisez votre propre clé pour chaque fournisseur. Elle est chiffrée et n'est plus jamais affichée après l'enregistrement.",
+  'settings.byokConfiguredBadge': 'Clé enregistrée (se terminant par {hint})',
+  'settings.byokNotConfiguredBadge': 'Aucune clé enregistrée',
+  'settings.byokApiKeyLabel': 'Clé API',
+  'settings.byokApiKeyPlaceholder': 'Collez votre clé API',
+  'settings.byokApiKeyPlaceholderConfigured': 'Saisissez une nouvelle clé pour remplacer celle enregistrée',
+  'settings.byokSaveButton': 'Enregistrer la clé',
+  'settings.byokSaving': 'Enregistrement…',
+  'settings.byokRemoveButton': 'Supprimer la clé',
+  'settings.byokRemoving': 'Suppression…',
+  'settings.byokLastOk': 'Dernière vérification réussie le {date}',
+  'settings.byokLastError': 'Dernier test échoué : {error}',
+  'settings.byokToastSaved': 'Clé enregistrée.',
+  'settings.byokToastSaveFailed': "Impossible d'enregistrer la clé.",
+  'settings.byokToastDeleted': 'Clé supprimée.',
+  'settings.byokToastDeleteFailed': 'Impossible de supprimer la clé.',
+
   // Application status labels (API enum: queued/approved/applied/responded/interview/rejected/offer)
   'status.queued': 'En file',
   'status.approved': 'À envoyer',

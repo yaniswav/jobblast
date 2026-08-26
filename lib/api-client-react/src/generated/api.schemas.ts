@@ -332,6 +332,43 @@ export interface AiTestResult {
   error: string | null;
 }
 
+/**
+ * AI providers selectable via BYOK in saas mode (lib/config.ts BYOK_PROVIDERS).
+ */
+export type ByokProviderId = typeof ByokProviderId[keyof typeof ByokProviderId];
+
+
+export const ByokProviderId = {
+  'anthropic-api': 'anthropic-api',
+  'openai-compatible': 'openai-compatible',
+} as const;
+
+/**
+ * Never carries the key itself - see docs/SAAS-ARCHITECTURE.md section 5.
+ */
+export interface AiCredentialStatus {
+  provider: ByokProviderId;
+  configured: boolean;
+  /**
+     * Last 4 characters of the saved key, or null when none is saved.
+     * @nullable
+     */
+  hint: string | null;
+  /** @nullable */
+  lastOkAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
+export interface SaveAiCredentialRequest {
+  apiKey: string;
+}
+
+export interface TestAiCredentialRequest {
+  /** Test this value instead of the saved key. Never persisted by the test endpoint. */
+  apiKey?: string;
+}
+
 export type SearchParameter = string;
 
 export type JobStatusParameter = typeof JobStatusParameter[keyof typeof JobStatusParameter];

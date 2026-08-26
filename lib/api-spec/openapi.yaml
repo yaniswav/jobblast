@@ -496,8 +496,118 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AiTestResult"
+  /settings/ai/credentials:
+    get:
+      operationId: listAiCredentials
+      tags: [settings]
+      summary: BYOK credential status for each SaaS-selectable AI provider (never the key itself, SaaS mode only)
+      responses:
+        "200":
+          description: Credential status per BYOK provider
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiCredentialStatus"
+        "404":
+          description: BYOK does not exist in selfhosted mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /settings/ai/credentials/{provider}:
+    put:
+      operationId: saveAiCredential
+      tags: [settings]
+      summary: Encrypt and store an API key for one BYOK provider (SaaS mode only)
+      parameters:
+        - $ref: "#/components/parameters/ByokProvider"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveAiCredentialRequest"
+      responses:
+        "200":
+          description: Stored - masked status only, never the key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiCredentialStatus"
+        "400":
+          description: Invalid provider or empty key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: BYOK does not exist in selfhosted mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteAiCredential
+      tags: [settings]
+      summary: Remove a stored BYOK credential (SaaS mode only)
+      parameters:
+        - $ref: "#/components/parameters/ByokProvider"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: BYOK does not exist in selfhosted mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /settings/ai/credentials/{provider}/test:
+    post:
+      operationId: testAiCredential
+      tags: [settings]
+      summary: Make one small real call to a BYOK provider with the given or stored key (SaaS mode only)
+      description: >
+        Pass `apiKey` to test a candidate value before saving it - never
+        persisted by this endpoint, saving is always the separate PUT.
+        Omit it to test the already-saved key, which also records
+        last_ok_at / last_error on it.
+      parameters:
+        - $ref: "#/components/parameters/ByokProvider"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestAiCredentialRequest"
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTestResult"
+        "400":
+          description: Invalid provider, or no key given and none saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: BYOK does not exist in selfhosted mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   parameters:
+    ByokProvider:
+      name: provider
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ByokProviderId"
     Id:
       name: id
       in: path
@@ -1085,3 +1195,42 @@ components:
         - ok
         - latencyMs
         - error
+    ByokProviderId:
+      type: string
+      description: AI providers selectable via BYOK in saas mode (lib/config.ts BYOK_PROVIDERS).
+      enum: [anthropic-api, openai-compatible]
+    AiCredentialStatus:
+      type: object
+      description: Never carries the key itself - see docs/SAAS-ARCHITECTURE.md section 5.
+      properties:
+        provider:
+          $ref: "#/components/schemas/ByokProviderId"
+        configured:
+          type: boolean
+        hint:
+          description: Last 4 characters of the saved key, or null when none is saved.
+          type: ["string", "null"]
+        lastOkAt:
+          type: ["string", "null"]
+          format: date-time
+        lastError:
+          type: ["string", "null"]
+      required:
+        - provider
+        - configured
+        - hint
+        - lastOkAt
+        - lastError
+    SaveAiCredentialRequest:
+      type: object
+      properties:
+        apiKey:
+          type: string
+      required:
+        - apiKey
+    TestAiCredentialRequest:
+      type: object
+      properties:
+        apiKey:
+          description: Test this value instead of the saved key. Never persisted by the test endpoint.
+          type: string

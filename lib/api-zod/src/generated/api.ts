@@ -505,3 +505,65 @@ export const TestAiProviderResponse = zod.object({
 })
 
 
+/**
+ * @summary BYOK credential status for each SaaS-selectable AI provider (never the key itself, SaaS mode only)
+ */
+export const ListAiCredentialsResponseItem = zod.object({
+  "provider": zod.enum(['anthropic-api', 'openai-compatible']).describe('AI providers selectable via BYOK in saas mode (lib\/config.ts BYOK_PROVIDERS).'),
+  "configured": zod.boolean(),
+  "hint": zod.string().nullable().describe('Last 4 characters of the saved key, or null when none is saved.'),
+  "lastOkAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+}).describe('Never carries the key itself - see docs\/SAAS-ARCHITECTURE.md section 5.')
+export const ListAiCredentialsResponse = zod.array(ListAiCredentialsResponseItem)
+
+
+/**
+ * @summary Encrypt and store an API key for one BYOK provider (SaaS mode only)
+ */
+export const SaveAiCredentialParams = zod.object({
+  "provider": zod.enum(['anthropic-api', 'openai-compatible'])
+})
+
+export const SaveAiCredentialBody = zod.object({
+  "apiKey": zod.string()
+})
+
+export const SaveAiCredentialResponse = zod.object({
+  "provider": zod.enum(['anthropic-api', 'openai-compatible']).describe('AI providers selectable via BYOK in saas mode (lib\/config.ts BYOK_PROVIDERS).'),
+  "configured": zod.boolean(),
+  "hint": zod.string().nullable().describe('Last 4 characters of the saved key, or null when none is saved.'),
+  "lastOkAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+}).describe('Never carries the key itself - see docs\/SAAS-ARCHITECTURE.md section 5.')
+
+
+/**
+ * @summary Remove a stored BYOK credential (SaaS mode only)
+ */
+export const DeleteAiCredentialParams = zod.object({
+  "provider": zod.enum(['anthropic-api', 'openai-compatible'])
+})
+
+export const DeleteAiCredentialResponse = zod.void()
+
+
+/**
+ * Pass `apiKey` to test a candidate value before saving it - never persisted by this endpoint, saving is always the separate PUT. Omit it to test the already-saved key, which also records last_ok_at / last_error on it.
+ * @summary Make one small real call to a BYOK provider with the given or stored key (SaaS mode only)
+ */
+export const TestAiCredentialParams = zod.object({
+  "provider": zod.enum(['anthropic-api', 'openai-compatible'])
+})
+
+export const TestAiCredentialBody = zod.object({
+  "apiKey": zod.string().optional().describe('Test this value instead of the saved key. Never persisted by the test endpoint.')
+})
+
+export const TestAiCredentialResponse = zod.object({
+  "ok": zod.boolean(),
+  "latencyMs": zod.number(),
+  "error": zod.string().nullable()
+})
+
+

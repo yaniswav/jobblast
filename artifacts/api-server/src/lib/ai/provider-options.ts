@@ -9,7 +9,9 @@
 // capability table, so this list can never drift from what provider.ts
 // itself would do at runtime.
 
-import { AI_PROVIDERS, loadConfig, type AiProviderName } from "../config";
+import { AI_PROVIDERS, BYOK_PROVIDERS, loadConfig, type AiProviderName, type ByokProviderName } from "../config";
+import { IS_SAAS } from "../mode";
+import { getCredentialStatus } from "../repo/ai-credentials";
 import { createClaudeCliProvider } from "./providers/claude-cli";
 import { createCodexCliProvider } from "./providers/codex-cli";
 import { createGeminiCliProvider } from "./providers/gemini-cli";
@@ -159,7 +161,38 @@ async function describeProvider(id: AiProviderName): Promise<AiProviderOption> {
   }
 }
 
-/** One descriptor per entry in `AI_PROVIDERS`, detected fresh (subject to the 60s probe cache). */
-export async function listAiProviderOptions(): Promise<AiProviderOption[]> {
+/**
+ * In `saas`, availability is "has this account saved a working-shaped key",
+ * not "is an env var set on the server" - there is no server-wide key to
+ * check, and detecting local CLIs / localhost servers makes no sense for a
+ * shared server process. The key itself is stored via
+ * PUT /settings/ai/credentials/{provider} (lib/repo/ai-credentials.ts), not
+ * through this endpoint.
+ */
+async function describeByok(id: ByokProviderName, userId: string): Promise<AiProviderOption> {
+  const status = await getCredentialStatus(userId, id);
+  return {
+    id,
+    available: status.configured,
+    detail: status.configured
+      ? `Using your saved key (ending ${status.hint}).`
+      : "Add your API key below to enable this provider.",
+    capabilities: capabilitiesFor(id),
+    requiresEnv: null,
+    envSet: true,
+  };
+}
+
+/**
+ * One descriptor per selectable provider, detected fresh (subject to the 60s
+ * probe cache in selfhosted). `userId` is required in `saas` (BYOK
+ * availability is per account) and ignored in `selfhosted`.
+ */
+export async function listAiProviderOptions(userId: string): Promise<AiProviderOption[]> {
+  if (IS_SAAS) {
+    const none = await describeNone();
+    const byok = await Promise.all(BYOK_PROVIDERS.map((id) => describeByok(id, userId)));
+    return [none, ...byok];
+  }
   return Promise.all(AI_PROVIDERS.map(describeProvider));
 }

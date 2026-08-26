@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AiCredentialStatus,
   AiProviderOption,
   AiTestResult,
   Application,
@@ -41,8 +42,10 @@ import type {
   Profile,
   ProfileUpdate,
   RegisterRequest,
+  SaveAiCredentialRequest,
   SettingsState,
-  SettingsUpdate
+  SettingsUpdate,
+  TestAiCredentialRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2020,5 +2023,298 @@ export const useTestAiProvider = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getTestAiProviderMutationOptions(options));
+    }
+
+export const getListAiCredentialsUrl = () => {
+
+
+
+
+  return `/api/settings/ai/credentials`
+}
+
+/**
+ * @summary BYOK credential status for each SaaS-selectable AI provider (never the key itself, SaaS mode only)
+ */
+export const listAiCredentials = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiCredentialStatus[]> => {
+
+  return customFetch<AiCredentialStatus[]>(getListAiCredentialsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAiCredentialsQueryKey = () => {
+    return [
+    `/api/settings/ai/credentials`
+    ] as const;
+    }
+
+
+export const getListAiCredentialsQueryOptions = <TData = Awaited<ReturnType<typeof listAiCredentials>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAiCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAiCredentialsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiCredentials>>> = ({ signal }) => listAiCredentials({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAiCredentials>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAiCredentialsQueryResult = NonNullable<Awaited<ReturnType<typeof listAiCredentials>>>
+export type ListAiCredentialsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary BYOK credential status for each SaaS-selectable AI provider (never the key itself, SaaS mode only)
+ */
+
+export function useListAiCredentials<TData = Awaited<ReturnType<typeof listAiCredentials>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAiCredentials>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAiCredentialsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveAiCredentialUrl = (provider: 'anthropic-api' | 'openai-compatible',) => {
+
+
+
+
+  return `/api/settings/ai/credentials/${provider}`
+}
+
+/**
+ * @summary Encrypt and store an API key for one BYOK provider (SaaS mode only)
+ */
+export const saveAiCredential = async (provider: 'anthropic-api' | 'openai-compatible',
+    saveAiCredentialRequest: SaveAiCredentialRequest, options?: Parameters<typeof customFetch>[1]): Promise<AiCredentialStatus> => {
+
+  return customFetch<AiCredentialStatus>(getSaveAiCredentialUrl(provider),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(saveAiCredentialRequest)
+  }
+);}
+
+
+
+
+
+export const getSaveAiCredentialMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible';data: BodyType<SaveAiCredentialRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible';data: BodyType<SaveAiCredentialRequest>}, TContext> => {
+
+const mutationKey = ['saveAiCredential'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveAiCredential>>, {provider: 'anthropic-api' | 'openai-compatible';data: BodyType<SaveAiCredentialRequest>}> = (props) => {
+          const {provider,data} = props ?? {};
+
+          return  saveAiCredential(provider,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveAiCredentialMutationResult = NonNullable<Awaited<ReturnType<typeof saveAiCredential>>>
+    export type SaveAiCredentialMutationBody = BodyType<SaveAiCredentialRequest>
+    export type SaveAiCredentialMutationError = ErrorType<Error>
+
+    /**
+ * @summary Encrypt and store an API key for one BYOK provider (SaaS mode only)
+ */
+export const useSaveAiCredential = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible';data: BodyType<SaveAiCredentialRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveAiCredential>>,
+        TError,
+        {provider: 'anthropic-api' | 'openai-compatible';data: BodyType<SaveAiCredentialRequest>},
+        TContext
+      > => {
+      return useMutation(getSaveAiCredentialMutationOptions(options));
+    }
+
+export const getDeleteAiCredentialUrl = (provider: 'anthropic-api' | 'openai-compatible',) => {
+
+
+
+
+  return `/api/settings/ai/credentials/${provider}`
+}
+
+/**
+ * @summary Remove a stored BYOK credential (SaaS mode only)
+ */
+export const deleteAiCredential = async (provider: 'anthropic-api' | 'openai-compatible', options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAiCredentialUrl(provider),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAiCredentialMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible'}, TContext> => {
+
+const mutationKey = ['deleteAiCredential'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAiCredential>>, {provider: 'anthropic-api' | 'openai-compatible'}> = (props) => {
+          const {provider} = props ?? {};
+
+          return  deleteAiCredential(provider,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAiCredentialMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAiCredential>>>
+
+    export type DeleteAiCredentialMutationError = ErrorType<Error>
+
+    /**
+ * @summary Remove a stored BYOK credential (SaaS mode only)
+ */
+export const useDeleteAiCredential = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible'}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAiCredential>>,
+        TError,
+        {provider: 'anthropic-api' | 'openai-compatible'},
+        TContext
+      > => {
+      return useMutation(getDeleteAiCredentialMutationOptions(options));
+    }
+
+export const getTestAiCredentialUrl = (provider: 'anthropic-api' | 'openai-compatible',) => {
+
+
+
+
+  return `/api/settings/ai/credentials/${provider}/test`
+}
+
+/**
+ * Pass `apiKey` to test a candidate value before saving it - never persisted by this endpoint, saving is always the separate PUT. Omit it to test the already-saved key, which also records last_ok_at / last_error on it.
+ * @summary Make one small real call to a BYOK provider with the given or stored key (SaaS mode only)
+ */
+export const testAiCredential = async (provider: 'anthropic-api' | 'openai-compatible',
+    testAiCredentialRequest?: TestAiCredentialRequest, options?: Parameters<typeof customFetch>[1]): Promise<AiTestResult> => {
+
+  return customFetch<AiTestResult>(getTestAiCredentialUrl(provider),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(testAiCredentialRequest)
+  }
+);}
+
+
+
+
+
+export const getTestAiCredentialMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible';data?: BodyType<TestAiCredentialRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible';data?: BodyType<TestAiCredentialRequest>}, TContext> => {
+
+const mutationKey = ['testAiCredential'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testAiCredential>>, {provider: 'anthropic-api' | 'openai-compatible';data?: BodyType<TestAiCredentialRequest>}> = (props) => {
+          const {provider,data} = props ?? {};
+
+          return  testAiCredential(provider,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestAiCredentialMutationResult = NonNullable<Awaited<ReturnType<typeof testAiCredential>>>
+    export type TestAiCredentialMutationBody = BodyType<TestAiCredentialRequest> | undefined
+    export type TestAiCredentialMutationError = ErrorType<Error>
+
+    /**
+ * @summary Make one small real call to a BYOK provider with the given or stored key (SaaS mode only)
+ */
+export const useTestAiCredential = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testAiCredential>>, TError,{provider: 'anthropic-api' | 'openai-compatible';data?: BodyType<TestAiCredentialRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testAiCredential>>,
+        TError,
+        {provider: 'anthropic-api' | 'openai-compatible';data?: BodyType<TestAiCredentialRequest>},
+        TContext
+      > => {
+      return useMutation(getTestAiCredentialMutationOptions(options));
     }
 

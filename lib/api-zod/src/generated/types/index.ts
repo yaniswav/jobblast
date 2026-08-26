@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiCredentialStatus';
 export * from './aiProviderCapabilities';
 export * from './aiProviderId';
 export * from './aiProviderOption';
@@ -21,6 +22,7 @@ export * from './applicationStatusParameter';
 export * from './applicationUpdate';
 export * from './authSession';
 export * from './authUser';
+export * from './byokProviderId';
 export * from './dashboardSummary';
 export * from './documentMeta';
 export * from './documentType';
@@ -48,6 +50,8 @@ export * from './notionInboxSettingsUpdate';
 export * from './profile';
 export * from './profileUpdate';
 export * from './registerRequest';
+export * from './saveAiCredentialRequest';
 export * from './searchParameter';
 export * from './settingsState';
 export * from './settingsUpdate';
+export * from './testAiCredentialRequest';

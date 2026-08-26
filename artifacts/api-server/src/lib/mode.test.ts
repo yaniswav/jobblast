@@ -22,9 +22,11 @@ describe("missingSaasEnv", () => {
   });
 
   it("names what saas is missing", () => {
-    expect(missingSaasEnv("saas", {})).toEqual(["APP_ORIGIN"]);
-    expect(missingSaasEnv("saas", { APP_ORIGIN: "   " })).toEqual(["APP_ORIGIN"]);
-    expect(missingSaasEnv("saas", { APP_ORIGIN: "https://example.test" })).toEqual([]);
+    expect(missingSaasEnv("saas", {})).toEqual(["APP_ORIGIN", "JOBBLAST_MASTER_KEY"]);
+    expect(missingSaasEnv("saas", { APP_ORIGIN: "   " })).toEqual(["APP_ORIGIN", "JOBBLAST_MASTER_KEY"]);
+    expect(
+      missingSaasEnv("saas", { APP_ORIGIN: "https://example.test", JOBBLAST_MASTER_KEY: "anything" }),
+    ).toEqual([]);
   });
 });
 
