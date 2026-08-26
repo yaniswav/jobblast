@@ -19,6 +19,8 @@
     "dev:api": "pnpm --filter @workspace/api-server run dev",
     "dev:web": "pnpm --filter @workspace/jobblast run dev",
     "db:push": "pnpm --filter @workspace/db run push",
+    "db:migrate": "pnpm --filter @workspace/scripts run migrate-multi-tenant",
+    "invite": "pnpm --filter @workspace/scripts run invite",
     "test": "pnpm --filter @workspace/api-server run test"
   },
   "private": true,

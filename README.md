@@ -91,6 +91,13 @@ match it - see `docs/CONFIG.md`. For a fully-narrated, non-expert walkthrough
 (installing Node/pnpm/Docker included), see `docs/TUTORIAL.md` (English) or
 `docs/TUTORIEL.md` (French).
 
+**Upgrading an install created before v0.3?** Run `pnpm run db:migrate`
+*before* `pnpm run db:push` (add `-- --dry-run` first to see what it would
+do). It moves the schema to the multi-tenant shape - your data stays put and
+nothing is dropped - and `db:push` alone cannot do that in the right order.
+A fresh clone does not need it. Nothing else changes: a self-hosted install
+still has no accounts and no login screen.
+
 ## Requirements
 
 - **Node.js ≥ 24** (the API server's start script uses

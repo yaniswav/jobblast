@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
+import { requireUser } from "../lib/auth/middleware";
 import healthRouter from "./health";
+import authRouter from "./auth";
 import dashboardRouter from "./dashboard";
 import jobsRouter from "./jobs";
 import applicationsRouter from "./applications";
@@ -9,7 +11,13 @@ import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
+// Applied once, here, rather than per route: a route added later is behind
+// auth by default. The public paths (/healthz and the /auth/* endpoints)
+// are an explicit allowlist inside requireUser.
+router.use(requireUser);
+
 router.use(healthRouter);
+router.use(authRouter);
 router.use(dashboardRouter);
 router.use(jobsRouter);
 router.use(applicationsRouter);

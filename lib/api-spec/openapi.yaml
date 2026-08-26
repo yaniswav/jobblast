@@ -22,7 +22,92 @@ tags:
     description: CV / cover letter document management
   - name: settings
     description: AI provider setup wizard and automation toggles
+  - name: auth
+    description: Mode discovery and, in SaaS mode, accounts and sessions
 paths:
+  /auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [auth]
+      summary: Which mode this server runs in, and who is signed in
+      description: >
+        Public. In selfhosted mode the implicit local user is always
+        returned, so the frontend never shows a login screen.
+      responses:
+        "200":
+          description: Current mode and session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create an account from an invite code (SaaS mode only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          description: Invalid invite code, email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Registration does not exist in selfhosted mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in with email and password (SaaS mode only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Wrong email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Sign in does not exist in selfhosted mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Signed out
   /healthz:
     get:
       operationId: healthCheck
@@ -460,6 +545,59 @@ components:
           type: string
       required:
         - error
+    JobBlastMode:
+      type: string
+      enum: [selfhosted, saas]
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: ["string", "null"]
+      required:
+        - id
+        - email
+        - displayName
+    AuthSession:
+      type: object
+      properties:
+        mode:
+          $ref: "#/components/schemas/JobBlastMode"
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+      required:
+        - mode
+        - user
+    RegisterRequest:
+      type: object
+      properties:
+        inviteCode:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+      required:
+        - inviteCode
+        - email
+        - password
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
     JobStatus:
       type: string
       enum: [queued, skipped, applied]

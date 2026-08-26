@@ -1,11 +1,15 @@
+import { LOCAL_USER_ID } from "@workspace/db";
 import app from "./app";
 import { runFitAnalysisPass } from "./lib/ai/fit-analysis";
 import { runInterviewBriefPass } from "./lib/ai/interview-brief";
 import { logAiProviderStatus } from "./lib/ai/provider";
 import { runTailoringPass } from "./lib/ai/tailor";
+import { ensureLocalUser } from "./lib/auth/store";
 import { runGmailSyncPass } from "./lib/gmail-sync";
 import { logger } from "./lib/logger";
+import { IS_SAAS, MODE, runStartupPreflight } from "./lib/mode";
 import { refreshJobListings } from "./lib/sources/refresh";
+import { runWithUser } from "./lib/user-context";
 
 const JOB_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const TAILORING_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
@@ -19,20 +23,58 @@ const TAILORING_BATCH_SIZE = 10;
 // one of the two things that can queue one (an interview invitation read out
 // of the mailbox); it also returns immediately whenever nothing is pending,
 // which is the normal case.
-async function runAiPasses(): Promise<void> {
-  await runTailoringPass(TAILORING_BATCH_SIZE).catch((err: unknown) => {
+async function runAiPasses(userId: string): Promise<void> {
+  await runTailoringPass(userId, TAILORING_BATCH_SIZE).catch((err: unknown) => {
     logger.error({ err }, "AI tailoring pass failed");
   });
-  await runFitAnalysisPass(TAILORING_BATCH_SIZE).catch((err: unknown) => {
+  await runFitAnalysisPass(userId, TAILORING_BATCH_SIZE).catch((err: unknown) => {
     logger.error({ err }, "AI fit-analysis pass failed");
   });
-  await runGmailSyncPass().catch((err: unknown) => {
+  await runGmailSyncPass(userId).catch((err: unknown) => {
     logger.error({ err }, "Gmail sync pass failed");
   });
-  await runInterviewBriefPass().catch((err: unknown) => {
+  await runInterviewBriefPass(userId).catch((err: unknown) => {
     logger.error({ err }, "Interview brief pass failed");
   });
 }
+
+/**
+ * The self-hosted background schedule: two timers acting for the one
+ * implicit account, exactly as before this became multi-tenant.
+ *
+ * In `saas` these do not run at all. Aggregation and the AI passes move onto
+ * the per-user job queue in a later lot; until then a SaaS process serves
+ * requests and nothing else, rather than silently doing one account's work
+ * on a timer.
+ */
+function startSelfHostedSchedule(): void {
+  const run = (label: string, fn: () => Promise<unknown>): Promise<void> =>
+    runWithUser(LOCAL_USER_ID, fn)
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        logger.error({ err }, label);
+      });
+
+  // Populate/refresh real job listings without blocking server startup, then
+  // kick off the AI passes (also non-blocking) once it settles.
+  void run("Initial job refresh failed", () => refreshJobListings(LOCAL_USER_ID)).finally(() => {
+    void run("Initial AI passes failed", () => runAiPasses(LOCAL_USER_ID));
+  });
+
+  setInterval(() => {
+    void run("Scheduled job refresh failed", () => refreshJobListings(LOCAL_USER_ID)).finally(() => {
+      void run("Post-refresh AI passes failed", () => runAiPasses(LOCAL_USER_ID));
+    });
+  }, JOB_REFRESH_INTERVAL_MS);
+
+  // Independent 30-minute cadence so the AI passes also progress between
+  // 6-hour refreshes (e.g. catching up on a backlog after startup).
+  setInterval(() => {
+    void run("Scheduled AI passes failed", () => runAiPasses(LOCAL_USER_ID));
+  }, TAILORING_INTERVAL_MS);
+}
+
+runStartupPreflight();
 
 const rawPort = process.env["PORT"];
 
@@ -54,38 +96,20 @@ app.listen(port, (err) => {
     process.exit(1);
   }
 
-  logger.info({ port }, "Server listening");
+  logger.info({ port, mode: MODE }, "Server listening");
+
+  if (IS_SAAS) {
+    logger.info(
+      "saas mode: background aggregation and AI passes are off (they move onto the per-user job queue in a later lot)",
+    );
+    return;
+  }
+
   logAiProviderStatus();
 
-  // Populate/refresh real job listings without blocking server startup, then
-  // kick off the AI passes (also non-blocking) once it settles.
-  refreshJobListings()
-    .catch((err: unknown) => {
-      logger.error({ err }, "Initial job refresh failed");
-    })
-    .finally(() => {
-      runAiPasses().catch((err: unknown) => {
-        logger.error({ err }, "Initial AI passes failed");
-      });
+  ensureLocalUser()
+    .then(startSelfHostedSchedule)
+    .catch((seedErr: unknown) => {
+      logger.error({ err: seedErr }, "Could not seed the local user; background passes are off");
     });
-
-  setInterval(() => {
-    refreshJobListings()
-      .catch((err: unknown) => {
-        logger.error({ err }, "Scheduled job refresh failed");
-      })
-      .finally(() => {
-        runAiPasses().catch((err: unknown) => {
-          logger.error({ err }, "Post-refresh AI passes failed");
-        });
-      });
-  }, JOB_REFRESH_INTERVAL_MS);
-
-  // Independent 30-minute cadence so the AI passes also progress between
-  // 6-hour refreshes (e.g. catching up on a backlog after startup).
-  setInterval(() => {
-    runAiPasses().catch((err: unknown) => {
-      logger.error({ err }, "Scheduled AI passes failed");
-    });
-  }, TAILORING_INTERVAL_MS);
 });

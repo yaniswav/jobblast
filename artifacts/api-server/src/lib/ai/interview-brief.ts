@@ -28,15 +28,16 @@
 // batch is small (2 briefs per pass) because each run is a multi-minute web
 // research session.
 
-import { and, asc, eq } from "drizzle-orm";
+import type { FitAnalysis } from "@workspace/db";
+import { getApplicationWithPosting } from "../repo/applications";
 import {
-  applicationsTable,
-  db,
-  interviewBriefsTable,
-  jobListingsTable,
-  profilesTable,
-  type FitAnalysis,
-} from "@workspace/db";
+  listPendingBriefs,
+  queueBrief,
+  reclaimStuckBriefs,
+  resetBrief,
+  updateBrief,
+} from "../repo/interview-briefs";
+import { getProfile } from "../repo/profile";
 import { logger } from "../logger";
 import { letterLanguageRule } from "./language";
 import { configuredProviderName, getAgentProvider, type AgentProvider } from "./provider";
@@ -68,18 +69,14 @@ const MIN_H2_SECTIONS = 4;
  *
  * Returns true when a new row was inserted.
  */
-export async function ensureInterviewBrief(applicationId: number): Promise<boolean> {
+export async function ensureInterviewBrief(
+  userId: string,
+  applicationId: number,
+): Promise<boolean> {
   try {
-    const [existing] = await db
-      .select({ id: interviewBriefsTable.id })
-      .from(interviewBriefsTable)
-      .where(eq(interviewBriefsTable.applicationId, applicationId))
-      .limit(1);
-    if (existing) return false;
-
-    await db.insert(interviewBriefsTable).values({ applicationId, status: "pending" });
-    logger.info({ applicationId }, "Interview brief queued");
-    return true;
+    const queued = await queueBrief(userId, applicationId);
+    if (queued) logger.info({ applicationId }, "Interview brief queued");
+    return queued;
   } catch (err) {
     logger.error({ err, applicationId }, "Interview brief: failed to queue");
     return false;
@@ -234,17 +231,8 @@ type BriefContext = {
 };
 
 /** Everything one brief needs, or null when the row is unusable. */
-async function loadBriefInput(applicationId: number) {
-  const [row] = await db
-    .select({
-      application: applicationsTable,
-      job: jobListingsTable,
-    })
-    .from(applicationsTable)
-    .innerJoin(jobListingsTable, eq(applicationsTable.jobId, jobListingsTable.id))
-    .where(eq(applicationsTable.id, applicationId))
-    .limit(1);
-  return row ?? null;
+async function loadBriefInput(userId: string, applicationId: number) {
+  return getApplicationWithPosting(userId, applicationId);
 }
 
 async function generateBrief(
@@ -252,7 +240,7 @@ async function generateBrief(
   context: BriefContext,
   provider: AgentProvider,
 ): Promise<string | null> {
-  const { application, job } = input;
+  const { application, posting: job, fitAnalysis } = input;
 
   const prompt = buildInterviewBriefPrompt({
     masterResume: context.masterResume,
@@ -263,7 +251,7 @@ async function generateBrief(
     company: application.company || job.company,
     location: application.location || job.location,
     description: job.description,
-    fitAnalysis: job.fitAnalysis,
+    fitAnalysis,
   });
 
   const rawResult = await provider.runAgent(prompt, {
@@ -313,15 +301,19 @@ function briefAgent(): AgentProvider | null {
  * parked as "failed" with the reason once the cap is reached. Only an
  * explicit regenerate brings a "failed" row back.
  */
-async function recordFailure(applicationId: number, message: string): Promise<void> {
+async function recordFailure(
+  userId: string,
+  applicationId: number,
+  message: string,
+): Promise<void> {
   const attempts = (attemptsByApplication.get(applicationId) ?? 0) + 1;
   attemptsByApplication.set(applicationId, attempts);
 
   const exhausted = attempts >= MAX_ATTEMPTS_PER_BRIEF;
-  await db
-    .update(interviewBriefsTable)
-    .set({ status: exhausted ? "failed" : "pending", error: message.slice(0, 2000) })
-    .where(eq(interviewBriefsTable.applicationId, applicationId));
+  await updateBrief(userId, applicationId, {
+    status: exhausted ? "failed" : "pending",
+    error: message.slice(0, 2000),
+  });
 
   logger.warn(
     { applicationId, attempts, exhausted },
@@ -337,7 +329,10 @@ async function recordFailure(applicationId: number, message: string): Promise<vo
  * Never throws: every failure is recorded on the row and logged, same
  * contract as the other periodic passes.
  */
-export async function runInterviewBriefPass(limit: number = DEFAULT_LIMIT): Promise<void> {
+export async function runInterviewBriefPass(
+  userId: string,
+  limit: number = DEFAULT_LIMIT,
+): Promise<void> {
   if (passRunning) {
     logger.debug("Interview brief pass already running, skipping this trigger");
     return;
@@ -352,31 +347,22 @@ export async function runInterviewBriefPass(limit: number = DEFAULT_LIMIT): Prom
     // Crash recovery: the module guard above means no other pass is holding a
     // row right now, so anything still "generating" belongs to a process that
     // died mid-run and would otherwise be stuck forever.
-    const reclaimed = await db
-      .update(interviewBriefsTable)
-      .set({ status: "pending" })
-      .where(eq(interviewBriefsTable.status, "generating"))
-      .returning({ applicationId: interviewBriefsTable.applicationId });
-    if (reclaimed.length > 0) {
-      logger.warn({ count: reclaimed.length }, "Interview brief: reclaimed rows left in 'generating' by a previous run");
+    const reclaimed = await reclaimStuckBriefs(userId);
+    if (reclaimed > 0) {
+      logger.warn({ count: reclaimed }, "Interview brief: reclaimed rows left mid-generation by a previous run");
     }
 
-    const pending = await db
-      .select({ applicationId: interviewBriefsTable.applicationId })
-      .from(interviewBriefsTable)
-      .where(eq(interviewBriefsTable.status, "pending"))
-      .orderBy(asc(interviewBriefsTable.createdAt))
-      .limit(limit);
+    const pending = await listPendingBriefs(userId, limit);
 
     const eligible = pending.filter(
-      (row) => (attemptsByApplication.get(row.applicationId) ?? 0) < MAX_ATTEMPTS_PER_BRIEF,
+      (applicationId) => (attemptsByApplication.get(applicationId) ?? 0) < MAX_ATTEMPTS_PER_BRIEF,
     );
     if (eligible.length === 0) {
       logger.debug("Interview brief pass: nothing pending");
       return;
     }
 
-    const [profile] = await db.select().from(profilesTable).limit(1);
+    const profile = await getProfile(userId);
     if (!profile) {
       logger.warn("Interview brief pass: no profile row found, skipping");
       return;
@@ -388,40 +374,39 @@ export async function runInterviewBriefPass(limit: number = DEFAULT_LIMIT): Prom
     let succeeded = 0;
     let failed = 0;
 
-    for (const { applicationId } of eligible) {
+    for (const applicationId of eligible) {
       const startedAt = Date.now();
       try {
-        const input = await loadBriefInput(applicationId);
+        const input = await loadBriefInput(userId, applicationId);
         if (!input) {
           // The application (or its job) is gone. Nothing will ever fix this
           // row, so park it rather than retrying every 30 minutes.
-          await db
-            .update(interviewBriefsTable)
-            .set({ status: "failed", error: "The application this brief belongs to no longer exists" })
-            .where(eq(interviewBriefsTable.applicationId, applicationId));
+          await updateBrief(userId, applicationId, {
+            status: "failed",
+            error: "The application this brief belongs to no longer exists",
+          });
           failed++;
           continue;
         }
 
-        await db
-          .update(interviewBriefsTable)
-          .set({ status: "generating", error: null })
-          .where(eq(interviewBriefsTable.applicationId, applicationId));
+        await updateBrief(userId, applicationId, { status: "generating", error: null });
 
         const markdown = await generateBrief(input, context, provider);
         const ms = Date.now() - startedAt;
 
         if (!markdown) {
           failed++;
-          await recordFailure(applicationId, "The AI returned something that was not a usable brief");
+          await recordFailure(userId, applicationId, "The AI returned something that was not a usable brief");
           logger.warn({ applicationId, ms, ok: false }, "Interview brief: invalid output");
           continue;
         }
 
-        await db
-          .update(interviewBriefsTable)
-          .set({ status: "ready", contentMarkdown: markdown, generatedAt: new Date(), error: null })
-          .where(eq(interviewBriefsTable.applicationId, applicationId));
+        await updateBrief(userId, applicationId, {
+          status: "ready",
+          contentMarkdown: markdown,
+          generatedAt: new Date(),
+          error: null,
+        });
 
         succeeded++;
         attemptsByApplication.delete(applicationId);
@@ -431,7 +416,7 @@ export async function runInterviewBriefPass(limit: number = DEFAULT_LIMIT): Prom
         const ms = Date.now() - startedAt;
         const message = err instanceof Error ? err.message : String(err);
         logger.error({ applicationId, ms, ok: false, err }, "Interview brief: generation failed");
-        await recordFailure(applicationId, message).catch((updateErr: unknown) => {
+        await recordFailure(userId, applicationId, message).catch((updateErr: unknown) => {
           logger.error({ err: updateErr, applicationId }, "Interview brief: could not record the failure");
         });
       }
@@ -452,34 +437,13 @@ export async function runInterviewBriefPass(limit: number = DEFAULT_LIMIT): Prom
  *
  * Returns false when the application has no brief row at all.
  */
-export async function resetInterviewBrief(applicationId: number): Promise<boolean> {
-  const [row] = await db
-    .update(interviewBriefsTable)
-    .set({ status: "pending", contentMarkdown: null, generatedAt: null, error: null })
-    .where(eq(interviewBriefsTable.applicationId, applicationId))
-    .returning({ id: interviewBriefsTable.id });
-  if (!row) return false;
+export async function resetInterviewBrief(
+  userId: string,
+  applicationId: number,
+): Promise<boolean> {
+  const reset = await resetBrief(userId, applicationId);
+  if (!reset) return false;
   attemptsByApplication.delete(applicationId);
   logger.info({ applicationId }, "Interview brief reset to pending");
   return true;
-}
-
-/** Reads one brief row, or null when the application has none. */
-export async function getInterviewBriefRow(applicationId: number) {
-  const [row] = await db
-    .select()
-    .from(interviewBriefsTable)
-    .where(eq(interviewBriefsTable.applicationId, applicationId))
-    .limit(1);
-  return row ?? null;
-}
-
-/** Reads a brief only if it is ready to be rendered (used by the PDF route). */
-export async function getReadyInterviewBrief(applicationId: number) {
-  const [row] = await db
-    .select()
-    .from(interviewBriefsTable)
-    .where(and(eq(interviewBriefsTable.applicationId, applicationId), eq(interviewBriefsTable.status, "ready")))
-    .limit(1);
-  return row ?? null;
 }

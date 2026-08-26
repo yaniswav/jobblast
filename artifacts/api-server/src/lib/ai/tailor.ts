@@ -16,10 +16,14 @@
 // `candidate.letterLanguages` / `candidate.fallbackLetterLanguage`. No
 // candidate detail is hardcoded here.
 
-import { and, desc, eq } from "drizzle-orm";
-import { db, jobListingsTable, profilesTable, type JobListing } from "@workspace/db";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
+import {
+  listUntailoredPostings,
+  saveTailoredContent,
+  type UserPostingRow,
+} from "../repo/postings";
+import { getProfile } from "../repo/profile";
 import { getCoverLetterTemplate } from "../sources/tailoring";
 import { letterLanguageRule } from "./language";
 import { configuredProviderName, disableAi, getTextProvider, isProviderUnavailable, type TextProvider } from "./provider";
@@ -129,7 +133,7 @@ type TailoringContext = {
 };
 
 async function generateTailoredContent(
-  job: JobListing,
+  job: UserPostingRow,
   context: TailoringContext,
   provider: TextProvider,
 ): Promise<TailoredContent | null> {
@@ -183,7 +187,10 @@ let noAiNoticeLogged = false;
  * No-ops (via a module-level guard) if a pass is already in progress, and
  * no-ops entirely when no text provider is configured or available.
  */
-export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<void> {
+export async function runTailoringPass(
+  userId: string,
+  limit: number = DEFAULT_LIMIT,
+): Promise<void> {
   if (passRunning) {
     logger.debug("AI tailoring pass already running, skipping this trigger");
     return;
@@ -204,24 +211,13 @@ export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<v
   passRunning = true;
 
   try {
-    const [profile] = await db.select().from(profilesTable).limit(1);
+    const profile = await getProfile(userId);
     if (!profile) {
       logger.warn("AI tailoring pass: no profile row found, skipping");
       return;
     }
 
-    const jobs = await db
-      .select()
-      .from(jobListingsTable)
-      .where(
-        and(
-          eq(jobListingsTable.status, "queued"),
-          eq(jobListingsTable.isSeed, false),
-          eq(jobListingsTable.aiGenerated, false),
-        ),
-      )
-      .orderBy(desc(jobListingsTable.relevanceScore))
-      .limit(limit);
+    const jobs = await listUntailoredPostings(userId, limit);
 
     // Jobs this process has already failed MAX_ATTEMPTS_PER_JOB times keep
     // their template content and are not tried again until a restart.
@@ -239,7 +235,7 @@ export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<v
     const context: TailoringContext = {
       masterResume: profile.masterResume,
       headline: profile.headline,
-      coverLetterTemplate: await getCoverLetterTemplate(),
+      coverLetterTemplate: await getCoverLetterTemplate(userId),
     };
 
     logger.info({ count: eligible.length, provider: provider.name }, "AI tailoring pass starting");
@@ -260,14 +256,7 @@ export async function runTailoringPass(limit: number = DEFAULT_LIMIT): Promise<v
           continue;
         }
 
-        await db
-          .update(jobListingsTable)
-          .set({
-            tailoredBullets: content.bullets,
-            coverLetter: content.coverLetter,
-            aiGenerated: true,
-          })
-          .where(eq(jobListingsTable.id, job.id));
+        await saveTailoredContent(userId, job.id, content);
 
         succeeded++;
         attemptsByJob.delete(job.id);

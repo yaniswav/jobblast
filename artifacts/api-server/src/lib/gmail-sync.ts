@@ -54,12 +54,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { eq } from "drizzle-orm";
-import { applicationsTable, db } from "@workspace/db";
 import { ensureInterviewBrief } from "./ai/interview-brief";
 import { configuredProviderName, getAgentProvider, type AgentProvider } from "./ai/provider";
 import { loadConfig } from "./config";
 import { logger } from "./logger";
+import { listApplications, updateApplication } from "./repo/applications";
 import { parseJsonArrayResponse } from "./sources/cli-json";
 import { REPO_ROOT } from "./storage";
 
@@ -736,7 +735,10 @@ export type GmailSyncSummary = {
  * run was under 3h ago. Never throws: a failure anywhere leaves the tracker
  * untouched and is logged, same contract as the other periodic passes.
  */
-export async function runGmailSyncPass(options: GmailSyncOptions = {}): Promise<GmailSyncSummary | null> {
+export async function runGmailSyncPass(
+  userId: string,
+  options: GmailSyncOptions = {},
+): Promise<GmailSyncSummary | null> {
   if (passRunning) {
     logger.debug("Gmail sync: a pass is already running, skipping this trigger");
     return null;
@@ -770,7 +772,7 @@ export async function runGmailSyncPass(options: GmailSyncOptions = {}): Promise<
       return { emailsRead: 0, acted: 0, skipped: 0, dryRun };
     }
 
-    const rows = await db.select().from(applicationsTable);
+    const rows = await listApplications(userId);
     // A mutable working copy: two e-mails in one run can concern the same
     // application, and the second decision has to see what the first did
     // (both for the status rules and so its note is appended, not lost to a
@@ -848,10 +850,10 @@ export async function runGmailSyncPass(options: GmailSyncOptions = {}): Promise<
 
       if (!dryRun) {
         try {
-          await db
-            .update(applicationsTable)
-            .set({ status: toStatus, notes: nextNotes })
-            .where(eq(applicationsTable.id, application.id));
+          await updateApplication(userId, application.id, {
+            status: toStatus,
+            notes: nextNotes,
+          });
         } catch (err) {
           skipped++;
           logger.error({ err, applicationId: application.id }, "Gmail sync: database update failed, leaving the row untouched");
@@ -864,7 +866,7 @@ export async function runGmailSyncPass(options: GmailSyncOptions = {}): Promise<
       // the row by hand - one shared helper, so both paths behave the same.
       // Never in a dry run: queueing is a write.
       if (!dryRun && toStatus === "interview" && fromStatus !== "interview") {
-        await ensureInterviewBrief(application.id);
+        await ensureInterviewBrief(userId, application.id);
       }
 
       // The working copy moves whether or not this was a dry run; the

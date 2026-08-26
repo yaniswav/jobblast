@@ -256,6 +256,23 @@ export const en = {
   'status.rejected': 'Rejected',
   'status.offer': 'Offer',
 
+  // Sign in / registration (SaaS mode only; never shown self-hosted)
+  'auth.signInTitle': 'Sign in',
+  'auth.signInSubtitle': 'Pick up where you left off.',
+  'auth.registerTitle': 'Create your account',
+  'auth.registerSubtitle': 'The beta is invite only. Enter the code you were sent.',
+  'auth.inviteCodeLabel': 'Invite code',
+  'auth.emailLabel': 'Email',
+  'auth.passwordLabel': 'Password',
+  'auth.passwordHint': 'At least 12 characters. No other rules.',
+  'auth.signInAction': 'Sign in',
+  'auth.registerAction': 'Create account',
+  'auth.working': 'Working…',
+  'auth.switchToRegister': 'Have an invite code? Create an account',
+  'auth.switchToSignIn': 'Already have an account? Sign in',
+  'auth.signInFailed': 'Wrong email or password.',
+  'auth.registerFailed': 'That did not work. Check your invite code, email and password.',
+
   // Not found page
   'notFound.title': 'Page not found',
   'notFound.body': 'This page does not exist, or has moved.',

@@ -104,6 +104,10 @@ async function buildAll() {
       // via paths relative to its own package directory, which breaks once
       // esbuild inlines it into a single bundled file.
       "pdfkit",
+      // @node-rs/argon2 is a napi-rs addon: its JS entry point picks the
+      // right prebuilt .node binary at runtime from paths relative to its
+      // own package directory, so it cannot be inlined either.
+      "@node-rs/argon2",
     ],
     sourcemap: "linked",
     alias: {

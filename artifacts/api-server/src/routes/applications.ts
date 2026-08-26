@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
 import {
   CreateApplicationBody,
   CreateApplicationResponse,
@@ -14,29 +13,39 @@ import {
   UpdateApplicationParams,
   UpdateApplicationResponse,
 } from "@workspace/api-zod";
-import { applicationsTable, db, jobListingsTable, type InterviewBrief } from "@workspace/db";
 import {
   ensureInterviewBrief,
-  getInterviewBriefRow,
-  getReadyInterviewBrief,
   resetInterviewBrief,
   runInterviewBriefPass,
 } from "../lib/ai/interview-brief";
-import { ensureJobBlastSeeded, getApplications } from "../lib/jobblast-data";
+import { actingUserId } from "../lib/auth/middleware";
 import { logger } from "../lib/logger";
 import { renderInterviewBriefPdf } from "../lib/pdf-interview-brief";
 import { sanitizeFilenameSegment } from "../lib/pdf-cover-letter";
+import {
+  createApplication,
+  getApplication,
+  listApplications,
+  updateApplication,
+} from "../lib/repo/applications";
+import {
+  getBrief,
+  getReadyBrief,
+  type InterviewBrief,
+} from "../lib/repo/interview-briefs";
+import { ensureProfile } from "../lib/repo/profile";
 
 const router: IRouter = Router();
 
 router.get("/applications", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
+  await ensureProfile(userId);
   const query = ListApplicationsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const applications = await getApplications();
+  const applications = await listApplications(userId);
   const filtered = query.data.status
     ? applications.filter((application) => application.status === query.data.status)
     : applications;
@@ -44,63 +53,32 @@ router.get("/applications", async (req, res): Promise<void> => {
 });
 
 router.post("/applications", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
+  await ensureProfile(userId);
   const body = CreateApplicationBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.message });
     return;
   }
-  const [job] = await db
-    .select()
-    .from(jobListingsTable)
-    .where(eq(jobListingsTable.id, body.data.jobId))
-    .limit(1);
-  if (!job) {
-    res.status(400).json({ error: "Job not found" });
-    return;
-  }
-  const [existing] = await db
-    .select({ id: applicationsTable.id })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.jobId, body.data.jobId))
-    .limit(1);
-  if (existing) {
-    res.status(400).json({ error: "This job is already tracked" });
-    return;
-  }
 
-  const [application] = await db.transaction(async (tx) => {
-    // The application row starts as "approved", not "applied": approving in
-    // the review queue only prepares the tailored resume/cover letter and
-    // tracks the intent to apply — nothing is actually submitted to the
-    // employer here. The user must still apply on the employer's site and
-    // then confirm via PATCH /applications/:id (status -> "applied").
-    const [created] = await tx
-      .insert(applicationsTable)
-      .values({
-        jobId: job.id,
-        title: job.title,
-        company: job.company,
-        companyInitials: job.companyInitials,
-        location: job.location,
-        status: "approved",
-        resumeVersion: body.data.resumeVersion,
-        coverLetterVersion: body.data.coverLetterVersion,
-        notes: body.data.notes ?? "",
-      })
-      .returning();
-    // The job listing itself still flips to "applied" so it leaves the
-    // review queue (GET /jobs filters queued listings by this status) —
-    // that's independent from the application's own status above.
-    await tx.update(jobListingsTable).set({ status: "applied" }).where(eq(jobListingsTable.id, job.id));
-    return [created];
+  const result = await createApplication(userId, {
+    postingId: body.data.jobId,
+    resumeVersion: body.data.resumeVersion,
+    coverLetterVersion: body.data.coverLetterVersion,
+    notes: body.data.notes ?? "",
   });
+  if (!result.ok) {
+    res.status(400).json({
+      error: result.error === "already-tracked" ? "This job is already tracked" : "Job not found",
+    });
+    return;
+  }
 
-  res.status(201).json(CreateApplicationResponse.parse(application));
+  res.status(201).json(CreateApplicationResponse.parse(result.application));
 });
 
 router.patch("/applications/:id", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = UpdateApplicationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -127,16 +105,8 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
   // Read the row before the write so the interview trigger below fires on
   // the transition into "interview", not on every later save of a row that
   // is already there.
-  const [previous] = await db
-    .select({ status: applicationsTable.status })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.id, params.data.id))
-    .limit(1);
-  const [application] = await db
-    .update(applicationsTable)
-    .set(update)
-    .where(eq(applicationsTable.id, params.data.id))
-    .returning();
+  const previous = await getApplication(userId, params.data.id);
+  const application = await updateApplication(userId, params.data.id, update);
   if (!application) {
     res.status(404).json({ error: "Application not found" });
     return;
@@ -146,7 +116,7 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
   // (lib/ai/interview-brief.ts) - this only puts the row in the queue, and
   // never fails the status update if it cannot.
   if (application.status === "interview" && previous?.status !== "interview") {
-    await ensureInterviewBrief(application.id);
+    await ensureInterviewBrief(userId, application.id);
   }
   res.json(UpdateApplicationResponse.parse(application));
 });
@@ -166,18 +136,14 @@ function toBriefResponse(brief: InterviewBrief) {
 }
 
 router.get("/applications/:id/interview-brief", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = GetInterviewBriefParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [application] = await db
-    .select({ id: applicationsTable.id, status: applicationsTable.status })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.id, params.data.id))
-    .limit(1);
+  const application = await getApplication(userId, params.data.id);
   if (!application) {
     res.status(404).json({ error: "Application not found" });
     return;
@@ -187,10 +153,10 @@ router.get("/applications/:id/interview-brief", async (req, res): Promise<void> 
   // (or by a path that skipped the trigger): asking for the brief of an
   // application that is in an interview queues it.
   if (application.status === "interview") {
-    await ensureInterviewBrief(application.id);
+    await ensureInterviewBrief(userId, application.id);
   }
 
-  const brief = await getInterviewBriefRow(application.id);
+  const brief = await getBrief(userId, application.id);
   if (!brief) {
     res.status(404).json({ error: "No interview brief for this application" });
     return;
@@ -199,14 +165,14 @@ router.get("/applications/:id/interview-brief", async (req, res): Promise<void> 
 });
 
 router.post("/applications/:id/interview-brief/regenerate", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = RegenerateInterviewBriefParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const reset = await resetInterviewBrief(params.data.id);
+  const reset = await resetInterviewBrief(userId, params.data.id);
   if (!reset) {
     res.status(404).json({ error: "No interview brief for this application" });
     return;
@@ -215,11 +181,11 @@ router.post("/applications/:id/interview-brief/regenerate", async (req, res): Pr
   // Fire-and-forget, same pattern as POST /jobs/refresh: don't hold the
   // response open for a multi-minute research run. The pass has its own
   // overlapping-call guard, so triggering it again mid-run is a no-op.
-  runInterviewBriefPass().catch((err: unknown) => {
+  runInterviewBriefPass(userId).catch((err: unknown) => {
     logger.error({ err }, "Manual interview brief regeneration failed");
   });
 
-  const brief = await getInterviewBriefRow(params.data.id);
+  const brief = await getBrief(userId, params.data.id);
   res.status(202).json(
     RegenerateInterviewBriefResponse.parse(
       brief ? toBriefResponse(brief) : { status: "pending", contentMarkdown: null, generatedAt: null, error: null },
@@ -228,23 +194,19 @@ router.post("/applications/:id/interview-brief/regenerate", async (req, res): Pr
 });
 
 router.get("/applications/:id/interview-brief.pdf", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = GetInterviewBriefPdfParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const brief = await getReadyInterviewBrief(params.data.id);
+  const brief = await getReadyBrief(userId, params.data.id);
   if (!brief?.contentMarkdown) {
     res.status(404).json({ error: "No interview brief ready for this application" });
     return;
   }
-  const [application] = await db
-    .select({ title: applicationsTable.title, company: applicationsTable.company })
-    .from(applicationsTable)
-    .where(eq(applicationsTable.id, params.data.id))
-    .limit(1);
+  const application = await getApplication(userId, params.data.id);
   if (!application) {
     res.status(404).json({ error: "Application not found" });
     return;

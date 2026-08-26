@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "setup": "tsx ./src/setup.ts",
+    "migrate-multi-tenant": "tsx ./src/migrate-multi-tenant.ts",
+    "invite": "tsx ./src/invite.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

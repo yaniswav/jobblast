@@ -13,7 +13,7 @@
 
 import fs from "node:fs";
 import { coverLetterTemplatePath } from "../config";
-import { getDocument } from "../documents-data";
+import { getDocument } from "../repo/documents";
 import { logger } from "../logger";
 import { extractPdfTextFromBuffer } from "../pdf-text";
 
@@ -84,11 +84,15 @@ export function tailoredBulletsFor(highlightedSkills: string[], profile: BulletP
   return bullets.slice(0, MAX_BULLETS);
 }
 
-let cachedTemplate: string | null = null;
+// Memoized per account: the fallback is that account's own uploaded cover
+// letter, so one cache entry for the whole process would leak one user's
+// letter into another user's drafts.
+const cachedTemplates = new Map<string, string>();
 
 /** Forget the memoized template (call after a cover_letter document upload). */
-export function resetCoverLetterTemplateCache(): void {
-  cachedTemplate = null;
+export function resetCoverLetterTemplateCache(userId?: string): void {
+  if (userId === undefined) cachedTemplates.clear();
+  else cachedTemplates.delete(userId);
 }
 
 /**
@@ -98,22 +102,23 @@ export function resetCoverLetterTemplateCache(): void {
  *   3. BUILT_IN_COVER_LETTER_TEMPLATE.
  * Memoized; never throws.
  */
-export async function getCoverLetterTemplate(): Promise<string> {
-  if (cachedTemplate !== null) return cachedTemplate;
+export async function getCoverLetterTemplate(userId: string): Promise<string> {
+  const cached = cachedTemplates.get(userId);
+  if (cached !== undefined) return cached;
 
   const templateFile = coverLetterTemplatePath();
   try {
     const text = await fs.promises.readFile(templateFile, "utf8");
     if (text.trim().length > 0) {
-      cachedTemplate = text.trim();
-      return cachedTemplate;
+      cachedTemplates.set(userId, text.trim());
+      return text.trim();
     }
   } catch {
     // No template file - fall through to the uploaded document.
   }
 
   try {
-    const document = await getDocument("cover_letter");
+    const document = await getDocument(userId, "cover_letter");
     if (document) {
       const buffer = await fs.promises.readFile(document.path);
       const text = (await extractPdfTextFromBuffer(buffer)).trim();
@@ -122,8 +127,8 @@ export async function getCoverLetterTemplate(): Promise<string> {
           { templateFile },
           "Cover letter template file not found, using the uploaded cover_letter document instead",
         );
-        cachedTemplate = text;
-        return cachedTemplate;
+        cachedTemplates.set(userId, text);
+        return text;
       }
     }
   } catch (err) {
@@ -134,8 +139,8 @@ export async function getCoverLetterTemplate(): Promise<string> {
     { templateFile },
     "No cover letter template file or uploaded letter found, using the built-in placeholder",
   );
-  cachedTemplate = BUILT_IN_COVER_LETTER_TEMPLATE;
-  return cachedTemplate;
+  cachedTemplates.set(userId, BUILT_IN_COVER_LETTER_TEMPLATE);
+  return BUILT_IN_COVER_LETTER_TEMPLATE;
 }
 
 export function coverLetterFor(title: string, company: string, template: string): string {

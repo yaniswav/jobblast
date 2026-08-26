@@ -20,7 +20,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { IS_SAAS } from "./mode";
 import { REPO_ROOT } from "./storage";
+import { currentUserId } from "./user-context";
 
 // ---------------------------------------------------------------------------
 // Building blocks
@@ -505,11 +507,54 @@ export function configPath(): string {
 
 let cached: JobBlastConfig | null = null;
 
+// ---------------------------------------------------------------------------
+// Per-account config (saas)
+//
+// `loadConfig()` is synchronous and called from a dozen deep call sites, so
+// in `saas` it reads a cache the auth middleware fills from `user_settings`
+// before any handler runs (see lib/config-store.ts:primeUserConfig). The
+// rule that makes this safe: with no ambient user, or no primed entry,
+// loadConfig() THROWS. Never a file, never a default, never another
+// account's settings.
+// ---------------------------------------------------------------------------
+
+const userConfigs = new Map<string, JobBlastConfig>();
+
+/** Fills the per-account cache. Called by lib/config-store.ts, not by routes. */
+export function setUserConfig(userId: string, config: JobBlastConfig): void {
+  userConfigs.set(userId, config);
+}
+
+export function clearUserConfig(userId?: string): void {
+  if (userId === undefined) userConfigs.clear();
+  else userConfigs.delete(userId);
+}
+
 /**
  * Reads, validates and caches the config. Missing file => defaults.
  * Malformed file or invalid schema => throws (fail fast at boot).
+ *
+ * In `saas` it resolves the ambient account instead of the file.
  */
 export function loadConfig(): JobBlastConfig {
+  if (IS_SAAS) {
+    const userId = currentUserId();
+    if (!userId) {
+      throw new Error(
+        "loadConfig() was called with no ambient user in saas mode. " +
+          "Every config read must run inside runWithUser().",
+      );
+    }
+    const config = userConfigs.get(userId);
+    if (!config) {
+      throw new Error(
+        `No configuration primed for user ${userId}. ` +
+          "primeUserConfig() must run before anything reads the config.",
+      );
+    }
+    return config;
+  }
+
   if (cached) return cached;
 
   const file = configPath();
@@ -538,9 +583,10 @@ export function loadConfig(): JobBlastConfig {
   return cached;
 }
 
-/** Test/CLI hook: forget the cached config so the next load re-reads the file. */
+/** Test/CLI hook: forget every cached config so the next load re-reads its source. */
 export function resetConfigCache(): void {
   cached = null;
+  userConfigs.clear();
 }
 
 /** Compiles a `{ pattern, flags }` pair, with a clear error on a bad pattern. */

@@ -21,10 +21,15 @@
 // with tailor.ts via lib/ai/language.ts). No candidate detail is hardcoded
 // here, and the model is explicitly told never to invent resume facts.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
-import { db, jobListingsTable, profilesTable, type FitAnalysis, type FitVerdict, type JobListing } from "@workspace/db";
+import type { FitAnalysis, FitVerdict } from "@workspace/db";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
+import {
+  listUnanalyzedPostings,
+  saveFitAnalysis,
+  type UserPostingRow,
+} from "../repo/postings";
+import { getProfile } from "../repo/profile";
 import { letterLanguageRule } from "./language";
 import { configuredProviderName, disableAi, getTextProvider, isProviderUnavailable, type TextProvider } from "./provider";
 import { sanitizeAiTexts } from "./sanitize";
@@ -127,7 +132,7 @@ type FitAnalysisContext = {
 
 /** Calls the configured provider once for `job` and returns validated fit analysis, or null if invalid. */
 async function generateFitAnalysis(
-  job: JobListing,
+  job: UserPostingRow,
   context: FitAnalysisContext,
   provider: TextProvider,
 ): Promise<FitAnalysis | null> {
@@ -185,7 +190,10 @@ let noAiNoticeLogged = false;
  * `ai.fitAnalysis.enabled` is false, and when no text provider is configured
  * or available.
  */
-export async function runFitAnalysisPass(limit: number = DEFAULT_LIMIT): Promise<void> {
+export async function runFitAnalysisPass(
+  userId: string,
+  limit: number = DEFAULT_LIMIT,
+): Promise<void> {
   if (passRunning) {
     logger.debug("AI fit-analysis pass already running, skipping this trigger");
     return;
@@ -211,24 +219,13 @@ export async function runFitAnalysisPass(limit: number = DEFAULT_LIMIT): Promise
   passRunning = true;
 
   try {
-    const [profile] = await db.select().from(profilesTable).limit(1);
+    const profile = await getProfile(userId);
     if (!profile) {
       logger.warn("AI fit-analysis pass: no profile row found, skipping");
       return;
     }
 
-    const jobs = await db
-      .select()
-      .from(jobListingsTable)
-      .where(
-        and(
-          eq(jobListingsTable.status, "queued"),
-          eq(jobListingsTable.isSeed, false),
-          isNull(jobListingsTable.fitAnalysis),
-        ),
-      )
-      .orderBy(desc(jobListingsTable.relevanceScore))
-      .limit(limit);
+    const jobs = await listUnanalyzedPostings(userId, limit);
 
     // Jobs this process has already failed MAX_ATTEMPTS_PER_JOB times stay
     // unanalyzed and are not tried again until a restart.
@@ -266,10 +263,7 @@ export async function runFitAnalysisPass(limit: number = DEFAULT_LIMIT): Promise
           continue;
         }
 
-        await db
-          .update(jobListingsTable)
-          .set({ fitAnalysis: analysis, fitAnalyzedAt: new Date() })
-          .where(eq(jobListingsTable.id, job.id));
+        await saveFitAnalysis(userId, job.id, analysis);
 
         succeeded++;
         attemptsByJob.delete(job.id);

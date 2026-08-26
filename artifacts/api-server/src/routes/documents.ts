@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
 import multer from "multer";
 import {
   GetDocumentFileParams,
@@ -8,9 +7,11 @@ import {
   UploadDocumentParams,
   UploadDocumentResponse,
 } from "@workspace/api-zod";
-import { db, profilesTable, type Document } from "@workspace/db";
-import { ensureDocumentsSeeded, getDocument, listDocuments, saveDocument } from "../lib/documents-data";
+import { actingUserId } from "../lib/auth/middleware";
+import { ensureDocumentsSeeded, saveDocument } from "../lib/documents-data";
 import { extractPdfTextFromBuffer } from "../lib/pdf-text";
+import { getDocument, listDocuments, type Document } from "../lib/repo/documents";
+import { ensureProfile, updateProfile } from "../lib/repo/profile";
 import { resetCoverLetterTemplateCache } from "../lib/sources/tailoring";
 import { logger } from "../lib/logger";
 
@@ -39,14 +40,16 @@ function toDocumentMeta(doc: Document) {
   };
 }
 
-router.get("/documents", async (_req, res): Promise<void> => {
-  await ensureDocumentsSeeded();
-  const docs = await listDocuments();
+router.get("/documents", async (req, res): Promise<void> => {
+  const userId = actingUserId(req);
+  await ensureDocumentsSeeded(userId);
+  const docs = await listDocuments(userId);
   res.json(ListDocumentsResponse.parse(docs.map(toDocumentMeta)));
 });
 
 router.post("/documents/:type", async (req, res, next): Promise<void> => {
-  await ensureDocumentsSeeded();
+  const userId = actingUserId(req);
+  await ensureDocumentsSeeded(userId);
   const params = UploadDocumentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -67,7 +70,7 @@ router.post("/documents/:type", async (req, res, next): Promise<void> => {
 
       try {
         const type = params.data.type;
-        const document = await saveDocument({
+        const document = await saveDocument(userId, {
           type,
           filename: file.originalname || `${type}.pdf`,
           mimeType: file.mimetype,
@@ -77,7 +80,7 @@ router.post("/documents/:type", async (req, res, next): Promise<void> => {
         // A new cover letter can become the AI tailoring reference template
         // (when no explicit template file is configured), so drop the
         // memoized one - see lib/sources/tailoring.ts.
-        if (type === "cover_letter") resetCoverLetterTemplateCache();
+        if (type === "cover_letter") resetCoverLetterTemplateCache(userId);
 
         // Only the CV upload feeds the master resume - the cover letter
         // upload is stored as-is and never touches profiles.masterResume.
@@ -87,14 +90,9 @@ router.post("/documents/:type", async (req, res, next): Promise<void> => {
           try {
             const text = (await extractPdfTextFromBuffer(file.buffer)).trim();
             if (text) {
-              const [profile] = await db.select().from(profilesTable).limit(1);
-              if (profile) {
-                await db
-                  .update(profilesTable)
-                  .set({ masterResume: text })
-                  .where(eq(profilesTable.id, profile.id));
-                resumeUpdated = true;
-              }
+              await ensureProfile(userId);
+              const updated = await updateProfile(userId, { masterResume: text });
+              resumeUpdated = updated !== null;
             }
           } catch (extractErr) {
             logger.error(
@@ -118,13 +116,17 @@ router.post("/documents/:type", async (req, res, next): Promise<void> => {
 });
 
 router.get("/documents/:type/file", async (req, res): Promise<void> => {
-  await ensureDocumentsSeeded();
+  const userId = actingUserId(req);
+  await ensureDocumentsSeeded(userId);
   const params = GetDocumentFileParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const document = await getDocument(params.data.type);
+  // Scoped by account: a request for another account's document finds no row
+  // and gets a 404, never a 403 (which would confirm existence). No file
+  // path ever crosses the API boundary.
+  const document = await getDocument(userId, params.data.type);
   if (!document) {
     res.status(404).json({ error: "Document not found" });
     return;

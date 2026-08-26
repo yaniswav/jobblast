@@ -1,10 +1,13 @@
-// Orchestrates a full job aggregation refresh: fetch every source, score
-// against the profile, normalize into job_listings insert rows, drop rows
-// that already exist (by url) or score too low to be worth reviewing, and
-// insert the rest.
+// Orchestrates a full job aggregation refresh for one account: fetch every
+// source, score against the profile, normalize into shared `postings` rows,
+// drop the ones this account already has (by url or by normalized
+// title+company) or that score too low to be worth reviewing, and attach the
+// rest to the account's review queue.
+//
+// The advert itself lands in the shared pool; only the score, status and
+// generated content are per account (see lib/repo/postings.ts).
 
-import { inArray } from "drizzle-orm";
-import { db, jobListingsTable, profilesTable, type InsertJobListing } from "@workspace/db";
+import type { InsertPosting } from "@workspace/db";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { fetchAdzunaJobs } from "./adzuna";
@@ -19,6 +22,13 @@ import { fetchLeverJobs } from "./lever";
 import { fetchNotionInboxJobs } from "./notion-inbox";
 import { fetchRemoteOkJobs } from "./remoteok";
 import { fetchRemotiveJobs } from "./remotive";
+import {
+  addUserPostings,
+  findPostingsByUrl,
+  listUserTitleCompanyKeys,
+  type NewUserPosting,
+} from "../repo/postings";
+import { getProfile } from "../repo/profile";
 import { locationKeywordsFromProfile, scoreJob } from "./scoring";
 import { coverLetterFor, getCoverLetterTemplate, tailoredBulletsFor, type BulletProfile } from "./tailoring";
 import { fetchTokyoDevJobs } from "./tokyodev";
@@ -50,9 +60,8 @@ type TailoringContext = {
   coverLetterTemplate: string;
 };
 
-function toInsertRow(job: ScoredJob, ctx: TailoringContext): InsertJobListing {
-  const tailoredBullets = tailoredBulletsFor(job.highlightedSkills, ctx.profile);
-  return {
+function toNewUserPosting(job: ScoredJob, ctx: TailoringContext): NewUserPosting {
+  const posting: InsertPosting = {
     source: job.source,
     title: job.title,
     company: job.company,
@@ -63,14 +72,15 @@ function toInsertRow(job: ScoredJob, ctx: TailoringContext): InsertJobListing {
     description: job.description || `${job.company} is hiring for ${job.title}.`,
     postedDate: job.postedDate,
     salaryRange: job.salaryRange ?? NO_SALARY_TEXT,
-    fetchedAt: new Date(),
+    titleCompanyKey: titleCompanyKey(job.title, job.company),
+  };
+  return {
+    posting,
     relevanceScore: job.relevanceScore,
     matchReasons: job.matchReasons,
     highlightedSkills: job.highlightedSkills,
-    tailoredBullets,
+    tailoredBullets: tailoredBulletsFor(job.highlightedSkills, ctx.profile),
     coverLetter: coverLetterFor(job.title, job.company, ctx.coverLetterTemplate),
-    status: "queued",
-    isSeed: false,
   };
 }
 
@@ -156,7 +166,7 @@ export function isRefreshRunning(): boolean {
  * (mirrors the passRunning guard in lib/ai/tailor.ts), returning a
  * zeroed-out summary instead of running a second fetch concurrently.
  */
-export async function refreshJobListings(): Promise<RefreshSummary> {
+export async function refreshJobListings(userId: string): Promise<RefreshSummary> {
   if (refreshRunning) {
     logger.debug("Job refresh already running, skipping this trigger");
     return { fetched: 0, scored: 0, belowThreshold: 0, duplicates: 0, softDuplicates: 0, inserted: 0 };
@@ -164,13 +174,13 @@ export async function refreshJobListings(): Promise<RefreshSummary> {
   refreshRunning = true;
 
   try {
-    const [profileRow] = await db.select().from(profilesTable).limit(1);
+    const profileRow = await getProfile(userId);
     const profile: BulletProfile = {
       headline: profileRow?.headline ?? "",
       masterResume: profileRow?.masterResume ?? "",
     };
     const profileLocationKeywords = locationKeywordsFromProfile(profileRow?.targetLocations ?? []);
-    const coverLetterTemplate = await getCoverLetterTemplate();
+    const coverLetterTemplate = await getCoverLetterTemplate(userId);
     const ctx: TailoringContext = { profile, coverLetterTemplate };
 
     const rawJobs = await fetchAllSources();
@@ -201,26 +211,23 @@ export async function refreshJobListings(): Promise<RefreshSummary> {
     for (const job of relevant) byUrl.set(job.url, job);
     const candidateUrls = Array.from(byUrl.keys());
 
-    const existing = await db
-      .select({ url: jobListingsTable.url })
-      .from(jobListingsTable)
-      .where(inArray(jobListingsTable.url, candidateUrls));
-    const existingUrls = new Set(existing.map((row) => row.url));
+    // A posting already in the shared pool is only a duplicate for *this*
+    // account when the account already has a queue row for it; otherwise it
+    // is adopted (and its lastSeenAt refreshed) rather than refetched.
+    const existing = await findPostingsByUrl(userId, candidateUrls);
+    const existingUrls = new Set(
+      existing.filter((row) => row.mine).map((row) => row.url),
+    );
 
     // Soft dedup pass (applies to every source, not just the new ones): the
     // same posting often appears on multiple boards under different URLs
     // (e.g. a Greenhouse listing mirrored by Arbeitnow, or a company posting
     // to both Lever and a curated board). URL dedup above can't catch that,
-    // so we also skip inserting a row whose normalized title+company already
-    // exists in job_listings, regardless of which URL it came in on.
-    const existingTitleCompany = await db
-      .select({ title: jobListingsTable.title, company: jobListingsTable.company })
-      .from(jobListingsTable);
-    const seenTitleCompanyKeys = new Set(
-      existingTitleCompany.map((row) => titleCompanyKey(row.title, row.company)),
-    );
+    // so we also skip a listing whose normalized title+company is already in
+    // this account's queue, regardless of which URL it came in on.
+    const seenTitleCompanyKeys = new Set(await listUserTitleCompanyKeys(userId));
 
-    const toInsert: InsertJobListing[] = [];
+    const toInsert: NewUserPosting[] = [];
     let softDuplicates = 0;
     for (const [url, job] of byUrl) {
       if (existingUrls.has(url)) continue;
@@ -232,13 +239,11 @@ export async function refreshJobListings(): Promise<RefreshSummary> {
       // Mark as seen immediately so two same-batch listings for the same
       // role (different source, different URL) don't both get inserted.
       seenTitleCompanyKeys.add(key);
-      toInsert.push(toInsertRow(job, ctx));
+      toInsert.push(toNewUserPosting(job, ctx));
     }
     const duplicates = byUrl.size - toInsert.length - softDuplicates;
 
-    if (toInsert.length > 0) {
-      await db.insert(jobListingsTable).values(toInsert);
-    }
+    const inserted = await addUserPostings(userId, toInsert);
 
     if (softDuplicates > 0) {
       logger.info({ softDuplicates }, "Job refresh: skipped listings as title+company duplicates");
@@ -250,7 +255,7 @@ export async function refreshJobListings(): Promise<RefreshSummary> {
       belowThreshold,
       duplicates,
       softDuplicates,
-      inserted: toInsert.length,
+      inserted,
     };
     logger.info(summary, "Job refresh complete");
     return summary;

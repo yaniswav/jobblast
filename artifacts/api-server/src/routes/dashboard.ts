@@ -1,15 +1,20 @@
 import { Router, type IRouter } from "express";
-import { and, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
-import { db, applicationsTable, jobListingsTable } from "@workspace/db";
 import { GetDashboardResponse } from "@workspace/api-zod";
-import { ensureJobBlastSeeded, getApplications } from "../lib/jobblast-data";
+import { actingUserId } from "../lib/auth/middleware";
+import { listApplications } from "../lib/repo/applications";
+import { countUserQueue } from "../lib/repo/postings";
+import { ensureProfile } from "../lib/repo/profile";
 
 const router: IRouter = Router();
 
-router.get("/dashboard", async (_req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
-  const applications = await getApplications();
-  const jobs = await db.select().from(jobListingsTable);
+/** Relevance at or above this counts as a strong match on the dashboard. */
+const STRONG_MATCH_SCORE = 85;
+
+router.get("/dashboard", async (req, res): Promise<void> => {
+  const userId = actingUserId(req);
+  await ensureProfile(userId);
+  const applications = await listApplications(userId);
+  const queue = await countUserQueue(userId, STRONG_MATCH_SCORE);
   const today = new Date();
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   // "approved" rows are prepared applications the user hasn't actually sent
@@ -31,8 +36,8 @@ router.get("/dashboard", async (_req, res): Promise<void> => {
   const data = GetDashboardResponse.parse({
     dailyGoal: 50,
     appliedToday,
-    queuedCount: jobs.filter((job) => job.status === "queued").length,
-    strongMatchCount: jobs.filter((job) => job.status === "queued" && job.relevanceScore >= 85).length,
+    queuedCount: queue.queued,
+    strongMatchCount: queue.strongMatches,
     responseRate: sentApplications.length ? Math.round((responses / sentApplications.length) * 100) : 0,
     interviewCount: applications.filter((application) => application.status === "interview").length,
     offerCount: applications.filter((application) => application.status === "offer").length,

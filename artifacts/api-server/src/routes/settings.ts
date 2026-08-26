@@ -51,9 +51,9 @@ router.put("/settings", async (req, res): Promise<void> => {
   }
 
   try {
-    if (body.data.ai) writeAiSettings(body.data.ai);
+    if (body.data.ai) await writeAiSettings(body.data.ai);
     if (body.data.gmailSync || body.data.aiScout || body.data.notionInbox) {
-      writeAutomations({
+      await writeAutomations({
         gmailSync: body.data.gmailSync,
         aiScout: body.data.aiScout,
         notionInbox: body.data.notionInbox,

@@ -258,6 +258,23 @@ export const fr: Record<keyof typeof en, string> = {
   'status.rejected': 'Refusée',
   'status.offer': 'Offre',
 
+  // Sign in / registration (SaaS mode only; never shown self-hosted)
+  'auth.signInTitle': 'Connexion',
+  'auth.signInSubtitle': 'Reprenez là où vous en étiez.',
+  'auth.registerTitle': 'Créer votre compte',
+  'auth.registerSubtitle': "La bêta est sur invitation. Saisissez le code qui vous a été envoyé.",
+  'auth.inviteCodeLabel': "Code d'invitation",
+  'auth.emailLabel': 'E-mail',
+  'auth.passwordLabel': 'Mot de passe',
+  'auth.passwordHint': "12 caractères minimum. Aucune autre règle.",
+  'auth.signInAction': 'Se connecter',
+  'auth.registerAction': 'Créer le compte',
+  'auth.working': 'En cours…',
+  'auth.switchToRegister': "Vous avez un code d'invitation ? Créez un compte",
+  'auth.switchToSignIn': 'Vous avez déjà un compte ? Connectez-vous',
+  'auth.signInFailed': 'E-mail ou mot de passe incorrect.',
+  'auth.registerFailed': "Échec. Vérifiez votre code d'invitation, votre e-mail et votre mot de passe.",
+
   // Not found page
   'notFound.title': 'Page introuvable',
   'notFound.body': "Cette page n'existe pas, ou a été déplacée.",

@@ -13,6 +13,38 @@ export interface Error {
   error: string;
 }
 
+export type JobBlastMode = typeof JobBlastMode[keyof typeof JobBlastMode];
+
+
+export const JobBlastMode = {
+  selfhosted: 'selfhosted',
+  saas: 'saas',
+} as const;
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  /** @nullable */
+  displayName: string | null;
+}
+
+export interface AuthSession {
+  mode: JobBlastMode;
+  user: AuthUser | null;
+}
+
+export interface RegisterRequest {
+  inviteCode: string;
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
 export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
 
 

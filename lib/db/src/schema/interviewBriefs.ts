@@ -4,8 +4,10 @@ import {
   serial,
   text,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { applicationsTable } from "./applications";
+import { usersTable } from "./users";
 
 /**
  * The lifecycle of one interview prep brief.
@@ -30,6 +32,11 @@ export type InterviewBriefStatus = (typeof INTERVIEW_BRIEF_STATUSES)[number];
 
 export const interviewBriefsTable = pgTable("interview_briefs", {
   id: serial("id").primaryKey(),
+  // Denormalized from the application so a pass can scope and quota brief
+  // generation per account without a join.
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
   // Unique: one brief per application. "Regenerate" resets this row back to
   // "pending" rather than inserting a second one, so the brief stays
   // addressable by application id alone.

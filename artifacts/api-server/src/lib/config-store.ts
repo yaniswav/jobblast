@@ -1,32 +1,127 @@
-// Read/write access to jobblast.config.json for the Settings API
+// Read/write access to the JobBlast configuration for the Settings API
 // (routes/settings.ts).
 //
 // Everything here goes through this one module rather than editing the
-// config file ad hoc, for two reasons:
+// config ad hoc, for two reasons:
 //
-//   1. Surgical writes. A naive `JSON.parse` -> mutate -> `JSON.stringify`
-//      round-trip would re-flow the *entire* file through a generic
-//      pretty-printer, blowing away the hand-tuned formatting of
+//   1. Surgical writes (selfhosted). A naive `JSON.parse` -> mutate ->
+//      `JSON.stringify` round-trip would re-flow the *entire* file through a
+//      generic pretty-printer, blowing away the hand-tuned formatting of
 //      jobblast.config.json (e.g. `scoring.rules[]` entries are one object
 //      per line). We use `jsonc-parser`'s `modify`/`applyEdits` instead -
 //      the same library VS Code uses to edit settings.json - which computes
 //      a minimal text edit for exactly the path being changed and leaves
 //      every other byte of the file untouched. A write that sets a key to
 //      its current value is therefore a true no-op (verified: empty diff).
-//   2. One choke point for a future SaaS. If config storage ever moves from
-//      "one JSON file on disk" to "one row per user in a database", every
-//      caller in routes/settings.ts only needs this module's functions to
-//      keep working - nothing about *where* the config lives leaks past it.
+//   2. One choke point for the two modes. `selfhosted` keeps the file;
+//      `saas` reads and writes `user_settings.config`, validated by the same
+//      JobBlastConfigSchema. Nothing about *where* the config lives leaks
+//      past this module.
 //
 // Secrets (API keys) are never read or written here: they live in `.env`
 // and stay there. See docs/CONFIG.md.
 
 import fs from "node:fs";
+import { eq } from "drizzle-orm";
 import { applyEdits, modify, type JSONPath } from "jsonc-parser";
-import { configPath, JobBlastConfigSchema, loadConfig, resetConfigCache, type AiProviderName } from "./config";
+import { db, userSettingsTable } from "@workspace/db";
+import {
+  clearUserConfig,
+  configPath,
+  JobBlastConfigSchema,
+  loadConfig,
+  resetConfigCache,
+  setUserConfig,
+  type AiProviderName,
+  type JobBlastConfig,
+} from "./config";
+import { IS_SAAS } from "./mode";
+import { currentUserId } from "./user-context";
 import { resetProviderCache } from "./ai/provider";
 
 const FORMATTING_OPTIONS = { tabSize: 2, insertSpaces: true, eol: "\n" };
+
+// ---------------------------------------------------------------------------
+// saas backend: one jsonb column per account
+// ---------------------------------------------------------------------------
+
+/**
+ * Loads an account's stored config into the process-wide cache that the
+ * synchronous `loadConfig()` reads. Called by the auth middleware before any
+ * handler runs; a missing row is not an error, it means "all defaults".
+ */
+export async function primeUserConfig(userId: string): Promise<void> {
+  const [row] = await db
+    .select({ config: userSettingsTable.config })
+    .from(userSettingsTable)
+    .where(eq(userSettingsTable.userId, userId))
+    .limit(1);
+
+  const result = JobBlastConfigSchema.safeParse(row?.config ?? {});
+  if (!result.success) {
+    throw new Error(
+      `Stored settings for user ${userId} failed validation:\n${JSON.stringify(
+        result.error.format(),
+        null,
+        2,
+      )}`,
+    );
+  }
+  setUserConfig(userId, result.data);
+}
+
+function requireCurrentUserId(): string {
+  const userId = currentUserId();
+  if (!userId) {
+    throw new Error("Settings were written with no ambient user in saas mode.");
+  }
+  return userId;
+}
+
+/** Merges `patch` into the account's stored config at `path`, validates, writes. */
+async function writeUserConfig(
+  patches: Array<{ path: JSONPath; value: unknown }>,
+): Promise<void> {
+  const userId = requireCurrentUserId();
+  const [row] = await db
+    .select({ config: userSettingsTable.config })
+    .from(userSettingsTable)
+    .where(eq(userSettingsTable.userId, userId))
+    .limit(1);
+
+  // No formatting to preserve here (no human reads this JSON), but reusing
+  // the same jsonc-parser edit keeps one code path for "set this key".
+  let text = JSON.stringify(row?.config ?? {}, null, 2);
+  for (const patch of patches) {
+    text = applyEdits(
+      text,
+      modify(text, patch.path, patch.value, { formattingOptions: FORMATTING_OPTIONS }),
+    );
+  }
+
+  const result = JobBlastConfigSchema.safeParse(JSON.parse(text));
+  if (!result.success) {
+    throw new Error(
+      `Settings update failed validation:\n${JSON.stringify(result.error.format(), null, 2)}`,
+    );
+  }
+
+  const stored = JSON.parse(text) as JobBlastConfig;
+  await db
+    .insert(userSettingsTable)
+    .values({ userId, config: stored })
+    .onConflictDoUpdate({
+      target: userSettingsTable.userId,
+      set: { config: stored, updatedAt: new Date() },
+    });
+
+  setUserConfig(userId, result.data);
+  resetProviderCache();
+}
+
+// ---------------------------------------------------------------------------
+// selfhosted backend: the file on disk
+// ---------------------------------------------------------------------------
 
 function readRawText(): string {
   try {
@@ -70,6 +165,20 @@ function commit(text: string): void {
   resetProviderCache();
 }
 
+/** Runs the write against whichever backend this process is using. */
+async function writeSettings(
+  patches: Array<{ path: JSONPath; value: unknown }>,
+): Promise<void> {
+  if (patches.length === 0) return;
+  if (IS_SAAS) {
+    await writeUserConfig(patches);
+    return;
+  }
+  let text = readRawText();
+  for (const patch of patches) text = applyPatch(text, patch.path, patch.value);
+  commit(text);
+}
+
 // ---------------------------------------------------------------------------
 // AI provider + model
 // ---------------------------------------------------------------------------
@@ -83,11 +192,11 @@ export function readAiSettings(): AiSettings {
 }
 
 /** Merges `patch` into `ai.provider` / `ai.model`, validates, writes, returns the new state. */
-export function writeAiSettings(patch: AiSettingsPatch): AiSettings {
-  let text = readRawText();
-  if (patch.provider !== undefined) text = applyPatch(text, ["ai", "provider"], patch.provider);
-  if (patch.model !== undefined) text = applyPatch(text, ["ai", "model"], patch.model);
-  commit(text);
+export async function writeAiSettings(patch: AiSettingsPatch): Promise<AiSettings> {
+  const patches: Array<{ path: JSONPath; value: unknown }> = [];
+  if (patch.provider !== undefined) patches.push({ path: ["ai", "provider"], value: patch.provider });
+  if (patch.model !== undefined) patches.push({ path: ["ai", "model"], value: patch.model });
+  await writeSettings(patches);
   return readAiSettings();
 }
 
@@ -120,17 +229,28 @@ export function readAutomations(): AutomationsSettings {
   };
 }
 
-export function writeAutomations(patch: AutomationsPatch): AutomationsSettings {
-  let text = readRawText();
-  if (patch.gmailSync?.enabled !== undefined) text = applyPatch(text, ["gmailSync", "enabled"], patch.gmailSync.enabled);
-  if (patch.gmailSync?.dryRun !== undefined) text = applyPatch(text, ["gmailSync", "dryRun"], patch.gmailSync.dryRun);
-  if (patch.aiScout?.enabled !== undefined) text = applyPatch(text, ["sources", "aiScout", "enabled"], patch.aiScout.enabled);
+export async function writeAutomations(patch: AutomationsPatch): Promise<AutomationsSettings> {
+  const patches: Array<{ path: JSONPath; value: unknown }> = [];
+  if (patch.gmailSync?.enabled !== undefined)
+    patches.push({ path: ["gmailSync", "enabled"], value: patch.gmailSync.enabled });
+  if (patch.gmailSync?.dryRun !== undefined)
+    patches.push({ path: ["gmailSync", "dryRun"], value: patch.gmailSync.dryRun });
+  if (patch.aiScout?.enabled !== undefined)
+    patches.push({ path: ["sources", "aiScout", "enabled"], value: patch.aiScout.enabled });
   if (patch.notionInbox?.enabled !== undefined)
-    text = applyPatch(text, ["sources", "notionInbox", "enabled"], patch.notionInbox.enabled);
+    patches.push({ path: ["sources", "notionInbox", "enabled"], value: patch.notionInbox.enabled });
   if (patch.notionInbox?.pageUrl !== undefined)
-    text = applyPatch(text, ["sources", "notionInbox", "pageUrl"], patch.notionInbox.pageUrl);
+    patches.push({ path: ["sources", "notionInbox", "pageUrl"], value: patch.notionInbox.pageUrl });
   if (patch.notionInbox?.dataSourceUrl !== undefined)
-    text = applyPatch(text, ["sources", "notionInbox", "dataSourceUrl"], patch.notionInbox.dataSourceUrl);
-  commit(text);
+    patches.push({
+      path: ["sources", "notionInbox", "dataSourceUrl"],
+      value: patch.notionInbox.dataSourceUrl,
+    });
+  await writeSettings(patches);
   return readAutomations();
+}
+
+/** Drops an account's primed config, e.g. after its row changed elsewhere. */
+export function forgetUserConfig(userId: string): void {
+  clearUserConfig(userId);
 }

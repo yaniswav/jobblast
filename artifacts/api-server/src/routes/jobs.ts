@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
 import {
   GetJobCoverLetterPdfParams,
   GetJobParams,
@@ -9,28 +8,30 @@ import {
   RefreshJobsResponse,
   SkipJobParams,
 } from "@workspace/api-zod";
-import { db, jobListingsTable } from "@workspace/db";
 import { runFitAnalysisPass } from "../lib/ai/fit-analysis";
 import { runTailoringPass } from "../lib/ai/tailor";
-import {
-  ensureJobBlastSeeded,
-  getJobWithApplication,
-  listJobsWithApplications,
-} from "../lib/jobblast-data";
+import { actingUserId } from "../lib/auth/middleware";
 import { logger } from "../lib/logger";
 import { renderCoverLetterPdf, sanitizeFilenameSegment } from "../lib/pdf-cover-letter";
+import {
+  getUserPosting,
+  listUserPostings,
+  skipUserPosting,
+} from "../lib/repo/postings";
+import { ensureProfile } from "../lib/repo/profile";
 import { isRefreshRunning, refreshJobListings } from "../lib/sources/refresh";
 
 const router: IRouter = Router();
 
 router.get("/jobs", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
+  await ensureProfile(userId);
   const query = ListJobsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const jobs = await listJobsWithApplications();
+  const jobs = await listUserPostings(userId);
   const search = query.data.search?.toLowerCase().trim();
   const filtered = jobs.filter((job) => {
     const matchesSearch =
@@ -45,13 +46,13 @@ router.get("/jobs", async (req, res): Promise<void> => {
 });
 
 router.get("/jobs/:id", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = GetJobParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const job = await getJobWithApplication(params.data.id);
+  const job = await getUserPosting(userId, params.data.id);
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
@@ -60,13 +61,13 @@ router.get("/jobs/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/jobs/:id/cover-letter.pdf", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = GetJobCoverLetterPdfParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const job = await getJobWithApplication(params.data.id);
+  const job = await getUserPosting(userId, params.data.id);
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
@@ -82,26 +83,23 @@ router.get("/jobs/:id/cover-letter.pdf", async (req, res): Promise<void> => {
 });
 
 router.post("/jobs/:id/skip", async (req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+  const userId = actingUserId(req);
   const params = SkipJobParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [job] = await db
-    .update(jobListingsTable)
-    .set({ status: "skipped" })
-    .where(eq(jobListingsTable.id, params.data.id))
-    .returning({ id: jobListingsTable.id });
-  if (!job) {
+  const skipped = await skipUserPosting(userId, params.data.id);
+  if (!skipped) {
     res.status(404).json({ error: "Job not found" });
     return;
   }
   res.sendStatus(204);
 });
 
-router.post("/jobs/refresh", async (_req, res): Promise<void> => {
-  await ensureJobBlastSeeded();
+router.post("/jobs/refresh", async (req, res): Promise<void> => {
+  const userId = actingUserId(req);
+  await ensureProfile(userId);
   if (isRefreshRunning()) {
     res.status(202).json(RefreshJobsResponse.parse({ started: false }));
     return;
@@ -112,9 +110,9 @@ router.post("/jobs/refresh", async (_req, res): Promise<void> => {
   // before it settles.
   // Tailoring, then fit analysis - sequential, never in parallel, so at most
   // one AI provider call for this job pipeline is ever in flight at a time.
-  refreshJobListings()
-    .then(() => runTailoringPass(10))
-    .then(() => runFitAnalysisPass(10))
+  refreshJobListings(userId)
+    .then(() => runTailoringPass(userId, 10))
+    .then(() => runFitAnalysisPass(userId, 10))
     .catch((err: unknown) => {
       logger.error({ err }, "Manual job refresh failed");
     });

@@ -9,6 +9,64 @@ import * as zod from 'zod';
 
 
 /**
+ * Public. In selfhosted mode the implicit local user is always returned, so the frontend never shows a login screen.
+ * @summary Which mode this server runs in, and who is signed in
+ */
+export const GetAuthSessionResponse = zod.object({
+  "mode": zod.enum(['selfhosted', 'saas']),
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Create an account from an invite code (SaaS mode only)
+ */
+export const RegisterBody = zod.object({
+  "inviteCode": zod.string(),
+  "email": zod.string(),
+  "password": zod.string(),
+  "displayName": zod.string().optional()
+})
+
+export const RegisterResponse = zod.object({
+  "mode": zod.enum(['selfhosted', 'saas']),
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Sign in with email and password (SaaS mode only)
+ */
+export const LoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginResponse = zod.object({
+  "mode": zod.enum(['selfhosted', 'saas']),
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable()
+}),zod.null()])
+})
+
+
+/**
+ * @summary End the current session
+ */
+export const LogoutResponse = zod.void()
+
+
+/**
  * Returns server health status
  * @summary Health check
  */
