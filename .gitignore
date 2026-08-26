@@ -73,3 +73,6 @@ identifiants_*.json
 
 # PID file written by deploy/start-jobblast.sh (Linux/macOS)
 /deploy/jobblast.pid
+
+# Local agent state (skills copies live in .agents/, lock in skills-lock.json)
+.claude/
