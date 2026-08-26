@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AccountExport,
   AiCredentialStatus,
   AiProviderOption,
   AiTestResult,
@@ -28,6 +29,7 @@ import type {
   ApplicationUpdate,
   AuthSession,
   DashboardSummary,
+  DeleteAccountRequest,
   DocumentMeta,
   DocumentUploadPayload,
   DocumentUploadResult,
@@ -37,6 +39,7 @@ import type {
   JobListing,
   JobRefreshStatus,
   JobTailoringStatus,
+  LegalInfo,
   ListApplicationsParams,
   ListJobsParams,
   LoginRequest,
@@ -365,6 +368,234 @@ export const useLogout = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLogoutMutationOptions(options));
+    }
+
+export const getGetLegalInfoUrl = () => {
+
+
+
+
+  return `/api/legal`
+}
+
+/**
+ * Public - reachable from the login screen, before anyone has signed in. The operator's identity comes entirely from environment variables (JOBBLAST_LEGAL_*); `available` is false when the operator has not set them yet.
+ * @summary Operator identity and data policy (SaaS mode only)
+ */
+export const getLegalInfo = async ( options?: Parameters<typeof customFetch>[1]): Promise<LegalInfo> => {
+
+  return customFetch<LegalInfo>(getGetLegalInfoUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLegalInfoQueryKey = () => {
+    return [
+    `/api/legal`
+    ] as const;
+    }
+
+
+export const getGetLegalInfoQueryOptions = <TData = Awaited<ReturnType<typeof getLegalInfo>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLegalInfo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLegalInfoQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLegalInfo>>> = ({ signal }) => getLegalInfo({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLegalInfo>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLegalInfoQueryResult = NonNullable<Awaited<ReturnType<typeof getLegalInfo>>>
+export type GetLegalInfoQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Operator identity and data policy (SaaS mode only)
+ */
+
+export function useGetLegalInfo<TData = Awaited<ReturnType<typeof getLegalInfo>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLegalInfo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLegalInfoQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAccountExportUrl = () => {
+
+
+
+
+  return `/api/account/export`
+}
+
+/**
+ * GDPR portability: profile, settings (no AI keys), applications, postings, interview briefs and document metadata. Document bytes are excluded - each entry links to the existing per-document endpoint instead, so nothing here duplicates the file store.
+ * @summary Full data export for the signed-in account (SaaS mode only)
+ */
+export const getAccountExport = async ( options?: Parameters<typeof customFetch>[1]): Promise<AccountExport> => {
+
+  return customFetch<AccountExport>(getGetAccountExportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountExportQueryKey = () => {
+    return [
+    `/api/account/export`
+    ] as const;
+    }
+
+
+export const getGetAccountExportQueryOptions = <TData = Awaited<ReturnType<typeof getAccountExport>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountExport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountExportQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountExport>>> = ({ signal }) => getAccountExport({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountExport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountExportQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountExport>>>
+export type GetAccountExportQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Full data export for the signed-in account (SaaS mode only)
+ */
+
+export function useGetAccountExport<TData = Awaited<ReturnType<typeof getAccountExport>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountExport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountExportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteAccountUrl = () => {
+
+
+
+
+  return `/api/account`
+}
+
+/**
+ * GDPR erasure. Confirmed by re-entering the password. Deletes the `users` row (cascading every table that references it), the account's files on disk, and signs the caller out.
+ * @summary Permanently delete the signed-in account (SaaS mode only)
+ */
+export const deleteAccount = async (deleteAccountRequest: DeleteAccountRequest, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAccountUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deleteAccountRequest)
+  }
+);}
+
+
+
+
+
+export const getDeleteAccountMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccount>>, TError,{data: BodyType<DeleteAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAccount>>, TError,{data: BodyType<DeleteAccountRequest>}, TContext> => {
+
+const mutationKey = ['deleteAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccount>>, {data: BodyType<DeleteAccountRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  deleteAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAccountMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAccount>>>
+    export type DeleteAccountMutationBody = BodyType<DeleteAccountRequest>
+    export type DeleteAccountMutationError = ErrorType<Error>
+
+    /**
+ * @summary Permanently delete the signed-in account (SaaS mode only)
+ */
+export const useDeleteAccount = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccount>>, TError,{data: BodyType<DeleteAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAccount>>,
+        TError,
+        {data: BodyType<DeleteAccountRequest>},
+        TContext
+      > => {
+      return useMutation(getDeleteAccountMutationOptions(options));
     }
 
 export const getHealthCheckUrl = () => {

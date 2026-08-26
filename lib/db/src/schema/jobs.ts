@@ -25,8 +25,19 @@ import { usersTable } from "./users";
  *   user.tailor      - per account, one AI call: a cover letter, generated
  *                      strictly on demand in saas (never in bulk, since the
  *                      user is paying for it with their own key).
+ *   sessions.sweep   - platform-wide, daily: deletes expired session rows
+ *                      (v0.4 pre-beta lot, lib/queue/hygiene.ts).
+ *   postings.prune   - platform-wide, daily: deletes shared postings with no
+ *                      `user_postings` referent, older than the retention
+ *                      window (lib/queue/hygiene.ts).
  */
-export type JobKind = "postings.refresh" | "user.score" | "user.fit" | "user.tailor";
+export type JobKind =
+  | "postings.refresh"
+  | "user.score"
+  | "user.fit"
+  | "user.tailor"
+  | "sessions.sweep"
+  | "postings.prune";
 
 export type JobRunStatus = "pending" | "running" | "done" | "failed";
 

@@ -1,10 +1,13 @@
-import { FlaskConical, KeyRound, Save, Trash2 } from 'lucide-react';
+import { Download, FlaskConical, KeyRound, Save, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Link } from 'wouter';
 import {
+  getGetAccountExportUrl,
   getGetSettingsQueryKey,
   getListAiCredentialsQueryKey,
+  useDeleteAccount,
   useDeleteAiCredential,
   useGetAuthSession,
   useGetSettings,
@@ -229,6 +232,7 @@ export default function Settings() {
       </section>
 
       {isSaas && <ByokSection t={t} />}
+      {isSaas && <AccountSection t={t} />}
 
       {!isSaas && (
       <section className="surface p-6 mt-5">
@@ -494,6 +498,120 @@ function ByokCredentialCard({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Data export and account deletion (SaaS mode only - docs/SAAS-ARCHITECTURE.md
+ * section 8). A self-hosted owner already has full access to their own
+ * database and files, so this section only ever renders in SaaS.
+ */
+function AccountSection({ t }: { t: ReturnType<typeof useT> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState('');
+  const deleteAccount = useDeleteAccount();
+
+  const handleDelete = () => {
+    deleteAccount.mutate(
+      { data: { password } },
+      {
+        onSuccess: () => {
+          // The session cookie is cleared server-side. A full reload is the
+          // simplest way to make every cached query (profile, jobs...) go
+          // away along with it and land back on the sign-in screen.
+          window.location.href = '/';
+        },
+        onError: () => toast(t('settings.toastAccountDeleteFailed')),
+      },
+    );
+  };
+
+  return (
+    <section className="surface p-6 mt-5">
+      <div className="section-heading">
+        <div>
+          <h2>{t('settings.accountSectionTitle')}</h2>
+          <p>{t('settings.accountSectionSubtitle')}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 mt-4">
+        <div>
+          <div className="text-sm font-bold">{t('settings.exportButton')}</div>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{t('settings.exportHint')}</p>
+        </div>
+        <a
+          className="btn btn-ghost"
+          href={getGetAccountExportUrl()}
+          download="jobblast-export.json"
+          data-testid="link-export-account"
+        >
+          <Download size={15} /> {t('settings.exportButton')}
+        </a>
+      </div>
+
+      <Link
+        href="/privacy"
+        className="inline-block mt-4 text-xs underline underline-offset-4 text-[hsl(var(--muted-foreground))]"
+        data-testid="link-privacy-from-settings"
+      >
+        {t('settings.privacyLinkLabel')}
+      </Link>
+
+      <div className="rounded-xl border border-[hsl(12_65%_82%)] bg-[hsl(12_65%_97%)] p-4 mt-6">
+        <div className="text-sm font-bold text-[hsl(12_65%_35%)]">{t('settings.dangerZoneTitle')}</div>
+        <p className="text-xs text-[hsl(12_65%_42%)] mt-1">{t('settings.dangerZoneBody')}</p>
+
+        {!confirming ? (
+          <button
+            type="button"
+            className="btn btn-danger mt-3"
+            onClick={() => setConfirming(true)}
+            data-testid="button-delete-account"
+          >
+            <Trash2 size={14} /> {t('settings.deleteAccountButton')}
+          </button>
+        ) : (
+          <div className="grid gap-3 mt-3 sm:grid-cols-[1fr_auto_auto] items-end">
+            <div>
+              <label className="label" htmlFor="delete-account-password">
+                {t('settings.deleteAccountPasswordLabel')}
+              </label>
+              <input
+                id="delete-account-password"
+                type="password"
+                autoComplete="current-password"
+                className="input"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                data-testid="input-delete-account-password"
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setConfirming(false);
+                setPassword('');
+              }}
+              data-testid="button-delete-account-cancel"
+            >
+              {t('settings.deleteAccountCancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={handleDelete}
+              disabled={deleteAccount.isPending || !password}
+              data-testid="button-delete-account-confirm"
+            >
+              <Trash2 size={14} />{' '}
+              {deleteAccount.isPending ? t('settings.deleteAccountWorking') : t('settings.deleteAccountConfirmButton')}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

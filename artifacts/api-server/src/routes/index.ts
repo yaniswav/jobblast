@@ -8,12 +8,14 @@ import applicationsRouter from "./applications";
 import profileRouter from "./profile";
 import documentsRouter from "./documents";
 import settingsRouter from "./settings";
+import accountRouter from "./account";
+import legalRouter from "./legal";
 
 const router: IRouter = Router();
 
 // Applied once, here, rather than per route: a route added later is behind
-// auth by default. The public paths (/healthz and the /auth/* endpoints)
-// are an explicit allowlist inside requireUser.
+// auth by default. The public paths (/healthz, /legal and the /auth/*
+// endpoints) are an explicit allowlist inside requireUser.
 router.use(requireUser);
 
 router.use(healthRouter);
@@ -24,5 +26,7 @@ router.use(applicationsRouter);
 router.use(profileRouter);
 router.use(documentsRouter);
 router.use(settingsRouter);
+router.use(accountRouter);
+router.use(legalRouter);
 
 export default router;

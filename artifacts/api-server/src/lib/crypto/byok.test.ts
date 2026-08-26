@@ -100,6 +100,55 @@ describe("BYOK encryption", () => {
   });
 });
 
+describe("key rotation round trip (scripts/src/rotate-byok.ts)", () => {
+  it("re-encrypting under a new master key makes the old key unable to decrypt it, and the new key able to", () => {
+    const oldKey = VALID_KEY;
+    const newKey = crypto.randomBytes(32).toString("base64");
+
+    // Before rotation: encrypted and decryptable under the old key.
+    resetMasterKeyCache();
+    process.env["JOBBLAST_MASTER_KEY"] = oldKey;
+    const original = encryptSecret("user-a", "anthropic-api", "sk-ant-rotate-me", 1);
+    const plaintext = decryptSecret("user-a", "anthropic-api", original);
+    expect(plaintext).toBe("sk-ant-rotate-me");
+
+    // Rotation: the script decrypts with the old key (JOBBLAST_MASTER_KEY_PREVIOUS)
+    // and re-encrypts the same plaintext with the new key (JOBBLAST_MASTER_KEY),
+    // bumping key_version.
+    resetMasterKeyCache();
+    process.env["JOBBLAST_MASTER_KEY"] = newKey;
+    const rotated = encryptSecret("user-a", "anthropic-api", plaintext, 2);
+
+    // After rotation: decryptable under the new key...
+    expect(decryptSecret("user-a", "anthropic-api", rotated)).toBe("sk-ant-rotate-me");
+
+    // ...and no longer under the old one.
+    resetMasterKeyCache();
+    process.env["JOBBLAST_MASTER_KEY"] = oldKey;
+    expect(() => decryptSecret("user-a", "anthropic-api", rotated)).toThrow();
+
+    // The pre-rotation ciphertext is likewise unreadable under the new key
+    // (different derived key entirely) - this is exactly why the script has
+    // to decrypt-then-re-encrypt rather than just relabel the row.
+    resetMasterKeyCache();
+    process.env["JOBBLAST_MASTER_KEY"] = newKey;
+    expect(() => decryptSecret("user-a", "anthropic-api", original)).toThrow();
+
+    resetMasterKeyCache();
+    process.env["JOBBLAST_MASTER_KEY"] = VALID_KEY;
+  });
+
+  it("is idempotent: a row already decryptable under the new key is left alone (never fails re-running the script)", () => {
+    resetMasterKeyCache();
+    process.env["JOBBLAST_MASTER_KEY"] = VALID_KEY;
+    const secret = encryptSecret("user-a", "anthropic-api", "already-current", 2);
+
+    // The script's "is this row already rotated?" probe: try decrypting
+    // under the CURRENT master key first. Success means skip this row.
+    expect(() => decryptSecret("user-a", "anthropic-api", secret)).not.toThrow();
+  });
+});
+
 describe("hintFor", () => {
   it("returns only the last 4 characters", () => {
     expect(hintFor("sk-ant-api03-abcd1234")).toBe("1234");

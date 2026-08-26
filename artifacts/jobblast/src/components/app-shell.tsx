@@ -1,7 +1,7 @@
 import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, Settings as SettingsIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { useGetProfile, useHealthCheck } from '@workspace/api-client-react';
+import { useGetAuthSession, useGetProfile, useHealthCheck } from '@workspace/api-client-react';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
 
 const navigation: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; testId: string }[] = [
@@ -61,6 +61,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const { data: health } = useHealthCheck();
   const { data: profile } = useGetProfile();
+  const { data: session } = useGetAuthSession();
+  const isSaas = session?.mode === 'saas';
   const [location] = useLocation();
   const [locale] = useLocale();
   const t = useT();
@@ -91,6 +93,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-[hsl(var(--sidebar-foreground)/.8)]">{health?.status === 'ok' ? t('shell.systemsReady') : t('shell.workspaceConnected')}</p>
           </div>
           <div className="px-3 text-[11px] text-[hsl(var(--sidebar-foreground)/.4)]">{t('shell.builtForNextMove')}</div>
+          {isSaas && (
+            <Link href="/privacy" className="block px-3 mt-2 text-[11px] text-[hsl(var(--sidebar-foreground)/.4)] underline underline-offset-4" data-testid="link-privacy">
+              {t('privacy.linkLabel')}
+            </Link>
+          )}
         </div>
       </aside>
       {open && (

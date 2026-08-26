@@ -38,7 +38,9 @@ import {
   updateBrief,
 } from "../repo/interview-briefs";
 import { getProfile } from "../repo/profile";
+import { tryConsumeQuota } from "../repo/usage";
 import { logger } from "../logger";
+import { quotaCapFor } from "../quota-config";
 import { letterLanguageRule } from "./language";
 import { configuredProviderName, getAgentProvider, type AgentProvider } from "./provider";
 import { sanitizeAiText } from "./sanitize";
@@ -374,8 +376,18 @@ export async function runInterviewBriefPass(
 
     let succeeded = 0;
     let failed = 0;
+    const cap = quotaCapFor("brief");
 
     for (const applicationId of eligible) {
+      // Checked before the provider call, never after (docs/SAAS-ARCHITECTURE.md
+      // section 5). Exceeding the daily cap is not an error: the remaining
+      // briefs simply stay pending and are picked up by tomorrow's pass.
+      const quota = await tryConsumeQuota(userId, "brief", cap);
+      if (!quota.allowed) {
+        logger.info({ used: quota.used, cap: quota.cap }, "Interview brief pass: daily quota reached, deferring the rest to tomorrow");
+        break;
+      }
+
       const startedAt = Date.now();
       try {
         const input = await loadBriefInput(userId, applicationId);

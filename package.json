@@ -21,6 +21,7 @@
     "db:push": "pnpm --filter @workspace/db run push",
     "db:migrate": "pnpm --filter @workspace/scripts run migrate-multi-tenant",
     "invite": "pnpm --filter @workspace/scripts run invite",
+    "rotate-byok": "pnpm --filter @workspace/scripts run rotate-byok",
     "test": "pnpm --filter @workspace/api-server run test"
   },
   "private": true,

@@ -6,7 +6,7 @@
 // a cookie into a session). Keeping them apart is what lets the scoping
 // guard in lib/scoping.test.ts stay a simple, unambiguous rule.
 
-import { and, eq, lt, or, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import {
   db,
   inviteCodesTable,
@@ -266,6 +266,8 @@ export async function resolveSession(token: string): Promise<string | null> {
       .where(eq(sessionsTable.id, row.id));
   }
 
+  await touchUserLastSeen(row.userId, new Date(now));
+
   return row.userId;
 }
 
@@ -273,4 +275,43 @@ export async function deleteSession(token: string): Promise<void> {
   await db
     .delete(sessionsTable)
     .where(eq(sessionsTable.tokenHash, hashSessionToken(token)));
+}
+
+/** How often users.last_seen_at is written for a busy account (item 7, v0.4 pre-beta lot). */
+const LAST_SEEN_TOUCH_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Inactivity tracking only: refreshes `users.last_seen_at` at most once a
+ * day per account. A single conditional UPDATE (no read first), so a normal
+ * request pays for one no-op write most of the time rather than a read plus
+ * a write. Only ever called from resolveSession(), so this only runs in
+ * saas - selfhosted never issues a session at all.
+ *
+ * This column is not yet acted on: the 12-month inactivity auto-purge with a
+ * 30-day warning email depends on the SMTP lot and is intentionally not
+ * implemented here (docs/SAAS-ARCHITECTURE.md open question 3).
+ */
+async function touchUserLastSeen(userId: string, now: Date): Promise<void> {
+  const staleBefore = new Date(now.getTime() - LAST_SEEN_TOUCH_MS);
+  await db
+    .update(usersTable)
+    .set({ lastSeenAt: now })
+    .where(and(eq(usersTable.id, userId), or(isNull(usersTable.lastSeenAt), lt(usersTable.lastSeenAt, staleBefore))));
+}
+
+/**
+ * Deletes the account row. Every child table references `users(id)` with
+ * `on delete cascade` (sessions, user_settings, user_ai_credentials,
+ * usage_counters, profiles, applications, documents, interview_briefs,
+ * user_postings, jobs), so this one statement removes the account's entire
+ * footprint in the database. The caller is still responsible for deleting
+ * `data/users/<uuid>/` on disk (lib/storage.ts userDataDir) - that is not a
+ * database concern.
+ *
+ * Deliberately not in lib/repo/: same reason as the rest of this file, it
+ * establishes/removes who an account IS rather than acting on behalf of one
+ * that already exists mid-request.
+ */
+export async function deleteAccount(userId: string): Promise<void> {
+  await db.delete(usersTable).where(eq(usersTable.id, userId));
 }

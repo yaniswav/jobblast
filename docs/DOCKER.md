@@ -159,7 +159,66 @@ into a scratch container at least once before relying on it. Automating
 this on a schedule (host cron / a Windows scheduled task) and pruning old
 backups is lot F.
 
-## 9. TLS / a real domain
+## 9. Rotating the BYOK master key
+
+`JOBBLAST_MASTER_KEY` encrypts every account's BYOK AI provider credentials
+(docs/SAAS-ARCHITECTURE.md section 5). If it leaks, or on a yearly schedule,
+rotate it:
+
+1. Generate a new one: `openssl rand -base64 32`.
+2. In `deploy/saas/.env.docker`, move the current value of
+   `JOBBLAST_MASTER_KEY` into a new `JOBBLAST_MASTER_KEY_PREVIOUS` line, then
+   set `JOBBLAST_MASTER_KEY` to the new value.
+3. Run the rotation script BEFORE restarting `app` with the new env - it
+   needs both keys to re-encrypt every row:
+
+   ```bash
+   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker \
+     exec app pnpm run rotate-byok
+   # review the dry-run output, then:
+   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker \
+     exec app pnpm run rotate-byok -- --apply
+   ```
+
+   Dry run by default, reports what it would change and writes nothing;
+   `--apply` performs the rotation. It is idempotent - re-running it (or
+   running it on a table that is only partially rotated) is safe, since each
+   row is skipped once it decrypts under the current key.
+4. Restart `app` (`docker compose ... restart app`) so it picks up the new
+   `.env.docker`. Remove `JOBBLAST_MASTER_KEY_PREVIOUS` once you have
+   confirmed accounts can still test their saved keys from Settings.
+
+Losing the master key without a rotation makes every stored BYOK credential
+permanently undecryptable - accounts would need to re-enter their key.
+
+## 10. Quotas, hygiene jobs and the Privacy page
+
+**Quotas** (docs/SAAS-ARCHITECTURE.md section 5): daily per-account caps on
+AI job kinds, checked before every provider call so a runaway loop never
+runs up an account's own metered bill. Defaults are 40 cover letters, 60 fit
+analyses and 5 interview briefs per day; override with
+`JOBBLAST_QUOTA_TAILOR_PER_DAY` / `_FIT_PER_DAY` / `_BRIEF_PER_DAY`, or set
+one to `0` to disable it. Going over a cap is never an error: a letter
+request gets an immediate "try again tomorrow" response, and the nightly fit
+/ brief passes simply defer the rest of their batch to the next run.
+Selfhosted is always unlimited.
+
+**Hygiene jobs**: two platform-wide, daily jobs run through the same queue
+as everything else - `sessions.sweep` (deletes expired session rows) and
+`postings.prune` (deletes shared postings nobody's queue references,
+older than `JOBBLAST_POSTING_RETENTION_DAYS`, default 90). Both are saas
+only: the queue worker itself never starts in selfhosted, which also never
+creates a session row in the first place (no login screen).
+
+**Privacy page**: `GET /api/legal` (linked from the login screen, the
+sidebar and Settings) reports the operator identity from the
+`JOBBLAST_LEGAL_*` env vars above, plus the current retention window and
+quota caps, so the page never drifts from the real configuration. Leaving
+`JOBBLAST_LEGAL_OPERATOR` unset makes it report itself as "not configured"
+rather than a page full of blanks - fill it in before inviting anyone
+outside your own testing.
+
+## 11. TLS / a real domain
 
 This local stack runs Caddy on plain HTTP (`deploy/saas/Caddyfile`,
 `{$JOBBLAST_DOMAIN:http://localhost}`) mapped to `localhost:8080` - there is

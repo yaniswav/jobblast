@@ -391,6 +391,85 @@ export interface TestAiCredentialRequest {
   apiKey?: string;
 }
 
+export type LegalInfoQuotas = {
+  /** @nullable */
+  tailorPerDay: number | null;
+  /** @nullable */
+  fitPerDay: number | null;
+  /** @nullable */
+  briefPerDay: number | null;
+};
+
+/**
+ * The operator's identity comes entirely from JOBBLAST_LEGAL_* env vars (docs/SAAS-ARCHITECTURE.md section 8) - never hardcoded, since each self-hosted operator running their own beta fills in their own.
+ */
+export interface LegalInfo {
+  /** False when the operator has not configured JOBBLAST_LEGAL_OPERATOR yet. */
+  available: boolean;
+  /** @nullable */
+  operator: string | null;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  contact: string | null;
+  /** @nullable */
+  country: string | null;
+  /** How long an unreferenced shared posting is kept before the daily prune job removes it. */
+  postingsRetentionDays: number;
+  quotas: LegalInfoQuotas;
+}
+
+/**
+ * Never includes the password hash.
+ */
+export interface AccountExportUser {
+  id: string;
+  email: string;
+  /** @nullable */
+  displayName: string | null;
+  /** @nullable */
+  locale: string | null;
+  createdAt: string;
+  /** @nullable */
+  lastLoginAt: string | null;
+}
+
+export interface AccountExportBrief {
+  applicationId: number;
+  status: InterviewBriefStatus;
+  /** @nullable */
+  contentMarkdown: string | null;
+  /** @nullable */
+  generatedAt: string | null;
+  /** @nullable */
+  error: string | null;
+}
+
+export interface AccountExportDocument {
+  type: DocumentType;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  /** Existing authenticated endpoint that streams the file itself - never inlined here. */
+  downloadUrl: string;
+}
+
+export interface AccountExport {
+  exportedAt: string;
+  user: AccountExportUser;
+  settings: SettingsState;
+  profile: Profile | null;
+  applications: Application[];
+  postings: JobListing[];
+  interviewBriefs: AccountExportBrief[];
+  documents: AccountExportDocument[];
+}
+
+export interface DeleteAccountRequest {
+  password: string;
+}
+
 export type SearchParameter = string;
 
 export type JobStatusParameter = typeof JobStatusParameter[keyof typeof JobStatusParameter];

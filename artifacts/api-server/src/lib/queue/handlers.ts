@@ -38,6 +38,7 @@ import {
   type SourceId,
 } from "../sources/signature";
 import { runWithUser } from "../user-context";
+import { prunePostings, sweepExpiredSessions } from "./hygiene";
 import { enqueueJob } from "./store";
 
 /** How far back a `user.score` job looks for adverts it has not scored yet. */
@@ -139,6 +140,17 @@ export async function enqueueRefreshForUser(userId: string): Promise<number> {
     dedupeKey: `user.score:${userId}`,
   });
   return scheduled;
+}
+
+/**
+ * Enqueues the two daily platform-wide hygiene jobs (docs/SAAS-ARCHITECTURE.md
+ * section 8 / the v0.4 pre-beta lot's E5 step). Dedupe keys have no date
+ * suffix - once a run completes its row is no longer `pending`, so the next
+ * day's enqueue is not blocked by it.
+ */
+export async function enqueueHygieneCycle(): Promise<void> {
+  await enqueueJob({ kind: "sessions.sweep", userId: null, dedupeKey: "sessions.sweep:daily" });
+  await enqueueJob({ kind: "postings.prune", userId: null, dedupeKey: "postings.prune:daily" });
 }
 
 /** Enqueues one nightly fit-analysis batch per account. */
@@ -272,6 +284,12 @@ export async function runJob(job: Job): Promise<void> {
     case "user.tailor":
       if (!job.userId) throw new Error("user.tailor needs a user_id");
       await runTailor(job.userId, payload);
+      return;
+    case "sessions.sweep":
+      await sweepExpiredSessions();
+      return;
+    case "postings.prune":
+      await prunePostings();
       return;
     default:
       throw new Error(`Unknown job kind "${job.kind}"`);

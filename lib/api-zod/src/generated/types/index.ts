@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './accountExport';
+export * from './accountExportBrief';
+export * from './accountExportDocument';
+export * from './accountExportUser';
 export * from './aiCredentialStatus';
 export * from './aiProviderCapabilities';
 export * from './aiProviderId';
@@ -24,6 +28,7 @@ export * from './authSession';
 export * from './authUser';
 export * from './byokProviderId';
 export * from './dashboardSummary';
+export * from './deleteAccountRequest';
 export * from './documentMeta';
 export * from './documentType';
 export * from './documentUploadPayload';
@@ -44,6 +49,8 @@ export * from './jobStatus';
 export * from './jobStatusParameter';
 export * from './jobTailoringStatus';
 export * from './jobTailoringStatusState';
+export * from './legalInfo';
+export * from './legalInfoQuotas';
 export * from './listApplicationsParams';
 export * from './listJobsParams';
 export * from './loginRequest';

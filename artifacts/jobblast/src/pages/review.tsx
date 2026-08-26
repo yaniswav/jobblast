@@ -78,7 +78,12 @@ function TailoringControl({ jobId }: { jobId: number }) {
                   queryClient.invalidateQueries({ queryKey: getGetJobTailoringStatusQueryKey(jobId) });
                   toast(t('review.toastTailorRequested'));
                 },
-                onError: () => toast(t('review.toastTailorFailed')),
+                onError: (err) =>
+                  toast(
+                    err && typeof err === 'object' && 'status' in err && (err as { status?: number }).status === 429
+                      ? t('review.toastTailorQuotaExceeded')
+                      : t('review.toastTailorFailed'),
+                  ),
               },
             )
           }

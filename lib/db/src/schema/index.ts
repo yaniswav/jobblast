@@ -27,6 +27,7 @@ export * from "./jobs";
 export * from "./postings";
 export * from "./profiles";
 export * from "./sessions";
+export * from "./usageCounters";
 export * from "./userPostings";
 export * from "./users";
 export * from "./userSettings";

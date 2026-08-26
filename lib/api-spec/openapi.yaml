@@ -24,6 +24,10 @@ tags:
     description: AI provider setup wizard and automation toggles
   - name: auth
     description: Mode discovery and, in SaaS mode, accounts and sessions
+  - name: legal
+    description: Operator identity and data policy (SaaS mode only)
+  - name: account
+    description: GDPR account rights - data export and deletion (SaaS mode only)
 paths:
   /auth/session:
     get:
@@ -108,6 +112,88 @@ paths:
       responses:
         "204":
           description: Signed out
+  /legal:
+    get:
+      operationId: getLegalInfo
+      tags: [legal]
+      summary: Operator identity and data policy (SaaS mode only)
+      description: >
+        Public - reachable from the login screen, before anyone has signed
+        in. The operator's identity comes entirely from environment
+        variables (JOBBLAST_LEGAL_*); `available` is false when the operator
+        has not set them yet.
+      responses:
+        "200":
+          description: Legal / privacy information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalInfo"
+        "404":
+          description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /account/export:
+    get:
+      operationId: getAccountExport
+      tags: [account]
+      summary: Full data export for the signed-in account (SaaS mode only)
+      description: >
+        GDPR portability: profile, settings (no AI keys), applications,
+        postings, interview briefs and document metadata. Document bytes are
+        excluded - each entry links to the existing per-document endpoint
+        instead, so nothing here duplicates the file store.
+      responses:
+        "200":
+          description: The account's data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountExport"
+        "404":
+          description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /account:
+    delete:
+      operationId: deleteAccount
+      tags: [account]
+      summary: Permanently delete the signed-in account (SaaS mode only)
+      description: >
+        GDPR erasure. Confirmed by re-entering the password. Deletes the
+        `users` row (cascading every table that references it), the
+        account's files on disk, and signs the caller out.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Missing password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Wrong password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not available on a self-hosted install, or the account no longer exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /healthz:
     get:
       operationId: healthCheck
@@ -247,6 +333,14 @@ paths:
                 $ref: "#/components/schemas/JobTailoringStatus"
         "404":
           description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: >
+            SaaS mode only: this account's daily letter quota is reached.
+            Not enqueued - try again after the daily reset.
           content:
             application/json:
               schema:
@@ -1295,3 +1389,160 @@ components:
         apiKey:
           description: Test this value instead of the saved key. Never persisted by the test endpoint.
           type: string
+    LegalInfo:
+      type: object
+      description: >
+        The operator's identity comes entirely from JOBBLAST_LEGAL_* env
+        vars (docs/SAAS-ARCHITECTURE.md section 8) - never hardcoded, since
+        each self-hosted operator running their own beta fills in their own.
+      properties:
+        available:
+          description: False when the operator has not configured JOBBLAST_LEGAL_OPERATOR yet.
+          type: boolean
+        operator:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        contact:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        postingsRetentionDays:
+          description: How long an unreferenced shared posting is kept before the daily prune job removes it.
+          type: number
+        quotas:
+          type: object
+          properties:
+            tailorPerDay:
+              type: ["number", "null"]
+            fitPerDay:
+              type: ["number", "null"]
+            briefPerDay:
+              type: ["number", "null"]
+          required:
+            - tailorPerDay
+            - fitPerDay
+            - briefPerDay
+      required:
+        - available
+        - operator
+        - address
+        - contact
+        - country
+        - postingsRetentionDays
+        - quotas
+    AccountExportUser:
+      type: object
+      description: Never includes the password hash.
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        locale:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - email
+        - displayName
+        - locale
+        - createdAt
+        - lastLoginAt
+    AccountExportBrief:
+      type: object
+      properties:
+        applicationId:
+          type: number
+        status:
+          $ref: "#/components/schemas/InterviewBriefStatus"
+        contentMarkdown:
+          type: ["string", "null"]
+        generatedAt:
+          type: ["string", "null"]
+          format: date-time
+        error:
+          type: ["string", "null"]
+      required:
+        - applicationId
+        - status
+        - contentMarkdown
+        - generatedAt
+        - error
+    AccountExportDocument:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/DocumentType"
+        filename:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: number
+        uploadedAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          description: Existing authenticated endpoint that streams the file itself - never inlined here.
+          type: string
+      required:
+        - type
+        - filename
+        - mimeType
+        - sizeBytes
+        - uploadedAt
+        - downloadUrl
+    AccountExport:
+      type: object
+      properties:
+        exportedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/AccountExportUser"
+        settings:
+          $ref: "#/components/schemas/SettingsState"
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/Profile"
+            - type: "null"
+        applications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Application"
+        postings:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListing"
+        interviewBriefs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountExportBrief"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountExportDocument"
+      required:
+        - exportedAt
+        - user
+        - settings
+        - profile
+        - applications
+        - postings
+        - interviewBriefs
+        - documents
+    DeleteAccountRequest:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password

@@ -24,12 +24,14 @@
 import type { FitAnalysis, FitVerdict } from "@workspace/db";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
+import { quotaCapFor } from "../quota-config";
 import {
   listUnanalyzedPostings,
   saveFitAnalysis,
   type UserPostingRow,
 } from "../repo/postings";
 import { getProfile } from "../repo/profile";
+import { tryConsumeQuota } from "../repo/usage";
 import { letterLanguageRule } from "./language";
 import {
   configuredProviderName,
@@ -270,7 +272,18 @@ export async function runFitAnalysisPass(
     let succeeded = 0;
     let failed = 0;
 
+    const cap = quotaCapFor("fit");
+
     for (const job of eligible) {
+      // Checked before the provider call, never after (docs/SAAS-ARCHITECTURE.md
+      // section 5). Exceeding the daily cap is not an error: the remaining
+      // postings simply stay unanalyzed and are picked up by tomorrow's pass.
+      const quota = await tryConsumeQuota(userId, "fit", cap);
+      if (!quota.allowed) {
+        logger.info({ used: quota.used, cap: quota.cap }, "AI fit-analysis pass: daily quota reached, deferring the rest to tomorrow");
+        break;
+      }
+
       const startedAt = Date.now();
       try {
         const analysis = await generateFitAnalysis(job, context, provider);

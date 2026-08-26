@@ -27,6 +27,12 @@ export const usersTable = pgTable("users", {
     .notNull()
     .defaultNow(),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  // Inactivity tracking only (v0.4 pre-beta lot): refreshed at most once a
+  // day by a resolved session, see lib/auth/store.ts resolveSession(). Not
+  // yet acted on - the 12-month auto-purge with a 30-day warning email
+  // depends on the SMTP lot (docs/SAAS-ARCHITECTURE.md open question 3) and
+  // is intentionally not implemented here.
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
 });
 
 export type User = typeof usersTable.$inferSelect;

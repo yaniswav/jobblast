@@ -67,6 +67,139 @@ export const LogoutResponse = zod.void()
 
 
 /**
+ * Public - reachable from the login screen, before anyone has signed in. The operator's identity comes entirely from environment variables (JOBBLAST_LEGAL_*); `available` is false when the operator has not set them yet.
+ * @summary Operator identity and data policy (SaaS mode only)
+ */
+export const GetLegalInfoResponse = zod.object({
+  "available": zod.boolean().describe('False when the operator has not configured JOBBLAST_LEGAL_OPERATOR yet.'),
+  "operator": zod.string().nullable(),
+  "address": zod.string().nullable(),
+  "contact": zod.string().nullable(),
+  "country": zod.string().nullable(),
+  "postingsRetentionDays": zod.number().describe('How long an unreferenced shared posting is kept before the daily prune job removes it.'),
+  "quotas": zod.object({
+  "tailorPerDay": zod.number().nullable(),
+  "fitPerDay": zod.number().nullable(),
+  "briefPerDay": zod.number().nullable()
+})
+}).describe('The operator\'s identity comes entirely from JOBBLAST_LEGAL_\* env vars (docs\/SAAS-ARCHITECTURE.md section 8) - never hardcoded, since each self-hosted operator running their own beta fills in their own.\n')
+
+
+/**
+ * GDPR portability: profile, settings (no AI keys), applications, postings, interview briefs and document metadata. Document bytes are excluded - each entry links to the existing per-document endpoint instead, so nothing here duplicates the file store.
+ * @summary Full data export for the signed-in account (SaaS mode only)
+ */
+export const GetAccountExportResponse = zod.object({
+  "exportedAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.string(),
+  "email": zod.string(),
+  "displayName": zod.string().nullable(),
+  "locale": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "lastLoginAt": zod.coerce.date().nullable()
+}).describe('Never includes the password hash.'),
+  "settings": zod.object({
+  "ai": zod.object({
+  "provider": zod.enum(['none', 'claude-cli', 'codex-cli', 'gemini-cli', 'anthropic-api', 'openai-compatible', 'ollama', 'lmstudio']).describe('Matches `ai.provider` in jobblast.config.json (lib\/config.ts AI_PROVIDERS).'),
+  "model": zod.string()
+}),
+  "gmailSync": zod.object({
+  "enabled": zod.boolean(),
+  "dryRun": zod.boolean()
+}),
+  "aiScout": zod.object({
+  "enabled": zod.boolean()
+}),
+  "notionInbox": zod.object({
+  "enabled": zod.boolean(),
+  "pageUrl": zod.string(),
+  "dataSourceUrl": zod.string()
+})
+}),
+  "profile": zod.union([zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "headline": zod.string(),
+  "targetRoles": zod.array(zod.string()),
+  "targetLocations": zod.array(zod.string()),
+  "salaryFloor": zod.number(),
+  "excludedCompanies": zod.array(zod.string()),
+  "masterResume": zod.string()
+}),zod.null()]),
+  "applications": zod.array(zod.object({
+  "id": zod.number(),
+  "jobId": zod.number(),
+  "title": zod.string(),
+  "company": zod.string(),
+  "companyInitials": zod.string(),
+  "location": zod.string(),
+  "appliedAt": zod.coerce.date(),
+  "status": zod.enum(['queued', 'approved', 'applied', 'responded', 'interview', 'rejected', 'offer']),
+  "resumeVersion": zod.string(),
+  "coverLetterVersion": zod.string(),
+  "notes": zod.string(),
+  "followUpDate": zod.coerce.date().nullable()
+})),
+  "postings": zod.array(zod.object({
+  "id": zod.number(),
+  "source": zod.string(),
+  "title": zod.string(),
+  "company": zod.string(),
+  "companyInitials": zod.string(),
+  "location": zod.string(),
+  "workMode": zod.enum(['Remote', 'Hybrid', 'On-site']),
+  "url": zod.string(),
+  "description": zod.string(),
+  "postedDate": zod.coerce.date(),
+  "salaryRange": zod.string(),
+  "fetchedAt": zod.coerce.date(),
+  "relevanceScore": zod.number(),
+  "matchReasons": zod.array(zod.string()),
+  "highlightedSkills": zod.array(zod.string()),
+  "tailoredBullets": zod.array(zod.string()),
+  "coverLetter": zod.string(),
+  "status": zod.enum(['queued', 'skipped', 'applied']),
+  "applicationId": zod.number().nullable(),
+  "aiGenerated": zod.boolean(),
+  "fitAnalysis": zod.object({
+  "verdict": zod.enum(['strong', 'good', 'stretch', 'poor']),
+  "greenFlags": zod.array(zod.string()),
+  "redFlags": zod.array(zod.string()),
+  "gaps": zod.array(zod.string())
+}).nullable()
+})),
+  "interviewBriefs": zod.array(zod.object({
+  "applicationId": zod.number(),
+  "status": zod.enum(['pending', 'generating', 'ready', 'failed']),
+  "contentMarkdown": zod.string().nullable(),
+  "generatedAt": zod.coerce.date().nullable(),
+  "error": zod.string().nullable()
+})),
+  "documents": zod.array(zod.object({
+  "type": zod.enum(['cv', 'cover_letter']),
+  "filename": zod.string(),
+  "mimeType": zod.string(),
+  "sizeBytes": zod.number(),
+  "uploadedAt": zod.coerce.date(),
+  "downloadUrl": zod.string().describe('Existing authenticated endpoint that streams the file itself - never inlined here.')
+}))
+})
+
+
+/**
+ * GDPR erasure. Confirmed by re-entering the password. Deletes the `users` row (cascading every table that references it), the account's files on disk, and signs the caller out.
+ * @summary Permanently delete the signed-in account (SaaS mode only)
+ */
+export const DeleteAccountBody = zod.object({
+  "password": zod.string()
+})
+
+export const DeleteAccountResponse = zod.void()
+
+
+/**
  * Returns server health status
  * @summary Health check
  */

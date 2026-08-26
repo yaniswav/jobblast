@@ -21,6 +21,7 @@ import { IS_SAAS } from "../lib/mode";
 import { renderCoverLetterPdf, sanitizeFilenameSegment } from "../lib/pdf-cover-letter";
 import { enqueueRefreshForUser, enqueueTailorRequest, tailorDedupeKey } from "../lib/queue/handlers";
 import { latestJobFor } from "../lib/queue/store";
+import { quotaCapFor } from "../lib/quota-config";
 import {
   getUserPosting,
   listUserPostings,
@@ -28,6 +29,7 @@ import {
   type UserPostingRow,
 } from "../lib/repo/postings";
 import { ensureProfile } from "../lib/repo/profile";
+import { tryConsumeQuota } from "../lib/repo/usage";
 import { isRefreshRunning, refreshJobListings } from "../lib/sources/refresh";
 
 const router: IRouter = Router();
@@ -171,6 +173,17 @@ router.post("/jobs/:id/tailor", async (req, res): Promise<void> => {
   }
 
   if (IS_SAAS) {
+    // Checked here, before enqueueing, so the account gets an immediate
+    // answer rather than a job that silently does nothing once the worker
+    // picks it up (docs/SAAS-ARCHITECTURE.md section 5 - quotas are checked
+    // before the provider call, never after).
+    const quota = await tryConsumeQuota(userId, "tailor", quotaCapFor("tailor"));
+    if (!quota.allowed) {
+      res.status(429).json({
+        error: `Daily letter quota reached (${quota.cap} per day). Try again tomorrow.`,
+      });
+      return;
+    }
     await enqueueTailorRequest(userId, job.id);
     res.status(202).json(RequestJobTailoringResponse.parse({ state: "queued", error: null }));
     return;

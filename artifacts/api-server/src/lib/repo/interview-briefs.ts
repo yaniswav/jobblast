@@ -75,6 +75,15 @@ export async function resetBrief(
   return row !== undefined;
 }
 
+/** Every brief this account has, in any status - used by the account data export. */
+export async function listBriefs(userId: string): Promise<InterviewBrief[]> {
+  return db
+    .select()
+    .from(interviewBriefsTable)
+    .where(eq(interviewBriefsTable.userId, userId))
+    .orderBy(asc(interviewBriefsTable.createdAt));
+}
+
 export async function listPendingBriefs(
   userId: string,
   limit: number,

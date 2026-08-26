@@ -122,6 +122,16 @@ export default function Login() {
             >
               {mode === 'signIn' ? t('auth.switchToRegister') : t('auth.switchToSignIn')}
             </button>
+
+            {/* A plain anchor, not a wouter <Link>: this screen renders
+                outside the router (see App.tsx's AuthGate), since nobody is
+                signed in yet. */}
+            <a
+              href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/privacy`}
+              className="text-center text-xs text-gray-400 underline underline-offset-4"
+            >
+              {t('privacy.linkLabel')}
+            </a>
           </form>
         </CardContent>
       </Card>
