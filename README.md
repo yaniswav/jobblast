@@ -146,6 +146,11 @@ Both are optional - disable them in `jobblast.config.json`
 (`sources.franceTravail.enabled` / `sources.adzuna.enabled`) and the app
 still aggregates from the nine sources that need no credentials at all.
 
+## Development
+
+Run the pure-logic unit test suite (Vitest, no DB/network required) from the
+repo root with `pnpm test`.
+
 ## Running in production, locally
 
 JobBlast is designed to run permanently on a machine you own - no cloud, no

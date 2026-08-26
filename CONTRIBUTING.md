@@ -15,6 +15,10 @@ job-source- or scoring-related.
 
 - `pnpm run typecheck` must pass.
 - `pnpm run build` must pass.
+- `pnpm test` must pass. If you change logic in `artifacts/api-server/src/lib`
+  (scoring, config, sanitization, Gmail-sync matching, ...), add or update a
+  colocated `*.test.ts` covering it - pure-logic unit tests only (no DB,
+  network, or CLI mocking), see the existing tests for the pattern.
 - If you touch the API contract (routes, request/response shapes), regenerate
   the client from `lib/api-spec/openapi.yaml` rather than hand-editing the
   generated files under `lib/api-client-react/src/generated` and

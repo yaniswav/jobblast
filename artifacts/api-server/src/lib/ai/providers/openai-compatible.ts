@@ -41,8 +41,8 @@ const PRESETS: Record<"openai-compatible" | "ollama" | "lmstudio", Preset> = {
 
 type Resolved = Preset & { temperature: number | null };
 
-/** Config wins key by key; anything left out comes from the alias preset. */
-function resolve(provider: AiProviderName): Resolved {
+/** Config wins key by key; anything left out comes from the alias preset. Exported for testability. */
+export function resolveProviderSettings(provider: AiProviderName): Resolved {
   const preset = PRESETS[provider as keyof typeof PRESETS] ?? PRESETS["openai-compatible"];
   const cfg = loadConfig().ai.openaiCompatible;
 
@@ -71,7 +71,7 @@ export function createOpenAiCompatibleProvider(provider: AiProviderName): TextPr
     name: provider,
 
     async generateText(prompt, opts = {}) {
-      const { baseUrl, apiKeyEnv, model, temperature } = resolve(provider);
+      const { baseUrl, apiKeyEnv, model, temperature } = resolveProviderSettings(provider);
       const timeoutMs = opts.timeoutMs ?? loadConfig().ai.timeoutMs;
 
       const headers: Record<string, string> = { "content-type": "application/json" };
