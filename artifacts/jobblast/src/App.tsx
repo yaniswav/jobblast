@@ -45,8 +45,8 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   if (session.isPending) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-500">{t('loading.workspace')}</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('loading.workspace')}</p>
       </div>
     );
   }
@@ -93,8 +93,8 @@ function OnboardingGate({ children }: { children: ReactNode }) {
 
   if (status.isPending) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-500">{t('loading.workspace')}</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('loading.workspace')}</p>
       </div>
     );
   }

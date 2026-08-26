@@ -1,5 +1,5 @@
-import { Check, ChevronLeft, ChevronRight, ExternalLink, FileDown, FileText, MapPin, RefreshCw, ShieldCheck, SkipForward, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, CircleCheck, ExternalLink, FileDown, FileText, MapPin, RefreshCw, ShieldCheck, SkipForward, Sparkles, TrendingDown, TriangleAlert } from 'lucide-react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useCreateApplication, useGetJob, useGetJobTailoringStatus, useListJobs, useRefreshJobs, useRequestJobTailoring, useSkipJob, getGetDashboardQueryKey, getListJobsQueryKey, getGetJobQueryKey, getGetJobTailoringStatusQueryKey, getGetDocumentFileUrl, getGetJobCoverLetterPdfUrl, type JobListingFitAnalysisVerdict, type JobTailoringStatusState } from '@workspace/api-client-react';
@@ -135,10 +135,10 @@ export default function Review() {
   return (
     <div className="content-wrap">
       <div className="flex items-end justify-between gap-4 mb-6"><div><div className="eyebrow">{t('review.eyebrow')}</div><h1 className="page-title mt-3">{t('review.title')}</h1><p className="page-subtitle">{t('review.subtitle')}</p></div><div className="flex items-center gap-4"><button className="btn btn-ghost" onClick={handleRefresh} disabled={refresh.isPending} data-testid="button-refresh-jobs"><RefreshCw size={15} className={refresh.isPending ? 'animate-spin' : ''} /> {t('review.refresh')}</button><div className="text-right"><div className="font-mono-app text-sm font-bold">{String(index + 1).padStart(2, '0')} <span className="text-[hsl(var(--muted-foreground))]">/ {String(jobs.data.length).padStart(2, '0')}</span></div><div className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-[.08em] mt-1">{t('review.queued')}</div></div></div></div>
-      {notice && <div className="mb-4 rounded-lg bg-[hsl(var(--primary)/.13)] px-4 py-3 text-sm font-semibold text-[hsl(var(--primary))] flash-approve" data-testid="status-review-notice">{notice}</div>}
+      <div className={`notice-slot ${notice ? 'notice-visible flash-approve' : ''}`} data-testid="status-review-notice">{notice || ' '}</div>
       <div className="queue-layout">
         <article className="surface job-card">
-          <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3"><div className="avatar avatar-lg">{listing.companyInitials}</div><div><div className="font-bold">{listing.company}</div><div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] mt-1"><span>{listing.source} · {t('review.postedOn', { date: listing.postedDate })}</span><span className={`badge ${listing.aiGenerated ? 'badge-green' : 'badge-muted'}`}>{listing.aiGenerated ? t('review.aiLetter') : t('review.templateDraft')}</span></div></div></div><div className="score-ring" aria-label={t('review.matchPercent', { score: listing.relevanceScore })}><span>{listing.relevanceScore}</span></div></div>
+          <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3"><div className="avatar avatar-lg">{listing.companyInitials}</div><div><div className="font-bold">{listing.company}</div><div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] mt-1"><span>{listing.source} · {t('review.postedOn', { date: listing.postedDate })}</span><span className={`badge ${listing.aiGenerated ? 'badge-green' : 'badge-muted'}`}>{listing.aiGenerated ? t('review.aiLetter') : t('review.templateDraft')}</span></div></div></div><div className="score-ring" style={{ '--score': listing.relevanceScore } as CSSProperties} aria-label={t('review.matchPercent', { score: listing.relevanceScore })}><span>{listing.relevanceScore}</span></div></div>
           <h2>{listing.title}</h2><div className="flex flex-wrap items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]"><span className="flex items-center gap-1"><MapPin size={13} />{listing.location}</span><span>·</span><span>{listing.workMode}</span><span>·</span><span>{listing.salaryRange}</span></div>
           <div className="flex flex-wrap gap-2 mt-5">{listing.highlightedSkills?.map((skill) => <span key={skill} className="tag">{skill}</span>)}</div>
           <div className="mt-7 border-t border-[hsl(var(--border))] pt-5"><div className="flex items-center gap-2 font-bold text-sm"><Sparkles size={15} className="text-[hsl(var(--accent))]" /> {t('review.whyThisSurfaced')}</div><ul className="bullet-list">{listing.matchReasons?.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>
@@ -149,9 +149,9 @@ export default function Review() {
             </div>
             {listing.fitAnalysis ? (
               <div className="fit-groups">
-                {listing.fitAnalysis.greenFlags.length > 0 && <div className="fit-group"><div className="fit-group-title">✅ {t('review.fitStrengths')}</div><ul className="bullet-list">{listing.fitAnalysis.greenFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
-                {listing.fitAnalysis.redFlags.length > 0 && <div className="fit-group"><div className="fit-group-title">⚠ {t('review.fitConcerns')}</div><ul className="bullet-list">{listing.fitAnalysis.redFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
-                {listing.fitAnalysis.gaps.length > 0 && <div className="fit-group"><div className="fit-group-title">📉 {t('review.fitGaps')}</div><ul className="bullet-list">{listing.fitAnalysis.gaps.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
+                {listing.fitAnalysis.greenFlags.length > 0 && <div className="fit-group"><div className="fit-group-title"><CircleCheck size={12} className="inline -mt-0.5 mr-1" />{t('review.fitStrengths')}</div><ul className="bullet-list">{listing.fitAnalysis.greenFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
+                {listing.fitAnalysis.redFlags.length > 0 && <div className="fit-group"><div className="fit-group-title"><TriangleAlert size={12} className="inline -mt-0.5 mr-1" />{t('review.fitConcerns')}</div><ul className="bullet-list">{listing.fitAnalysis.redFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
+                {listing.fitAnalysis.gaps.length > 0 && <div className="fit-group"><div className="fit-group-title"><TrendingDown size={12} className="inline -mt-0.5 mr-1" />{t('review.fitGaps')}</div><ul className="bullet-list">{listing.fitAnalysis.gaps.map((flag) => <li key={flag}>{flag}</li>)}</ul></div>}
               </div>
             ) : (
               <p className="fit-pending">{t('review.fitAnalysisPending')}</p>

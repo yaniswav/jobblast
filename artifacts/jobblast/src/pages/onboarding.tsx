@@ -52,7 +52,7 @@ export default function Onboarding({ nextStep }: { nextStep: OnboardingStep }) {
   const stepIndex = step === 'finish' ? STEP_ORDER.length : STEP_ORDER.indexOf(step);
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center px-4 py-10">
+    <div className="min-h-screen w-full bg-background flex flex-col items-center px-4 py-10">
       <header className="w-full max-w-2xl flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <span className="brand-mark">JB</span>
@@ -85,7 +85,7 @@ export default function Onboarding({ nextStep }: { nextStep: OnboardingStep }) {
         </p>
       </div>
 
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl list-enter" key={step}>
         {step === 'profile' && <ProfileStep onNext={() => setStep('criteria')} />}
         {step === 'criteria' && <CriteriaStep onNext={() => setStep('byok')} onBack={() => setStep('profile')} />}
         {step === 'byok' && <ByokStep onNext={() => setStep('finish')} onBack={() => setStep('criteria')} />}
@@ -454,13 +454,13 @@ function FinishStep({ onBack }: { onBack: () => void }) {
       />
       <section className="surface p-6">
         <ul className="grid gap-3 text-sm">
-          <li className="flex items-center gap-2">
+          <li className="flex items-center gap-2 list-enter">
             <Check size={15} className="text-[hsl(var(--primary))] flex-none" /> {t('onboarding.finishChecklistProfile')}
           </li>
-          <li className="flex items-center gap-2">
+          <li className="flex items-center gap-2 list-enter">
             <Check size={15} className="text-[hsl(var(--primary))] flex-none" /> {t('onboarding.finishChecklistCriteria')}
           </li>
-          <li className="flex items-center gap-2">
+          <li className="flex items-center gap-2 list-enter">
             <Check size={15} className="text-[hsl(var(--primary))] flex-none" /> {t('onboarding.finishChecklistByok')}
           </li>
         </ul>

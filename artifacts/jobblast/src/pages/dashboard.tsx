@@ -27,22 +27,26 @@ function ClaudeCliNudge() {
   const settings = useGetSettings();
   const options = useListAiProviderOptions();
   const [dismissed, setDismissed] = useState(readNudgeDismissed);
+  const [exiting, setExiting] = useState(false);
 
   const claudeCliOption = options.data?.find((option) => option.id === 'claude-cli');
   const shouldShow = settings.data?.ai.provider === 'claude-cli' && claudeCliOption?.available === false;
   if (dismissed || !shouldShow) return null;
 
   const dismiss = () => {
-    setDismissed(true);
-    try {
-      window.localStorage.setItem(NUDGE_DISMISSED_KEY, '1');
-    } catch {
-      // Ignore storage failures (e.g. private browsing); the dismissal still applies for this session.
-    }
+    setExiting(true);
+    window.setTimeout(() => {
+      setDismissed(true);
+      try {
+        window.localStorage.setItem(NUDGE_DISMISSED_KEY, '1');
+      } catch {
+        // Ignore storage failures (e.g. private browsing); the dismissal still applies for this session.
+      }
+    }, 200);
   };
 
   return (
-    <div className="nudge-banner" data-testid="banner-claude-cli-nudge">
+    <div className={`nudge-banner banner-exit ${exiting ? 'banner-exit-active' : ''}`} data-testid="banner-claude-cli-nudge">
       <div className="flex items-start gap-3">
         <TriangleAlert size={18} className="text-[hsl(38_92%_38%)] mt-0.5 flex-none" />
         <div>

@@ -27,6 +27,7 @@ export const fr = {
   'shell.yourProfile': 'Votre profil',
   'shell.profileLoading': 'Chargement du profil',
   'shell.languageToggle': 'Langue',
+  'shell.themeToggle': 'Changer de thème',
   'shell.mainNavigation': 'Navigation principale',
 
   // Shared loading / error / empty states
@@ -246,7 +247,7 @@ export const fr = {
   'settings.savingProvider': 'Enregistrement…',
   'settings.testButton': 'Tester',
   'settings.testing': 'Test en cours…',
-  'settings.testResultOk': 'Ça fonctionne — réponse en {ms} ms.',
+  'settings.testResultOk': 'Ça fonctionne. Réponse en {ms} ms.',
   'settings.testResultError': 'Échec : {error}',
   'settings.toastSettingsSaved': 'Réglages enregistrés.',
   'settings.toastSettingsSaveFailed': "Impossible d'enregistrer les réglages.",
@@ -316,6 +317,7 @@ export const fr = {
   'status.offer': 'Offre',
 
   // Sign in / registration (SaaS mode only; never shown self-hosted)
+  'auth.eyebrow': 'Compte',
   'auth.signInTitle': 'Connexion',
   'auth.signInSubtitle': 'Reprenez là où vous en étiez.',
   'auth.registerTitle': 'Créer votre compte',
@@ -354,6 +356,7 @@ export const fr = {
   // Essai anonyme (mode SaaS uniquement ; lot H1). Accessible depuis l'écran
   // de connexion, avant toute inscription - voir App.tsx (AuthGate) et
   // pages/try.tsx.
+  'try.eyebrow': 'Essai',
   'try.title': 'Découvre tes offres avant de créer un compte',
   'try.subtitle': 'Colle ton CV ou envoie un PDF. Sans compte, sans engagement.',
   'try.privacyNotice': "Ton CV n'est ni stocké ni transmis à une IA. Il est uniquement comparé, en mémoire, aux offres actuelles de cette instance pour cette seule requête.",

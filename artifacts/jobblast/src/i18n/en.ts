@@ -25,6 +25,7 @@ export const en = {
   'shell.yourProfile': 'Your profile',
   'shell.profileLoading': 'Profile loading',
   'shell.languageToggle': 'Language',
+  'shell.themeToggle': 'Toggle theme',
   'shell.mainNavigation': 'Main navigation',
 
   // Shared loading / error / empty states
@@ -244,7 +245,7 @@ export const en = {
   'settings.savingProvider': 'Saving…',
   'settings.testButton': 'Test',
   'settings.testing': 'Testing…',
-  'settings.testResultOk': 'Working — replied in {ms} ms.',
+  'settings.testResultOk': 'Working. Replied in {ms} ms.',
   'settings.testResultError': 'Failed: {error}',
   'settings.toastSettingsSaved': 'Settings saved.',
   'settings.toastSettingsSaveFailed': 'Could not save settings.',
@@ -314,6 +315,7 @@ export const en = {
   'status.offer': 'Offer',
 
   // Sign in / registration (SaaS mode only; never shown self-hosted)
+  'auth.eyebrow': 'Account',
   'auth.signInTitle': 'Sign in',
   'auth.signInSubtitle': 'Pick up where you left off.',
   'auth.registerTitle': 'Create your account',
@@ -350,6 +352,7 @@ export const en = {
 
   // Anonymous trial (SaaS mode only; H1 lot). Reached from the login screen,
   // before anyone has signed in - see App.tsx's AuthGate and pages/try.tsx.
+  'try.eyebrow': 'Trial',
   'try.title': 'See your matches first',
   'try.subtitle': 'Paste your CV or upload a PDF. No account, no commitment.',
   'try.privacyNotice': 'Your CV is not stored and is not sent to any AI. It is only compared, in memory, against this instance’s current job postings for this one request.',

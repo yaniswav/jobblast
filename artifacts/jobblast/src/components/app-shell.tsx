@@ -1,5 +1,5 @@
-import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, Settings as SettingsIcon, X } from 'lucide-react';
-import { useState } from 'react';
+import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, Moon, Settings as SettingsIcon, Sun, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useGetAuthSession, useGetProfile, useHealthCheck } from '@workspace/api-client-react';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
@@ -27,6 +27,44 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         );
       })}
     </>
+  );
+}
+
+const THEME_KEY = 'jobblast.theme';
+
+function readInitialTheme(): 'light' | 'dark' {
+  try {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // Ignore storage failures; fall through to the media query.
+  }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function ThemeToggle() {
+  const t = useT();
+  const [theme, setTheme] = useState<'light' | 'dark'>(readInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Ignore storage failures; the toggle still applies for this session.
+    }
+  }, [theme]);
+
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost icon-btn"
+      onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+      aria-label={t('shell.themeToggle')}
+      data-testid="button-theme-toggle"
+    >
+      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
   );
 }
 
@@ -125,6 +163,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <LanguageToggle />
             <Link href="/profile" className="flex items-center gap-3 group" data-testid="link-top-profile">
               <div className="text-right hide-mobile">
