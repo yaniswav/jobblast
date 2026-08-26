@@ -1,0 +1,118 @@
+name: E2E
+
+# Lot G3: builds the SaaS Docker image (Dockerfile, deploy/saas/compose.yaml)
+# and runs tests/e2e against the real stack - Postgres, the one-shot
+# migration, the app, Caddy, Mailpit. Separate job from ci.yml's fast
+# typecheck+unit job on purpose: this one builds an image and boots four
+# containers, so it is allowed to be slower without holding up the quick
+# feedback loop the unit job gives on every push and PR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Every value here is generated fresh in this job and thrown away with
+      # the runner - never a real secret, never committed (docs/DOCKER.md /
+      # deploy/saas/.env.docker.example document the real, human-managed
+      # version of this file). SESSION_COOKIE_SECURE=0 because this runner
+      # never terminates TLS - see deploy/saas/.env.docker.example's own
+      # comment on the same line for why that is correct here, not a
+      # weakening. The four JOBBLAST_SMTP_*/JOBBLAST_EMAIL_FROM lines point at
+      # the "dev" profile's Mailpit service, which the reset-password E2E
+      # spec reads through its HTTP API - see docs/DOCKER.md "Mailpit".
+      - name: Generate a CI-only deploy/saas/.env.docker
+        run: |
+          set -euo pipefail
+          {
+            echo "POSTGRES_PASSWORD=$(openssl rand -base64 24)"
+            echo "JOBBLAST_MASTER_KEY=$(openssl rand -base64 32)"
+            echo "APP_ORIGIN=http://localhost:8080"
+            echo "SESSION_COOKIE_SECURE=0"
+            echo "JOBBLAST_EMAIL_TRANSPORT=smtp"
+            echo "JOBBLAST_SMTP_HOST=mailpit"
+            echo "JOBBLAST_SMTP_PORT=1025"
+            echo "JOBBLAST_EMAIL_FROM=JobBlast <no-reply@jobblast.local>"
+          } > deploy/saas/.env.docker
+
+      - name: Build the image and start the stack (dev profile, for Mailpit)
+        run: |
+          docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker \
+            --profile dev up -d --build
+
+      - name: Wait for the app and Mailpit to become reachable
+        run: |
+          set -euo pipefail
+          echo "Waiting for the app healthcheck..."
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/api/healthz > /dev/null 2>&1; then
+              echo "app is healthy"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "::error::Timed out waiting for the app to become healthy"
+              exit 1
+            fi
+            sleep 5
+          done
+
+          echo "Waiting for Mailpit..."
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8025/api/v1/messages > /dev/null 2>&1; then
+              echo "mailpit is reachable"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Timed out waiting for mailpit"
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Run the E2E suite
+        run: pnpm run test:e2e
+
+      - name: Collect container logs
+        if: always()
+        run: |
+          mkdir -p e2e-logs
+          docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker \
+            ps > e2e-logs/ps.txt 2>&1 || true
+          docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker \
+            logs --no-color > e2e-logs/compose.log 2>&1 || true
+
+      - name: Upload container logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-container-logs
+          path: e2e-logs
+          retention-days: 7
+
+      - name: Tear down the stack
+        if: always()
+        run: |
+          docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker down -v

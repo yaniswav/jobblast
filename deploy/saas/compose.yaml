@@ -68,7 +68,11 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
-    image: jobblast-saas:local
+    # Defaults to the locally-built tag; set JOBBLAST_IMAGE in .env.docker to
+    # `ghcr.io/yaniswav/jobblast:<tag>` (after `docker pull`) to run the
+    # published image instead of building from source - see docs/DOCKER.md
+    # "Using the published image".
+    image: ${JOBBLAST_IMAGE:-jobblast-saas:local}
     container_name: jobblast-saas-migrate
     command: ["pnpm", "--filter", "@workspace/db", "run", "push-force"]
     environment:
@@ -83,7 +87,11 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
-    image: jobblast-saas:local
+    # Defaults to the locally-built tag; set JOBBLAST_IMAGE in .env.docker to
+    # `ghcr.io/yaniswav/jobblast:<tag>` (after `docker pull`) to run the
+    # published image instead of building from source - see docs/DOCKER.md
+    # "Using the published image".
+    image: ${JOBBLAST_IMAGE:-jobblast-saas:local}
     container_name: jobblast-saas-app
     restart: unless-stopped
     env_file:

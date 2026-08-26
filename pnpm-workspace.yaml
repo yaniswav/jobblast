@@ -32,6 +32,7 @@ packages:
   - lib/*
   - lib/integrations/*
   - scripts
+  - tests/e2e
 
 catalog:
   '@tailwindcss/vite': ^4.1.14

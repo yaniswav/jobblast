@@ -263,6 +263,73 @@ is lot F. `SESSION_COOKIE_SECURE` should also come back to its default
 (remove the `=0` override, or set it to `1`) once there is real TLS in
 front - a Secure cookie over plain HTTP is silently dropped by the browser.
 
+## Running the E2E suite
+
+`tests/e2e` (lot G3) is a small HTTP-only Vitest suite - real `fetch()` calls
+against this exact stack, no browser, no mocking - covering invite
+registration, the onboarding wizard, BYOK, two-account isolation, password
+reset through Mailpit, and account export/deletion. It is separate from the
+pure-logic unit suite `pnpm test` runs and is never part of it.
+
+Bring the stack up with the "dev" profile (Mailpit is required - the
+password-reset spec reads its email through it), then:
+
+```bash
+docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker --profile dev up -d --build
+pnpm run test:e2e
+```
+
+`pnpm run test:e2e` checks the stack is actually reachable first and prints
+the commands above if it is not, rather than failing with a bare connection
+error. It mints its own invite codes via `docker exec jobblast-saas-app pnpm
+run invite`, registers a handful of throwaway accounts, and cleans up after
+itself (deletes the accounts it creates) - it never touches data you created
+by hand. See `.github/workflows/e2e.yml` for how CI runs the same suite
+against a freshly built image and a CI-only `.env.docker` (fake secrets
+generated in the job, never committed).
+
+## Using the published image
+
+Every tagged release (`vX.Y.Z` on GitHub) is built and pushed to
+[GHCR](https://ghcr.io) by `.github/workflows/publish-image.yml`:
+`ghcr.io/yaniswav/jobblast:X.Y.Z` and `ghcr.io/yaniswav/jobblast:latest`,
+`linux/amd64` only. Pulling it skips the multi-minute local build entirely -
+useful on a VPS (lot F) or anywhere you trust the published artifact over
+building from a checkout.
+
+`deploy/saas/compose.yaml`'s `app` and `migrate` services resolve their image
+as `${JOBBLAST_IMAGE:-jobblast-saas:local}`: unset (the default) builds
+locally exactly as every other section of this doc describes; setting
+`JOBBLAST_IMAGE` switches both services to that name instead, with no other
+change.
+
+```bash
+docker pull ghcr.io/yaniswav/jobblast:latest
+```
+
+Then add one line to `deploy/saas/.env.docker`:
+
+```
+JOBBLAST_IMAGE=ghcr.io/yaniswav/jobblast:latest
+```
+
+And start the stack **without** `--build` - the image already exists
+locally under that exact name, so Compose uses it as-is rather than building:
+
+```bash
+docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker up -d
+```
+
+Everything else - the `migrate` one-shot, healthchecks, volumes, Caddy, the
+"dev" Mailpit profile, `docker exec ... pnpm run invite` - works identically
+to the locally-built image, since it is the same `Dockerfile`.
+
+To go back to building from source, remove (or comment out) the
+`JOBBLAST_IMAGE` line and run `up -d --build` again. To move to a newer
+release, `docker pull` the new tag (or bump `JOBBLAST_IMAGE` to a specific
+`X.Y.Z` instead of `latest`) and `docker compose ... up -d` again - Compose
+recreates `app` and re-runs the one-shot `migrate` against the new image.
+
 ## Image details
 
 Three-stage build (see the comments at the top of `Dockerfile`):

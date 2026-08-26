@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP-only E2E suite (lot G3) against the SaaS Docker stack (deploy/saas/compose.yaml). Run with `pnpm run test:e2e` from the repo root - never part of `pnpm test`. See docs/DOCKER.md.",
+  "scripts": {
+    "test:e2e": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "^4.1.11"
+  }
+}

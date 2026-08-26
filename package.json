@@ -22,7 +22,8 @@
     "db:migrate": "pnpm --filter @workspace/scripts run migrate-multi-tenant",
     "invite": "pnpm --filter @workspace/scripts run invite",
     "rotate-byok": "pnpm --filter @workspace/scripts run rotate-byok",
-    "test": "pnpm --filter @workspace/api-server run test"
+    "test": "pnpm --filter @workspace/api-server run test",
+    "test:e2e": "node tests/e2e/run.mjs"
   },
   "private": true,
   "devDependencies": {

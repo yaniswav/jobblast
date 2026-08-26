@@ -1,0 +1,54 @@
+name: Publish image
+
+# Lot G3: on every `vX.Y.Z` tag, builds the same Dockerfile the SaaS compose
+# stack uses and pushes it to GHCR as ghcr.io/yaniswav/jobblast, tagged both
+# with the version and `latest`. linux/amd64 only (docs/SAAS-ARCHITECTURE.md
+# section 7 targets Docker Desktop on Windows and a Linux VPS - neither needs
+# arm64). See docs/DOCKER.md "Using the published image" for how to run it.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive the image tag from the git tag
+        id: version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          if [ -z "$tag" ]; then
+            echo "::error::Could not derive a version from ref ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/yaniswav/jobblast:${{ steps.version.outputs.version }}
+            ghcr.io/yaniswav/jobblast:latest
