@@ -354,3 +354,96 @@ export const GetDocumentFileParams = zod.object({
 export const GetDocumentFileResponse = zod.unknown()
 
 
+/**
+ * @summary List AI providers this machine can detect, with capabilities and availability
+ */
+export const ListAiProviderOptionsResponseItem = zod.object({
+  "id": zod.enum(['none', 'claude-cli', 'codex-cli', 'gemini-cli', 'anthropic-api', 'openai-compatible', 'ollama', 'lmstudio']).describe('Matches `ai.provider` in jobblast.config.json (lib\/config.ts AI_PROVIDERS).'),
+  "available": zod.boolean(),
+  "detail": zod.string(),
+  "capabilities": zod.object({
+  "letters": zod.boolean(),
+  "scout": zod.boolean(),
+  "notionInbox": zod.boolean()
+}),
+  "requiresEnv": zod.string().nullable(),
+  "envSet": zod.boolean()
+})
+export const ListAiProviderOptionsResponse = zod.array(ListAiProviderOptionsResponseItem)
+
+
+/**
+ * @summary Get the current AI provider and automation settings (no secrets)
+ */
+export const GetSettingsResponse = zod.object({
+  "ai": zod.object({
+  "provider": zod.enum(['none', 'claude-cli', 'codex-cli', 'gemini-cli', 'anthropic-api', 'openai-compatible', 'ollama', 'lmstudio']).describe('Matches `ai.provider` in jobblast.config.json (lib\/config.ts AI_PROVIDERS).'),
+  "model": zod.string()
+}),
+  "gmailSync": zod.object({
+  "enabled": zod.boolean(),
+  "dryRun": zod.boolean()
+}),
+  "aiScout": zod.object({
+  "enabled": zod.boolean()
+}),
+  "notionInbox": zod.object({
+  "enabled": zod.boolean(),
+  "pageUrl": zod.string(),
+  "dataSourceUrl": zod.string()
+})
+})
+
+
+/**
+ * @summary Update the AI provider and/or automation settings
+ */
+export const UpdateSettingsBody = zod.object({
+  "ai": zod.object({
+  "provider": zod.enum(['none', 'claude-cli', 'codex-cli', 'gemini-cli', 'anthropic-api', 'openai-compatible', 'ollama', 'lmstudio']).optional().describe('Matches `ai.provider` in jobblast.config.json (lib\/config.ts AI_PROVIDERS).'),
+  "model": zod.string().optional()
+}).optional(),
+  "gmailSync": zod.object({
+  "enabled": zod.boolean().optional(),
+  "dryRun": zod.boolean().optional()
+}).optional(),
+  "aiScout": zod.object({
+  "enabled": zod.boolean().optional()
+}).optional(),
+  "notionInbox": zod.object({
+  "enabled": zod.boolean().optional(),
+  "pageUrl": zod.string().optional(),
+  "dataSourceUrl": zod.string().optional()
+}).optional()
+})
+
+export const UpdateSettingsResponse = zod.object({
+  "ai": zod.object({
+  "provider": zod.enum(['none', 'claude-cli', 'codex-cli', 'gemini-cli', 'anthropic-api', 'openai-compatible', 'ollama', 'lmstudio']).describe('Matches `ai.provider` in jobblast.config.json (lib\/config.ts AI_PROVIDERS).'),
+  "model": zod.string()
+}),
+  "gmailSync": zod.object({
+  "enabled": zod.boolean(),
+  "dryRun": zod.boolean()
+}),
+  "aiScout": zod.object({
+  "enabled": zod.boolean()
+}),
+  "notionInbox": zod.object({
+  "enabled": zod.boolean(),
+  "pageUrl": zod.string(),
+  "dataSourceUrl": zod.string()
+})
+})
+
+
+/**
+ * @summary Run a tiny real generation through the currently saved AI provider
+ */
+export const TestAiProviderResponse = zod.object({
+  "ok": zod.boolean(),
+  "latencyMs": zod.number(),
+  "error": zod.string().nullable()
+})
+
+

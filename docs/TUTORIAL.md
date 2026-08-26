@@ -302,6 +302,18 @@ as a template draft.
 Pick one of the six options below and put it in `jobblast.config.json`. The
 whole `ai` section is optional, and leaving it out means option 1.
 
+**Faster path: the Settings page.** Once the app is running (step 6), open
+the gear icon in the sidebar (`/settings`). It shows which of the options
+below it can actually detect on this machine right now, lets you switch
+providers, edit the model, and run a real test call with one click - no
+manual JSON editing, no restart needed (it writes `jobblast.config.json` for
+you and the running server picks up the change immediately). The same page
+also has the three automation toggles from [step 13](#13-advanced-options)
+(AI Scout, Notion Inbox, Gmail sync). The walkthrough below still applies -
+`jobblast.config.json` remains the file of record and everything on this
+page stays hand-editable, including settings the wizard doesn't expose
+(scoring rules, job sources, `sources.aiScout.allowedConnectors`, ...).
+
 | Option | Cover letters | AI Scout | Notion Inbox | Gmail sync | Cost |
 |---|---|---|---|---|---|
 | **0.** `none` | template only | no | no | no | free |

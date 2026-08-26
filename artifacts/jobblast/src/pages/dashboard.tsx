@@ -1,8 +1,63 @@
-import { ArrowRight, Check, ChevronRight, Flame, Target, TrendingUp } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Flame, Target, TrendingUp, TriangleAlert, X as XIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'wouter';
-import { useGetDashboard } from '@workspace/api-client-react';
+import { useGetDashboard, useGetSettings, useListAiProviderOptions } from '@workspace/api-client-react';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
+
+const NUDGE_DISMISSED_KEY = 'jobblast.dismissedClaudeCliNudge';
+
+function readNudgeDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(NUDGE_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function ClaudeCliNudge() {
+  const t = useT();
+  const settings = useGetSettings();
+  const options = useListAiProviderOptions();
+  const [dismissed, setDismissed] = useState(readNudgeDismissed);
+
+  const claudeCliOption = options.data?.find((option) => option.id === 'claude-cli');
+  const shouldShow = settings.data?.ai.provider === 'claude-cli' && claudeCliOption?.available === false;
+  if (dismissed || !shouldShow) return null;
+
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(NUDGE_DISMISSED_KEY, '1');
+    } catch {
+      // Ignore storage failures (e.g. private browsing); the dismissal still applies for this session.
+    }
+  };
+
+  return (
+    <div className="nudge-banner" data-testid="banner-claude-cli-nudge">
+      <div className="flex items-start gap-3">
+        <TriangleAlert size={18} className="text-[hsl(38_92%_38%)] mt-0.5 flex-none" />
+        <div>
+          <div className="font-bold text-sm">{t('dashboard.nudgeClaudeCliTitle')}</div>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('dashboard.nudgeClaudeCliBody')}</p>
+          <Link href="/settings" className="text-xs font-bold text-[hsl(var(--primary))] mt-2 inline-flex items-center gap-1" data-testid="link-nudge-settings">
+            {t('dashboard.nudgeClaudeCliCta')} <ArrowRight size={13} />
+          </Link>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="btn btn-ghost icon-btn flex-none"
+        onClick={dismiss}
+        aria-label={t('common.dismiss')}
+        data-testid="button-dismiss-claude-cli-nudge"
+      >
+        <XIcon size={15} />
+      </button>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const dashboard = useGetDashboard();
@@ -15,6 +70,7 @@ export default function Dashboard() {
   const goal = Math.min(100, data.dailyGoal ? (data.appliedToday / data.dailyGoal) * 100 : 0);
   return (
     <div className="content-wrap">
+      <ClaudeCliNudge />
       <section className="mb-8">
         <div className="eyebrow">{t('dashboard.eyebrow')}</div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-5">

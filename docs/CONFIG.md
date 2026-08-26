@@ -17,6 +17,31 @@ data. If you find some, it's a bug.
 
 ---
 
+## The Settings page
+
+Most of the `ai` section below and the automation toggles under
+[`sources.aiScout`](#sourcesaiscout), [`sources.notionInbox`](#sourcesnotioninbox)
+and [`gmailSync`](#gmailsync) can also be set from the app itself, at
+**Settings** (gear icon in the sidebar) instead of hand-editing this file.
+The page shows which AI providers it can actually detect on this machine
+right now (CLI on PATH, local server reachable, API key present in `.env`)
+and lets you switch between them, edit the model, run a real one-line test
+call, and flip the automation toggles - including the two Notion Inbox URLs.
+
+It writes back to `jobblast.config.json` with a surgical, formatting-
+preserving edit (only the keys you changed move; everything else, including
+`scoring.rules` and any `_comment` keys, is left byte-for-byte alone) and
+re-validates the file the same way `loadConfig()` does at startup, so an
+update from the wizard can never leave the file in an invalid state.
+**`jobblast.config.json` stays the source of truth** - the wizard is a
+convenience layer on top of it, not a replacement; every key it can change is
+still safe (and sometimes necessary, e.g. `scoring` or `sources.aiScout.
+allowedConnectors`) to edit by hand. Secrets never appear in the wizard: API
+keys stay in `.env`, and the page only ever reports whether the variable a
+provider needs is set, never its value.
+
+---
+
 ## Getting started
 
 ```bash

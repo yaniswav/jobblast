@@ -4,12 +4,14 @@
 export const en = {
   // Shared across pages
   'common.charsCount': '{count} chars',
+  'common.dismiss': 'Dismiss',
 
   // Navigation (sidebar / mobile nav)
   'nav.overview': 'Overview',
   'nav.reviewQueue': 'Review queue',
   'nav.applications': 'Applications',
   'nav.profile': 'Your profile',
+  'nav.settings': 'Settings',
   'nav.workspace': 'Workspace',
 
   // App shell chrome (sidebar, topbar, language toggle)
@@ -31,6 +33,7 @@ export const en = {
   'loading.preparingMatch': 'Preparing tailored match',
   'loading.applications': 'Loading applications',
   'loading.profile': 'Loading profile',
+  'loading.settings': 'Loading settings',
   'error.title': 'The workspace hit a snag.',
   'error.body': 'Your data could not be loaded. Try that again.',
   'error.retry': 'Retry',
@@ -65,6 +68,9 @@ export const en = {
   'dashboard.followUps': 'Follow-ups',
   'dashboard.queueHealth': 'Queue health',
   'dashboard.queueReady': 'GOOD / {count} ready',
+  'dashboard.nudgeClaudeCliTitle': 'The Claude Code CLI is not on PATH.',
+  'dashboard.nudgeClaudeCliBody': 'JobBlast is set to use it for AI letters, but it could not be detected on this machine. Cover letters are using the template fallback in the meantime.',
+  'dashboard.nudgeClaudeCliCta': 'Choose your AI provider',
 
   // Review queue page
   'review.eyebrow': 'Ranked review queue',
@@ -202,6 +208,44 @@ export const en = {
   'profile.kilobytesUnit': 'KB',
   'profile.megabytesUnit': 'MB',
   'profile.gigabytesUnit': 'GB',
+
+  // Settings page (AI provider setup wizard + automation toggles)
+  'settings.eyebrow': 'Setup',
+  'settings.title': 'Choose what runs your search.',
+  'settings.subtitle': 'Pick an AI provider and the automations JobBlast is allowed to run on its own.',
+  'settings.providerSectionTitle': 'AI provider',
+  'settings.providerSectionSubtitle': 'Detected on this machine, right now. Pick one, then save.',
+  'settings.currentSelectionBadge': 'Selected',
+  'settings.capabilityLetters': 'Cover letters',
+  'settings.capabilityScout': 'AI Scout',
+  'settings.capabilityNotionInbox': 'Notion Inbox',
+  'settings.requiresEnvHint': 'Requires {env} in .env',
+  'settings.modelLabel': 'Model',
+  'settings.modelPlaceholder': 'e.g. sonnet, gpt-4o-mini, llama3.1',
+  'settings.modelHint': 'Passed to the CLI providers directly (claude --model). Other providers keep their own model keys in jobblast.config.json.',
+  'settings.saveProvider': 'Save provider',
+  'settings.savingProvider': 'Saving…',
+  'settings.testButton': 'Test',
+  'settings.testing': 'Testing…',
+  'settings.testResultOk': 'Working — replied in {ms} ms.',
+  'settings.testResultError': 'Failed: {error}',
+  'settings.toastSettingsSaved': 'Settings saved.',
+  'settings.toastSettingsSaveFailed': 'Could not save settings.',
+  'settings.toastTestOk': 'Provider responded successfully.',
+  'settings.toastTestFailed': 'The test call failed.',
+  'settings.automationsSectionTitle': 'Automations',
+  'settings.automationsSectionSubtitle': 'Optional passes that read (and sometimes write) on your behalf.',
+  'settings.gmailSyncLabel': 'Gmail sync',
+  'settings.gmailSyncSubtitle': 'Reads recruiter mail and moves application statuses forward automatically.',
+  'settings.gmailSyncDryRunLabel': 'Dry run (journal only, no changes written)',
+  'settings.aiScoutLabel': 'AI Scout',
+  'settings.aiScoutSubtitle': 'A headless agent that searches your job connectors and the live web for postings.',
+  'settings.notionInboxLabel': 'Notion Inbox',
+  'settings.notionInboxSubtitle': 'Imports job postings from a Notion database into the review queue.',
+  'settings.notionInboxPageUrlLabel': 'Notion page URL',
+  'settings.notionInboxDataSourceUrlLabel': 'Notion data source URL',
+  'settings.saveAutomations': 'Save automations',
+  'settings.savingAutomations': 'Saving…',
 
   // Application status labels (API enum: queued/approved/applied/responded/interview/rejected/offer)
   'status.queued': 'Queued',

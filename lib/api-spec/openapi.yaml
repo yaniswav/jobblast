@@ -20,6 +20,8 @@ tags:
     description: Job seeker profile
   - name: documents
     description: CV / cover letter document management
+  - name: settings
+    description: AI provider setup wizard and automation toggles
 paths:
   /healthz:
     get:
@@ -348,6 +350,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /settings/ai/options:
+    get:
+      operationId: listAiProviderOptions
+      tags: [settings]
+      summary: List AI providers this machine can detect, with capabilities and availability
+      responses:
+        "200":
+          description: Provider descriptors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiProviderOption"
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get the current AI provider and automation settings (no secrets)
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsState"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update the AI provider and/or automation settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsState"
+        "400":
+          description: Invalid update (e.g. an unavailable provider)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /settings/ai/test:
+    post:
+      operationId: testAiProvider
+      tags: [settings]
+      summary: Run a tiny real generation through the currently saved AI provider
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTestResult"
 components:
   parameters:
     Id:
@@ -737,3 +800,150 @@ components:
         - filename
         - sizeBytes
         - uploadedAt
+    AiProviderId:
+      type: string
+      description: Matches `ai.provider` in jobblast.config.json (lib/config.ts AI_PROVIDERS).
+      enum: [none, claude-cli, codex-cli, gemini-cli, anthropic-api, openai-compatible, ollama, lmstudio]
+    AiProviderCapabilities:
+      type: object
+      properties:
+        letters:
+          type: boolean
+        scout:
+          type: boolean
+        notionInbox:
+          type: boolean
+      required:
+        - letters
+        - scout
+        - notionInbox
+    AiProviderOption:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/AiProviderId"
+        available:
+          type: boolean
+        detail:
+          type: string
+        capabilities:
+          $ref: "#/components/schemas/AiProviderCapabilities"
+        requiresEnv:
+          type: ["string", "null"]
+        envSet:
+          type: boolean
+      required:
+        - id
+        - available
+        - detail
+        - capabilities
+        - requiresEnv
+        - envSet
+    AiSettings:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/AiProviderId"
+        model:
+          type: string
+      required:
+        - provider
+        - model
+    GmailSyncSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        dryRun:
+          type: boolean
+      required:
+        - enabled
+        - dryRun
+    AiScoutSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+    NotionInboxSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        pageUrl:
+          type: string
+        dataSourceUrl:
+          type: string
+      required:
+        - enabled
+        - pageUrl
+        - dataSourceUrl
+    SettingsState:
+      type: object
+      properties:
+        ai:
+          $ref: "#/components/schemas/AiSettings"
+        gmailSync:
+          $ref: "#/components/schemas/GmailSyncSettings"
+        aiScout:
+          $ref: "#/components/schemas/AiScoutSettings"
+        notionInbox:
+          $ref: "#/components/schemas/NotionInboxSettings"
+      required:
+        - ai
+        - gmailSync
+        - aiScout
+        - notionInbox
+    AiSettingsUpdate:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/AiProviderId"
+        model:
+          type: string
+    GmailSyncSettingsUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        dryRun:
+          type: boolean
+    AiScoutSettingsUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+    NotionInboxSettingsUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        pageUrl:
+          type: string
+        dataSourceUrl:
+          type: string
+    SettingsUpdate:
+      type: object
+      properties:
+        ai:
+          $ref: "#/components/schemas/AiSettingsUpdate"
+        gmailSync:
+          $ref: "#/components/schemas/GmailSyncSettingsUpdate"
+        aiScout:
+          $ref: "#/components/schemas/AiScoutSettingsUpdate"
+        notionInbox:
+          $ref: "#/components/schemas/NotionInboxSettingsUpdate"
+    AiTestResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        latencyMs:
+          type: number
+        error:
+          type: ["string", "null"]
+      required:
+        - ok
+        - latencyMs
+        - error

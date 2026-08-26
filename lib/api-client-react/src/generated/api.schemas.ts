@@ -206,6 +206,100 @@ export interface DocumentUploadResult {
   resumeUpdated?: boolean;
 }
 
+/**
+ * Matches `ai.provider` in jobblast.config.json (lib/config.ts AI_PROVIDERS).
+ */
+export type AiProviderId = typeof AiProviderId[keyof typeof AiProviderId];
+
+
+export const AiProviderId = {
+  none: 'none',
+  'claude-cli': 'claude-cli',
+  'codex-cli': 'codex-cli',
+  'gemini-cli': 'gemini-cli',
+  'anthropic-api': 'anthropic-api',
+  'openai-compatible': 'openai-compatible',
+  ollama: 'ollama',
+  lmstudio: 'lmstudio',
+} as const;
+
+export interface AiProviderCapabilities {
+  letters: boolean;
+  scout: boolean;
+  notionInbox: boolean;
+}
+
+export interface AiProviderOption {
+  id: AiProviderId;
+  available: boolean;
+  detail: string;
+  capabilities: AiProviderCapabilities;
+  /** @nullable */
+  requiresEnv: string | null;
+  envSet: boolean;
+}
+
+export interface AiSettings {
+  provider: AiProviderId;
+  model: string;
+}
+
+export interface GmailSyncSettings {
+  enabled: boolean;
+  dryRun: boolean;
+}
+
+export interface AiScoutSettings {
+  enabled: boolean;
+}
+
+export interface NotionInboxSettings {
+  enabled: boolean;
+  pageUrl: string;
+  dataSourceUrl: string;
+}
+
+export interface SettingsState {
+  ai: AiSettings;
+  gmailSync: GmailSyncSettings;
+  aiScout: AiScoutSettings;
+  notionInbox: NotionInboxSettings;
+}
+
+export interface AiSettingsUpdate {
+  provider?: AiProviderId;
+  model?: string;
+}
+
+export interface GmailSyncSettingsUpdate {
+  enabled?: boolean;
+  dryRun?: boolean;
+}
+
+export interface AiScoutSettingsUpdate {
+  enabled?: boolean;
+}
+
+export interface NotionInboxSettingsUpdate {
+  enabled?: boolean;
+  pageUrl?: string;
+  dataSourceUrl?: string;
+}
+
+export interface SettingsUpdate {
+  ai?: AiSettingsUpdate;
+  gmailSync?: GmailSyncSettingsUpdate;
+  aiScout?: AiScoutSettingsUpdate;
+  notionInbox?: NotionInboxSettingsUpdate;
+}
+
+export interface AiTestResult {
+  ok: boolean;
+  latencyMs: number;
+  /** @nullable */
+  error: string | null;
+}
+
 export type SearchParameter = string;
 
 export type JobStatusParameter = typeof JobStatusParameter[keyof typeof JobStatusParameter];

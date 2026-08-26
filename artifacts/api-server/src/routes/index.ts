@@ -5,6 +5,7 @@ import jobsRouter from "./jobs";
 import applicationsRouter from "./applications";
 import profileRouter from "./profile";
 import documentsRouter from "./documents";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(jobsRouter);
 router.use(applicationsRouter);
 router.use(profileRouter);
 router.use(documentsRouter);
+router.use(settingsRouter);
 
 export default router;

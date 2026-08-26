@@ -1,4 +1,4 @@
-import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, X } from 'lucide-react';
+import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, Settings as SettingsIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useGetProfile, useHealthCheck } from '@workspace/api-client-react';
@@ -9,6 +9,7 @@ const navigation: { href: string; labelKey: TranslationKey; icon: typeof LayoutD
   { href: '/review', labelKey: 'nav.reviewQueue', icon: BriefcaseBusiness, testId: 'link-review-queue' },
   { href: '/applications', labelKey: 'nav.applications', icon: BarChart3, testId: 'link-applications' },
   { href: '/profile', labelKey: 'nav.profile', icon: CircleUserRound, testId: 'link-your-profile' },
+  { href: '/settings', labelKey: 'nav.settings', icon: SettingsIcon, testId: 'link-settings' },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {

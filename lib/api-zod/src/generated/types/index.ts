@@ -6,6 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiProviderCapabilities';
+export * from './aiProviderId';
+export * from './aiProviderOption';
+export * from './aiScoutSettings';
+export * from './aiScoutSettingsUpdate';
+export * from './aiSettings';
+export * from './aiSettingsUpdate';
+export * from './aiTestResult';
 export * from './application';
 export * from './applicationInput';
 export * from './applicationStatus';
@@ -17,6 +25,8 @@ export * from './documentType';
 export * from './documentUploadPayload';
 export * from './documentUploadResult';
 export * from './error';
+export * from './gmailSyncSettings';
+export * from './gmailSyncSettingsUpdate';
 export * from './healthStatus';
 export * from './interviewBrief';
 export * from './interviewBriefStatus';
@@ -29,6 +39,10 @@ export * from './jobStatus';
 export * from './jobStatusParameter';
 export * from './listApplicationsParams';
 export * from './listJobsParams';
+export * from './notionInboxSettings';
+export * from './notionInboxSettingsUpdate';
 export * from './profile';
 export * from './profileUpdate';
 export * from './searchParameter';
+export * from './settingsState';
+export * from './settingsUpdate';

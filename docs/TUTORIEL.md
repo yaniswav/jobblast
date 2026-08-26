@@ -309,6 +309,20 @@ Choisissez une des six options ci-dessous et inscrivez-la dans
 `jobblast.config.json`. Toute la section `ai` est facultative, et l'omettre
 revient à choisir l'option 1.
 
+**Plus rapide : la page Réglages.** Une fois l'application lancée (étape 6),
+ouvrez l'icône d'engrenage dans la barre latérale (`/settings`). Elle indique
+lesquelles des options ci-dessous sont réellement détectées sur cette
+machine, vous permet de changer de fournisseur, de modifier le modèle et de
+lancer un vrai appel de test en un clic - sans éditer de JSON à la main et
+sans redémarrage (elle écrit `jobblast.config.json` à votre place et le
+serveur en cours d'exécution prend le changement en compte immédiatement).
+La même page contient aussi les trois automatisations de
+l'[étape 13](#13-options-avancées) (AI Scout, Notion Inbox, sync Gmail). Le
+reste de cette section reste valable : `jobblast.config.json` demeure le
+fichier de référence et tout ce qui s'y trouve reste modifiable à la main, y
+compris les réglages que l'assistant n'expose pas (règles de scoring,
+sources d'offres, `sources.aiScout.allowedConnectors`, ...).
+
 | Option | Lettres | AI Scout | Notion Inbox | Sync Gmail | Coût |
 |---|---|---|---|---|---|
 | **0.** `none` | template seulement | non | non | non | gratuit |

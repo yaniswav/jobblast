@@ -106,6 +106,17 @@ async function buildAll() {
       "pdfkit",
     ],
     sourcemap: "linked",
+    alias: {
+      // jsonc-parser's "main" field points at a UMD build whose internal
+      // `require("./impl/...")` calls use `require` as a captured factory
+      // parameter rather than a reference esbuild can statically resolve;
+      // bundled as-is, those calls fall through to the banner's runtime
+      // `require` (relative to dist/index.mjs) and fail at startup with
+      // "Cannot find module './impl/format'". Its "module" field is a
+      // proper ESM build with real import/export statements, which bundles
+      // cleanly - point esbuild at that instead.
+      "jsonc-parser": globalThis.require.resolve("jsonc-parser/lib/esm/main.js"),
+    },
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
       esbuildPluginPino({ transports: ["pino-pretty"] })

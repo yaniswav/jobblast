@@ -6,12 +6,14 @@ import type { en } from './en';
 export const fr: Record<keyof typeof en, string> = {
   // Shared across pages
   'common.charsCount': '{count} caractères',
+  'common.dismiss': 'Ignorer',
 
   // Navigation (sidebar / mobile nav)
   'nav.overview': "Vue d'ensemble",
   'nav.reviewQueue': 'File de revue',
   'nav.applications': 'Candidatures',
   'nav.profile': 'Votre profil',
+  'nav.settings': 'Réglages',
   'nav.workspace': 'Espace de travail',
 
   // App shell chrome (sidebar, topbar, language toggle)
@@ -33,6 +35,7 @@ export const fr: Record<keyof typeof en, string> = {
   'loading.preparingMatch': "Préparation de l'offre personnalisée",
   'loading.applications': 'Chargement des candidatures',
   'loading.profile': 'Chargement du profil',
+  'loading.settings': 'Chargement des réglages',
   'error.title': "L'espace de travail a rencontré un problème.",
   'error.body': "Vos données n'ont pas pu être chargées. Réessayez.",
   'error.retry': 'Réessayer',
@@ -67,6 +70,9 @@ export const fr: Record<keyof typeof en, string> = {
   'dashboard.followUps': 'Relances',
   'dashboard.queueHealth': 'Santé de la file',
   'dashboard.queueReady': 'BONNE / {count} prêtes',
+  'dashboard.nudgeClaudeCliTitle': "Le CLI Claude Code n'est pas détecté.",
+  'dashboard.nudgeClaudeCliBody': "JobBlast est configuré pour l'utiliser pour les lettres IA, mais il est introuvable sur cette machine. Les lettres de motivation utilisent le modèle type en attendant.",
+  'dashboard.nudgeClaudeCliCta': 'Choisir un fournisseur IA',
 
   // Review queue page
   'review.eyebrow': 'File de revue classée',
@@ -204,6 +210,44 @@ export const fr: Record<keyof typeof en, string> = {
   'profile.kilobytesUnit': 'Ko',
   'profile.megabytesUnit': 'Mo',
   'profile.gigabytesUnit': 'Go',
+
+  // Settings page (AI provider setup wizard + automation toggles)
+  'settings.eyebrow': 'Configuration',
+  'settings.title': 'Choisissez ce qui fait tourner votre recherche.',
+  'settings.subtitle': "Choisissez un fournisseur d'IA et les automatisations que JobBlast peut lancer seul.",
+  'settings.providerSectionTitle': "Fournisseur d'IA",
+  'settings.providerSectionSubtitle': 'Détectés sur cette machine, à l’instant. Choisissez-en un, puis enregistrez.',
+  'settings.currentSelectionBadge': 'Sélectionné',
+  'settings.capabilityLetters': 'Lettres de motivation',
+  'settings.capabilityScout': 'AI Scout',
+  'settings.capabilityNotionInbox': 'Notion Inbox',
+  'settings.requiresEnvHint': 'Nécessite {env} dans .env',
+  'settings.modelLabel': 'Modèle',
+  'settings.modelPlaceholder': 'ex. sonnet, gpt-4o-mini, llama3.1',
+  'settings.modelHint': 'Transmis directement aux fournisseurs CLI (claude --model). Les autres fournisseurs gardent leurs propres clés de modèle dans jobblast.config.json.',
+  'settings.saveProvider': 'Enregistrer le fournisseur',
+  'settings.savingProvider': 'Enregistrement…',
+  'settings.testButton': 'Tester',
+  'settings.testing': 'Test en cours…',
+  'settings.testResultOk': 'Ça fonctionne — réponse en {ms} ms.',
+  'settings.testResultError': 'Échec : {error}',
+  'settings.toastSettingsSaved': 'Réglages enregistrés.',
+  'settings.toastSettingsSaveFailed': "Impossible d'enregistrer les réglages.",
+  'settings.toastTestOk': 'Le fournisseur a répondu avec succès.',
+  'settings.toastTestFailed': 'Le test a échoué.',
+  'settings.automationsSectionTitle': 'Automatisations',
+  'settings.automationsSectionSubtitle': 'Passages optionnels qui lisent (et parfois modifient) des données pour vous.',
+  'settings.gmailSyncLabel': 'Synchronisation Gmail',
+  'settings.gmailSyncSubtitle': 'Lit les e-mails de recruteurs et fait avancer automatiquement le statut des candidatures.',
+  'settings.gmailSyncDryRunLabel': 'Simulation (journal uniquement, aucune modification écrite)',
+  'settings.aiScoutLabel': 'AI Scout',
+  'settings.aiScoutSubtitle': "Un agent autonome qui cherche des offres via vos connecteurs et le web en direct.",
+  'settings.notionInboxLabel': 'Notion Inbox',
+  'settings.notionInboxSubtitle': "Importe les offres d'une base Notion dans la file de revue.",
+  'settings.notionInboxPageUrlLabel': 'URL de la page Notion',
+  'settings.notionInboxDataSourceUrlLabel': 'URL de la source de données Notion',
+  'settings.saveAutomations': 'Enregistrer les automatisations',
+  'settings.savingAutomations': 'Enregistrement…',
 
   // Application status labels (API enum: queued/approved/applied/responded/interview/rejected/offer)
   'status.queued': 'En file',
