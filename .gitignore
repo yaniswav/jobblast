@@ -52,6 +52,10 @@ Thumbs.db
 .env
 identifiants_*.json
 
+# Local secrets for the prod-like Docker stack - see
+# deploy/saas/.env.docker.example for the documented placeholder version
+/deploy/saas/.env.docker
+
 # Personal configuration (name, contact details, scoring rules, job sources,
 # Notion IDs...). Committed counterpart: jobblast.config.example.json
 /jobblast.config.json

@@ -8,7 +8,7 @@ import { ensureLocalUser } from "./lib/auth/store";
 import { runGmailSyncPass } from "./lib/gmail-sync";
 import { logger } from "./lib/logger";
 import { IS_SAAS, MODE, runStartupPreflight } from "./lib/mode";
-import { startQueueWorker } from "./lib/queue/worker";
+import { startQueueWorker, stopQueueWorker } from "./lib/queue/worker";
 import { refreshJobListings } from "./lib/sources/refresh";
 import { runWithUser } from "./lib/user-context";
 
@@ -92,7 +92,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -117,3 +117,46 @@ app.listen(port, (err) => {
       logger.error({ err: seedErr }, "Could not seed the local user; background passes are off");
     });
 });
+
+/**
+ * A container's `docker stop` (or `docker compose down`/`restart`) sends
+ * SIGTERM and waits out a grace period before SIGKILL; a plain Ctrl+C sends
+ * SIGINT. Without this, the process is killed mid-poll and whatever the
+ * queue worker just claimed stays `status = 'running'` for the rest of its
+ * 20-minute lease (lib/queue/store.ts's LEASE_MS) before the next process
+ * reclaims it - harmless once, a real orphan-job problem after every
+ * redeploy. `stopQueueWorker()` only clears its own timers (no in-flight
+ * drain - see its own doc comment), which is why closing the HTTP server
+ * right after is what actually lets the process exit promptly.
+ */
+let shuttingDown = false;
+function shutdown(signal: NodeJS.Signals): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "Shutting down");
+
+  if (IS_SAAS) {
+    stopQueueWorker();
+  }
+
+  server.close((closeErr) => {
+    if (closeErr) {
+      logger.error({ err: closeErr }, "Error while closing the server");
+      process.exit(1);
+      return;
+    }
+    logger.info("Server closed cleanly");
+    process.exit(0);
+  });
+
+  // server.close() only stops new connections and waits for in-flight ones
+  // to finish; force the exit if that somehow hangs, rather than leave a
+  // container stuck between `docker stop`'s SIGTERM and its SIGKILL timeout.
+  setTimeout(() => {
+    logger.warn("Forcing exit after shutdown timed out");
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

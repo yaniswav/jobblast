@@ -1,0 +1,143 @@
+name: jobblast-saas
+
+# Prod-like local stack for JOBBLAST_MODE=saas (docs/SAAS-ARCHITECTURE.md
+# section 7). Fully separate from the self-hosted dev Postgres at the repo
+# root (docker-compose.yml / container jobblast-pg / port 5432): its own
+# container names, its own volumes, its own network, its own host port
+# (Caddy on 8080 here, vs. the self-hosted app's 5000 - neither stack
+# publishes a conflicting port). The two run side by side without touching
+# each other.
+#
+# See docs/DOCKER.md for the full walkthrough. Quick reference, run from the
+# repo root:
+#
+#   cp deploy/saas/.env.docker.example deploy/saas/.env.docker   # then edit it
+#   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker up -d --build
+#   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker logs -f app
+#   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker exec app pnpm run invite
+#   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker down       # keeps volumes
+#   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker down -v    # deletes them too
+#
+# Single-replica architecture constraint: `app` caches per-process (the AI
+# provider cache, the queue worker's in-memory timers - see
+# docs/SAAS-ARCHITECTURE.md sections 6 and 5). Do not set `deploy.replicas`
+# or otherwise scale this service horizontally; the fairness/queue design
+# assumes exactly one instance.
+
+services:
+  db:
+    image: postgres:16
+    container_name: jobblast-saas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/saas/.env.docker}
+      POSTGRES_DB: jobblast
+    # No host port published, unlike the self-hosted dev docker-compose.yml -
+    # only `migrate` and `app` reach this over the jobblast-saas network.
+    volumes:
+      - jobblast-saas-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [jobblast-saas]
+
+  # One-shot: applies the Drizzle schema, then exits 0. `app` depends on that
+  # exit, so the `jobs` table the queue worker starts polling on boot always
+  # exists first (docs/SAAS-ARCHITECTURE.md section 6).
+  #
+  # `push-force`, not the interactive `push`: there is no TTY to answer
+  # drizzle-kit's confirmation prompt in an automated `up`. That is fine
+  # against a fresh database. Before a schema change that could be
+  # destructive against real data, review it interactively instead - see
+  # "Applying a schema change later" in docs/DOCKER.md.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: jobblast-saas:local
+    container_name: jobblast-saas-migrate
+    command: ["pnpm", "--filter", "@workspace/db", "run", "push-force"]
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/saas/.env.docker}@db:5432/jobblast
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks: [jobblast-saas]
+
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: jobblast-saas:local
+    container_name: jobblast-saas-app
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/saas/.env.docker}@db:5432/jobblast
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - jobblast-saas-app-data:/app/data
+    # No host port published - Caddy is the only reachable entry point
+    # (docs/SAAS-ARCHITECTURE.md section 7). The HEALTHCHECK is baked into
+    # the image (see Dockerfile).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [jobblast-saas]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: jobblast-saas-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    # Pass-through, not `JOBBLAST_DOMAIN: ${JOBBLAST_DOMAIN:-}`: that form
+    # sets the container's env var to an empty string when unset, and
+    # Caddyfile's `{$JOBBLAST_DOMAIN:http://localhost}` only falls back to
+    # its default when the variable is truly absent, not when it is present
+    # but empty - an empty address broke the whole Caddyfile parse.
+    environment:
+      - JOBBLAST_DOMAIN
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - jobblast-saas-caddy-data:/data
+      - jobblast-saas-caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [jobblast-saas]
+
+volumes:
+  jobblast-saas-pg-data:
+    name: jobblast-saas-pg-data
+  jobblast-saas-app-data:
+    name: jobblast-saas-app-data
+  jobblast-saas-caddy-data:
+    name: jobblast-saas-caddy-data
+  jobblast-saas-caddy-config:
+    name: jobblast-saas-caddy-config
+
+networks:
+  jobblast-saas:
+    name: jobblast-saas

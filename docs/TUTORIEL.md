@@ -549,6 +549,11 @@ launchd (macOS) de **[`deploy/README.md`](../deploy/README.md)**.
 
 Dans les deux cas, l'application tourne ensuite sur **http://localhost:5000/**.
 
+> Envie de faire tourner JobBlast pour plusieurs personnes (comptes email +
+> mot de passe, inscription sur invitation) plutôt que pour vous seul ? C'est
+> une stack Docker multi-tenant séparée - voir
+> **[`docs/DOCKER.md`](DOCKER.md)** (en anglais), pas les étapes ci-dessus.
+
 ---
 
 ## 12. Routine quotidienne d'utilisation

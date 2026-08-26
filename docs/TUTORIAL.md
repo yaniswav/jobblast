@@ -532,6 +532,10 @@ of **[`deploy/README.md`](../deploy/README.md)**.
 
 Either way, the app then runs at **http://localhost:5000/**.
 
+> Running JobBlast for more than one person instead (email + password
+> accounts, invite-only registration)? That is a separate, multi-tenant
+> Docker stack - see **[`docs/DOCKER.md`](DOCKER.md)**, not the steps above.
+
 ---
 
 ## 12. Daily usage routine

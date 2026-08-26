@@ -1,0 +1,17 @@
+# One Caddyfile for both the local Docker Desktop run and a real VPS later
+# (docs/SAAS-ARCHITECTURE.md section 7).
+#
+# JOBBLAST_DOMAIN unset -> "http://localhost": plain HTTP, no automatic TLS.
+# That is deliberate for lot E, which is 100% local (see deploy/saas/compose.yaml
+# and docs/DOCKER.md) - it is also why SESSION_COOKIE_SECURE=0 is set in
+# deploy/saas/.env.docker.example, since a Secure cookie would never be sent
+# back over plain HTTP.
+#
+# Lot F sets JOBBLAST_DOMAIN to a real domain name (no scheme). Caddy then
+# treats it as a normal auto-HTTPS site and provisions a Let's Encrypt
+# certificate on first request, with no other change to this file -
+# SESSION_COOKIE_SECURE also flips back to its default (unset = secure).
+{$JOBBLAST_DOMAIN:http://localhost} {
+	encode zstd gzip
+	reverse_proxy app:5000
+}

@@ -1,0 +1,44 @@
+# Keep the build context to what the image actually needs to build from
+# source. Everything here mirrors .gitignore's secrets/data section plus the
+# build outputs and VCS metadata Docker never needs.
+
+.git
+.github
+
+# Dependencies and build outputs - rebuilt fresh inside the image.
+node_modules
+**/node_modules
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Secrets and machine-local files - never baked into an image layer.
+.env
+.env.*
+identifiants_*.json
+
+# Personal configuration and data - mounted at runtime, not shipped in the
+# image (see docker-compose volumes / deploy/saas/compose.yaml).
+jobblast.config.json
+config/cover-letter-template.txt
+data
+JobBlast-private
+
+# Deploy scripts' own local logs/pid, irrelevant inside a container.
+deploy/logs
+deploy/jobblast.pid
+
+# Editor/OS cruft.
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+.cache
+.local
+
+# Docs and license aren't needed to build or run the image.
+docs
+CONTRIBUTING.md
+LICENSE
+README.md
