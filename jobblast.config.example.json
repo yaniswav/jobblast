@@ -244,5 +244,10 @@
     "enabled": false,
     "dryRun": false,
     "lookbackDays": 2
+  },
+
+  "followUps": {
+    "_comment": "When an 'applied' application has gone this many days without a reply, the tracker suggests a follow-up with the e-mail pre-written (template, or AI-personalized if a provider is configured). JobBlast never sends it - you copy it or open it via a mailto link. Suggested again after another afterDays window, capped at 2 suggestions per application.",
+    "afterDays": 7
   }
 }

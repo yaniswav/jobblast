@@ -168,6 +168,25 @@ export const fr = {
   'applications.saving': 'Enregistrement',
   'applications.saveChanges': 'Enregistrer les modifications',
   'applications.prep': 'Préparer',
+  'applications.followUpBadge': 'À relancer',
+  'applications.prepareFollowUp': 'Préparer la relance',
+
+  // Panneau du mail de relance (lot H4) - le serveur ne rédige que l'objet
+  // et le corps ; JobBlast n'envoie jamais ce mail lui-même.
+  'followUp.eyebrow': 'Mail de relance',
+  'followUp.close': 'Fermer la relance',
+  'followUp.loading': 'Préparation de votre relance',
+  'followUp.subjectLabel': 'Objet',
+  'followUp.bodyLabel': 'Corps du message',
+  'followUp.templateNote': 'Brouillon type. Configurez un fournisseur IA dans les réglages pour une version personnalisée.',
+  'followUp.copy': 'Copier',
+  'followUp.toastCopied': 'Mail de relance copié.',
+  'followUp.toastCopyFailed': 'Impossible de copier. Sélectionnez le texte et copiez-le manuellement.',
+  'followUp.openInMail': 'Ouvrir dans la messagerie',
+  'followUp.markFollowedUp': "J'ai relancé",
+  'followUp.marking': 'Enregistrement...',
+  'followUp.toastMarked': 'Marquée comme relancée.',
+  'followUp.toastMarkFailed': 'Impossible de mettre à jour le statut.',
 
   // Interview prep brief (shown on applications in the "interview" status)
   'brief.eyebrow': "Dossier de préparation d'entretien",

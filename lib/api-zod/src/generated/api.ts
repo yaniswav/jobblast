@@ -242,7 +242,10 @@ export const GetAccountExportResponse = zod.object({
   "resumeVersion": zod.string(),
   "coverLetterVersion": zod.string(),
   "notes": zod.string(),
-  "followUpDate": zod.coerce.date().nullable()
+  "followUpDate": zod.coerce.date().nullable(),
+  "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
+  "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
 })),
   "postings": zod.array(zod.object({
   "id": zod.number(),
@@ -335,7 +338,10 @@ export const GetDashboardResponse = zod.object({
   "resumeVersion": zod.string(),
   "coverLetterVersion": zod.string(),
   "notes": zod.string(),
-  "followUpDate": zod.coerce.date().nullable()
+  "followUpDate": zod.coerce.date().nullable(),
+  "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
+  "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
 })),
   "firstBatchPending": zod.boolean().describe('True when this account has never had a single posting yet and is still within the \"still fetching\" window after account creation (G1 onboarding lot) - lets the dashboard say so instead of showing a silent empty queue. Always false in selfhosted.\n')
 })
@@ -491,7 +497,10 @@ export const ListApplicationsResponseItem = zod.object({
   "resumeVersion": zod.string(),
   "coverLetterVersion": zod.string(),
   "notes": zod.string(),
-  "followUpDate": zod.coerce.date().nullable()
+  "followUpDate": zod.coerce.date().nullable(),
+  "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
+  "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
 })
 export const ListApplicationsResponse = zod.array(ListApplicationsResponseItem)
 
@@ -518,7 +527,10 @@ export const CreateApplicationResponse = zod.object({
   "resumeVersion": zod.string(),
   "coverLetterVersion": zod.string(),
   "notes": zod.string(),
-  "followUpDate": zod.coerce.date().nullable()
+  "followUpDate": zod.coerce.date().nullable(),
+  "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
+  "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
 })
 
 
@@ -547,7 +559,10 @@ export const UpdateApplicationResponse = zod.object({
   "resumeVersion": zod.string(),
   "coverLetterVersion": zod.string(),
   "notes": zod.string(),
-  "followUpDate": zod.coerce.date().nullable()
+  "followUpDate": zod.coerce.date().nullable(),
+  "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
+  "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
 })
 
 
@@ -589,6 +604,46 @@ export const GetInterviewBriefPdfParams = zod.object({
 })
 
 export const GetInterviewBriefPdfResponse = zod.unknown()
+
+
+/**
+ * @summary Generate a ready-to-copy follow-up e-mail for an application (never sent by JobBlast)
+ */
+export const GetFollowUpEmailParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetFollowUpEmailResponse = zod.object({
+  "subject": zod.string(),
+  "body": zod.string(),
+  "source": zod.enum(['template', 'ai']).describe('Whether the draft is the deterministic template or an AI-personalized version. Either way, JobBlast never sends it - the user copies it or opens it via a mailto link.\n')
+})
+
+
+/**
+ * @summary Record that the user themselves sent a follow-up for this application
+ */
+export const MarkFollowedUpParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkFollowedUpResponse = zod.object({
+  "id": zod.number(),
+  "jobId": zod.number(),
+  "title": zod.string(),
+  "company": zod.string(),
+  "companyInitials": zod.string(),
+  "location": zod.string(),
+  "appliedAt": zod.coerce.date(),
+  "status": zod.enum(['queued', 'approved', 'applied', 'responded', 'interview', 'rejected', 'offer']),
+  "resumeVersion": zod.string(),
+  "coverLetterVersion": zod.string(),
+  "notes": zod.string(),
+  "followUpDate": zod.coerce.date().nullable(),
+  "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
+  "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+})
 
 
 /**

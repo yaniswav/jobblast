@@ -192,6 +192,15 @@ export interface Application {
   notes: string;
   /** @nullable */
   followUpDate: string | null;
+  /**
+     * When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.
+     * @nullable
+     */
+  lastFollowedUpAt: string | null;
+  /** How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions. */
+  followUpCount: number;
+  /** Whether this application is due for a follow-up suggestion right now (status "applied", no reply, past the account's follow-up delay, under the suggestion cap). */
+  followUpEligible: boolean;
 }
 
 export interface ApplicationInput {
@@ -226,6 +235,23 @@ export interface InterviewBrief {
   generatedAt: string | null;
   /** @nullable */
   error: string | null;
+}
+
+/**
+ * Whether the draft is the deterministic template or an AI-personalized version. Either way, JobBlast never sends it - the user copies it or opens it via a mailto link.
+ */
+export type FollowUpEmailSource = typeof FollowUpEmailSource[keyof typeof FollowUpEmailSource];
+
+
+export const FollowUpEmailSource = {
+  template: 'template',
+  ai: 'ai',
+} as const;
+
+export interface FollowUpEmail {
+  subject: string;
+  body: string;
+  source: FollowUpEmailSource;
 }
 
 export interface DashboardSummary {

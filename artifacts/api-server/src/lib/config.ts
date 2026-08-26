@@ -574,6 +574,21 @@ const GmailSyncSchema = z
   })
   .default({});
 
+/**
+ * Follow-up nudges (lot H4, lib/follow-ups.ts): when an "applied" row with no
+ * reply is suggested for a follow-up, and the e-mail JobBlast drafts for it
+ * (never sends it - see lib/ai/follow-up.ts). Off by default in the sense
+ * that it never mutates anything; `afterDays` only controls when a
+ * suggestion appears, and gmail-sync.ts is what keeps a row that got a real
+ * reply out of contention in the first place.
+ */
+const FollowUpsSchema = z
+  .object({
+    /** Days of silence after `appliedAt` (or the last follow-up) before a suggestion appears. */
+    afterDays: z.number().int().positive().default(7),
+  })
+  .default({});
+
 export const JobBlastConfigSchema = z
   .object({
     // Allows a leading "_comment" key (and any other underscore-prefixed
@@ -591,6 +606,7 @@ export const JobBlastConfigSchema = z
     watchedCompanies: z.array(WatchedCompanySchema).default([]),
     ai: AiSchema,
     gmailSync: GmailSyncSchema,
+    followUps: FollowUpsSchema,
     /**
      * Path (absolute, or relative to the repo root) to a plain-text cover
      * letter used as the structural/tonal reference for AI tailoring. When

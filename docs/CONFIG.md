@@ -628,3 +628,23 @@ Common skip reasons: `no-matching-application`, `no-eligible-application`
 
 Throttled to one run per 3 h via `data/gmail-sync-last-run.txt`, and it runs
 after the tailoring and fit-analysis passes, never alongside them.
+
+## `followUps`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `afterDays` | `7` | Days of silence on an `applied` row before a follow-up is suggested |
+
+An `applied` application with no reply is suggested for a follow-up once
+`afterDays` has passed since it was sent - the tracker page shows a "Follow
+up" badge and a ready-to-copy e-mail (template, or AI-personalized when a
+provider is configured, same silent-fallback rule as tailoring). **JobBlast
+never sends this e-mail.** You copy it, or open it via a `mailto:` link that
+pre-fills the subject and body in your own mail client, and send it yourself;
+a "I followed up" button only records that you did.
+
+A row that already received a reply is never suggested - [Gmail sync](#gmailsync)
+(or your own manual status change) is what moves it out of `applied` in the
+first place, and this feature trusts that field completely rather than
+re-checking your mailbox itself. Once you confirm a follow-up, the next one
+is suggested another `afterDays` later, up to 2 suggestions per application.

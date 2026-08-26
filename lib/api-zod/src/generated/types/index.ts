@@ -38,6 +38,8 @@ export * from './documentType';
 export * from './documentUploadPayload';
 export * from './documentUploadResult';
 export * from './error';
+export * from './followUpEmail';
+export * from './followUpEmailSource';
 export * from './forgotPasswordRequest';
 export * from './franceTravailContractType';
 export * from './gmailSyncSettings';

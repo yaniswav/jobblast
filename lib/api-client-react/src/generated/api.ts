@@ -36,6 +36,7 @@ import type {
   DocumentUploadPayload,
   DocumentUploadResult,
   Error,
+  FollowUpEmail,
   ForgotPasswordRequest,
   HealthStatus,
   InterviewBrief,
@@ -2182,6 +2183,154 @@ export function useGetInterviewBriefPdf<TData = Awaited<ReturnType<typeof getInt
 
 
 
+
+export const getGetFollowUpEmailUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/follow-up`
+}
+
+/**
+ * @summary Generate a ready-to-copy follow-up e-mail for an application (never sent by JobBlast)
+ */
+export const getFollowUpEmail = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<FollowUpEmail> => {
+
+  return customFetch<FollowUpEmail>(getGetFollowUpEmailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFollowUpEmailQueryKey = (id: number,) => {
+    return [
+    `/api/applications/${id}/follow-up`
+    ] as const;
+    }
+
+
+export const getGetFollowUpEmailQueryOptions = <TData = Awaited<ReturnType<typeof getFollowUpEmail>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFollowUpEmail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFollowUpEmailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFollowUpEmail>>> = ({ signal }) => getFollowUpEmail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFollowUpEmail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFollowUpEmailQueryResult = NonNullable<Awaited<ReturnType<typeof getFollowUpEmail>>>
+export type GetFollowUpEmailQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Generate a ready-to-copy follow-up e-mail for an application (never sent by JobBlast)
+ */
+
+export function useGetFollowUpEmail<TData = Awaited<ReturnType<typeof getFollowUpEmail>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFollowUpEmail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFollowUpEmailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkFollowedUpUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/follow-up`
+}
+
+/**
+ * @summary Record that the user themselves sent a follow-up for this application
+ */
+export const markFollowedUp = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Application> => {
+
+  return customFetch<Application>(getMarkFollowedUpUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkFollowedUpMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markFollowedUp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markFollowedUp>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['markFollowedUp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markFollowedUp>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  markFollowedUp(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkFollowedUpMutationResult = NonNullable<Awaited<ReturnType<typeof markFollowedUp>>>
+
+    export type MarkFollowedUpMutationError = ErrorType<Error>
+
+    /**
+ * @summary Record that the user themselves sent a follow-up for this application
+ */
+export const useMarkFollowedUp = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markFollowedUp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markFollowedUp>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getMarkFollowedUpMutationOptions(options));
+    }
 
 export const getGetProfileUrl = () => {
 

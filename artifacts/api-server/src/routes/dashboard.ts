@@ -2,7 +2,9 @@ import { Router, type IRouter } from "express";
 import { GetDashboardResponse } from "@workspace/api-zod";
 import { actingUserId } from "../lib/auth/middleware";
 import { getUserById } from "../lib/auth/store";
+import { loadConfig } from "../lib/config";
 import { isFirstBatchPending } from "../lib/dashboard-status";
+import { selectFollowUpCandidates, withFollowUpEligibility } from "../lib/follow-ups";
 import { IS_SAAS } from "../lib/mode";
 import { listApplications } from "../lib/repo/applications";
 import { countUserQueue, hasAnyUserPostings } from "../lib/repo/postings";
@@ -45,12 +47,14 @@ router.get("/dashboard", async (req, res): Promise<void> => {
   const responses = applications.filter((application) =>
     ["responded", "interview", "offer", "rejected"].includes(application.status),
   ).length;
-  const needsFollowUp = applications.filter(
-    (application) =>
-      application.followUpDate != null &&
-      new Date(`${application.followUpDate}T23:59:59`) <= today &&
-      !["interview", "offer", "rejected"].includes(application.status),
-  ).length;
+  // The real "needs a follow-up" logic (lot H4, lib/follow-ups.ts): still
+  // "applied" with no reply, past the account's follow-up delay
+  // (followUps.afterDays), under the suggestion cap. This replaced an older
+  // heuristic keyed on the manual `followUpDate` reminder field, which is a
+  // separate, user-set "come back to this" date and stays available in the
+  // tracker's own Follow-up column - it just no longer drives this count.
+  const { afterDays } = loadConfig().followUps;
+  const needsFollowUp = selectFollowUpCandidates(applications, today, afterDays).length;
 
   const data = GetDashboardResponse.parse({
     dailyGoal: 50,
@@ -62,7 +66,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     offerCount: applications.filter((application) => application.status === "offer").length,
     needsFollowUp,
     streakDays: 4,
-    recentApplications: applications.slice(0, 4),
+    recentApplications: applications.slice(0, 4).map((application) => withFollowUpEligibility(application, today, afterDays)),
     firstBatchPending,
   });
   res.json(data);

@@ -681,6 +681,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /applications/{id}/follow-up:
+    get:
+      operationId: getFollowUpEmail
+      tags: [applications]
+      summary: Generate a ready-to-copy follow-up e-mail for an application (never sent by JobBlast)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Follow-up e-mail draft (AI-personalized when available, otherwise the deterministic template)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpEmail"
+        "400":
+          description: This application is not eligible for a follow-up e-mail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: markFollowedUp
+      tags: [applications]
+      summary: Record that the user themselves sent a follow-up for this application
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        "400":
+          description: This application cannot be marked as followed up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /profile:
     get:
       operationId: getProfile
@@ -1308,6 +1359,16 @@ components:
         followUpDate:
           type: ["string", "null"]
           format: date
+        lastFollowedUpAt:
+          description: When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.
+          type: ["string", "null"]
+          format: date-time
+        followUpCount:
+          description: How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.
+          type: number
+        followUpEligible:
+          description: Whether this application is due for a follow-up suggestion right now (status "applied", no reply, past the account's follow-up delay, under the suggestion cap).
+          type: boolean
       required:
         - id
         - jobId
@@ -1321,6 +1382,9 @@ components:
         - coverLetterVersion
         - notes
         - followUpDate
+        - lastFollowedUpAt
+        - followUpCount
+        - followUpEligible
     ApplicationInput:
       type: object
       properties:
@@ -1366,6 +1430,26 @@ components:
         - contentMarkdown
         - generatedAt
         - error
+    FollowUpEmailSource:
+      description: >
+        Whether the draft is the deterministic template or an AI-personalized
+        version. Either way, JobBlast never sends it - the user copies it or
+        opens it via a mailto link.
+      type: string
+      enum: [template, ai]
+    FollowUpEmail:
+      type: object
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        source:
+          $ref: "#/components/schemas/FollowUpEmailSource"
+      required:
+        - subject
+        - body
+        - source
     DashboardSummary:
       type: object
       properties:

@@ -1,7 +1,7 @@
 // Every query against the application tracker, scoped by account.
 // See lib/repo/postings.ts for why the `userId` parameter is not optional.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   applicationsTable,
   db,
@@ -171,6 +171,33 @@ export async function updateApplication(
   const [row] = await db
     .update(applicationsTable)
     .set(patch)
+    .where(
+      and(
+        eq(applicationsTable.id, applicationId),
+        eq(applicationsTable.userId, userId),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Records that the user themselves sent a follow-up for this application
+ * (lot H4, lib/follow-ups.ts) - never called by anything that actually sends
+ * mail, this is only the "I did this" confirmation, same honest-button
+ * philosophy as the "I applied" flow above createApplication(). Bumps
+ * `followUpCount` atomically so two rapid clicks cannot double-count.
+ */
+export async function markFollowedUp(
+  userId: string,
+  applicationId: number,
+): Promise<Application | null> {
+  const [row] = await db
+    .update(applicationsTable)
+    .set({
+      lastFollowedUpAt: new Date(),
+      followUpCount: sql`${applicationsTable.followUpCount} + 1`,
+    })
     .where(
       and(
         eq(applicationsTable.id, applicationId),

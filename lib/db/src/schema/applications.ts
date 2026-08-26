@@ -2,6 +2,7 @@ import {
   bigint,
   date,
   index,
+  integer,
   pgTable,
   serial,
   text,
@@ -41,6 +42,13 @@ export const applicationsTable = pgTable(
     coverLetterVersion: text("cover_letter_version").notNull(),
     notes: text("notes").notNull().default(""),
     followUpDate: date("follow_up_date", { mode: "string" }),
+    // Follow-up nudges (lot H4, lib/follow-ups.ts): when the user last told
+    // JobBlast they sent a follow-up ("check I followed up" button - the
+    // e-mail itself always goes out from the user's own mailbox, never from
+    // here) and how many times. Both null/0 for every row that predates the
+    // feature, which is exactly "never followed up" - no backfill needed.
+    lastFollowedUpAt: timestamp("last_followed_up_at", { withTimezone: true }),
+    followUpCount: integer("follow_up_count").notNull().default(0),
   },
   (table) => [index("applications_user_id_idx").on(table.userId)],
 );

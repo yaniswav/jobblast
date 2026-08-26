@@ -1,8 +1,8 @@
-import { CalendarClock, Check, CircleAlert, Edit3, ExternalLink, FileDown, Filter, RefreshCw, Search, Sparkles, X } from 'lucide-react';
+import { CalendarClock, Check, CircleAlert, Copy, Edit3, ExternalLink, FileDown, Filter, Mail, RefreshCw, Search, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApplicationStatus, getGetDashboardQueryKey, getGetInterviewBriefPdfUrl, getGetInterviewBriefQueryKey, getGetJobQueryKey, getListApplicationsQueryKey, useGetInterviewBrief, useGetJob, useListApplications, useRegenerateInterviewBrief, useUpdateApplication } from '@workspace/api-client-react';
+import { ApplicationStatus, getGetDashboardQueryKey, getGetFollowUpEmailQueryKey, getGetInterviewBriefPdfUrl, getGetInterviewBriefQueryKey, getGetJobQueryKey, getListApplicationsQueryKey, useGetFollowUpEmail, useGetInterviewBrief, useGetJob, useListApplications, useMarkFollowedUp, useRegenerateInterviewBrief, useUpdateApplication } from '@workspace/api-client-react';
 import type { Application, ApplicationStatus as ApplicationStatusType } from '@workspace/api-client-react';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
@@ -18,6 +18,7 @@ export default function Applications() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Application | null>(null);
   const [preparing, setPreparing] = useState<Application | null>(null);
+  const [preparingFollowUp, setPreparingFollowUp] = useState<Application | null>(null);
   const applications = useListApplications(filter === 'all' ? undefined : { status: filter });
   const visible = useMemo(() => (applications.data ?? []).filter((app) => `${app.title} ${app.company} ${app.location}`.toLowerCase().includes(search.toLowerCase())), [applications.data, search]);
   if (applications.isLoading) return <LoadingState label={t('loading.applications')} />;
@@ -31,15 +32,16 @@ export default function Applications() {
         <select className="select w-auto min-w-[130px]" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} data-testid="select-application-status"><option value="all">{t('applications.allStatuses')}</option>{statuses.map((status) => <option value={status} key={status}>{t(`status.${status}` as TranslationKey)}</option>)}</select>
       </div>
       <section className="surface">
-        {visible.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('applications.colRole')}</th><th>{t('applications.colStatus')}</th><th>{t('applications.colFollowUp')}</th><th>{t('applications.colNotes')}</th><th><span className="sr-only">{t('applications.colActions')}</span></th></tr></thead><tbody>{visible.map((application) => <ApplicationRow key={application.id} application={application} onEdit={() => setEditing(application)} onPrep={() => setPreparing(application)} />)}</tbody></table></div> : <EmptyState title={search ? t('applications.emptySearchTitle') : t('applications.emptyTitle')} body={search ? t('applications.emptySearchBody') : t('applications.emptyBody')} /> }
+        {visible.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('applications.colRole')}</th><th>{t('applications.colStatus')}</th><th>{t('applications.colFollowUp')}</th><th>{t('applications.colNotes')}</th><th><span className="sr-only">{t('applications.colActions')}</span></th></tr></thead><tbody>{visible.map((application) => <ApplicationRow key={application.id} application={application} onEdit={() => setEditing(application)} onPrep={() => setPreparing(application)} onPrepFollowUp={() => setPreparingFollowUp(application)} />)}</tbody></table></div> : <EmptyState title={search ? t('applications.emptySearchTitle') : t('applications.emptyTitle')} body={search ? t('applications.emptySearchBody') : t('applications.emptyBody')} /> }
       </section>
       {editing && <EditApplication application={editing} onClose={() => setEditing(null)} />}
       {preparing && <InterviewBrief application={preparing} onClose={() => setPreparing(null)} />}
+      {preparingFollowUp && <FollowUpPanel application={preparingFollowUp} onClose={() => setPreparingFollowUp(null)} />}
     </div>
   );
 }
 
-function ApplicationRow({ application, onEdit, onPrep }: { application: Application; onEdit: () => void; onPrep: () => void }) {
+function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp }: { application: Application; onEdit: () => void; onPrep: () => void; onPrepFollowUp: () => void }) {
   const t = useT();
   const [locale] = useLocale();
   const isApproved = application.status === 'approved';
@@ -59,7 +61,7 @@ function ApplicationRow({ application, onEdit, onPrep }: { application: Applicat
     },
     onError: () => toast(t('applications.toastMarkAppliedFailed')),
   });
-  return <tr className="list-enter" data-testid={`row-application-${application.id}`}><td><div className="flex items-center gap-3"><div className="avatar">{application.companyInitials}</div><div><div className="font-bold">{application.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.company} · {application.location}</div></div></div></td><td><span className={`badge ${tone}`}>{t(`status.${application.status}` as TranslationKey)}</span></td><td>{application.followUpDate ? <div className={`flex items-center gap-1.5 text-xs ${due ? 'text-[hsl(var(--accent))] font-bold' : 'text-[hsl(var(--muted-foreground))]'}`}><CalendarClock size={14} />{due ? t('applications.dueNow') : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(application.followUpDate))}</div> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}</td><td><div className="max-w-[210px] truncate text-xs text-[hsl(var(--muted-foreground))]" title={application.notes}>{application.notes || t('applications.noNoteYet')}</div></td><td><div className="flex items-center justify-end gap-2">{isApproved && <a className="btn btn-ghost" href={job.data?.url} target="_blank" rel="noreferrer" aria-disabled={!job.data?.url} onClick={(event) => { if (!job.data?.url) event.preventDefault(); }} data-testid={`link-open-job-${application.id}`}><ExternalLink size={14} /> {t('applications.openListing')}</a>}{isApproved && <button className="btn btn-primary" onClick={handleMarkApplied} disabled={markApplied.isPending} data-testid={`button-mark-applied-${application.id}`}><Check size={14} /> {markApplied.isPending ? t('applications.markingApplied') : t('applications.markApplied')}</button>}{isInterview && <button className="btn btn-primary" onClick={onPrep} data-testid={`button-interview-prep-${application.id}`}><Sparkles size={14} /> {t('applications.prep')}</button>}<button className="btn btn-ghost icon-btn" onClick={onEdit} aria-label={t('applications.editAriaLabel', { title: application.title })} data-testid={`button-edit-application-${application.id}`}><Edit3 size={15} /></button></div></td></tr>;
+  return <tr className="list-enter" data-testid={`row-application-${application.id}`}><td><div className="flex items-center gap-3"><div className="avatar">{application.companyInitials}</div><div><div className="font-bold">{application.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.company} · {application.location}</div></div></div></td><td><div className="flex items-center gap-1.5 flex-wrap"><span className={`badge ${tone}`}>{t(`status.${application.status}` as TranslationKey)}</span>{application.followUpEligible && <span className="badge badge-amber" data-testid={`badge-follow-up-${application.id}`}>{t('applications.followUpBadge')}</span>}</div></td><td>{application.followUpDate ? <div className={`flex items-center gap-1.5 text-xs ${due ? 'text-[hsl(var(--accent))] font-bold' : 'text-[hsl(var(--muted-foreground))]'}`}><CalendarClock size={14} />{due ? t('applications.dueNow') : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(application.followUpDate))}</div> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}</td><td><div className="max-w-[210px] truncate text-xs text-[hsl(var(--muted-foreground))]" title={application.notes}>{application.notes || t('applications.noNoteYet')}</div></td><td><div className="flex items-center justify-end gap-2">{isApproved && <a className="btn btn-ghost" href={job.data?.url} target="_blank" rel="noreferrer" aria-disabled={!job.data?.url} onClick={(event) => { if (!job.data?.url) event.preventDefault(); }} data-testid={`link-open-job-${application.id}`}><ExternalLink size={14} /> {t('applications.openListing')}</a>}{isApproved && <button className="btn btn-primary" onClick={handleMarkApplied} disabled={markApplied.isPending} data-testid={`button-mark-applied-${application.id}`}><Check size={14} /> {markApplied.isPending ? t('applications.markingApplied') : t('applications.markApplied')}</button>}{isInterview && <button className="btn btn-primary" onClick={onPrep} data-testid={`button-interview-prep-${application.id}`}><Sparkles size={14} /> {t('applications.prep')}</button>}{application.followUpEligible && <button className="btn btn-primary" onClick={onPrepFollowUp} data-testid={`button-prepare-follow-up-${application.id}`}><Mail size={14} /> {t('applications.prepareFollowUp')}</button>}<button className="btn btn-ghost icon-btn" onClick={onEdit} aria-label={t('applications.editAriaLabel', { title: application.title })} data-testid={`button-edit-application-${application.id}`}><Edit3 size={15} /></button></div></td></tr>;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +194,85 @@ function InterviewBrief({ application, onClose }: { application: Application; on
             {status === 'ready' && <a className="btn btn-ghost" href={getGetInterviewBriefPdfUrl(application.id)} target="_blank" rel="noreferrer" data-testid="link-interview-brief-pdf"><FileDown size={14} /> {t('brief.pdf')}</a>}
             {status !== 'failed' && <button className="btn btn-ghost" onClick={handleRegenerate} disabled={regenerate.isPending || working} data-testid="button-regenerate-interview-brief"><RefreshCw size={14} /> {regenerate.isPending ? t('brief.regenerating') : t('brief.regenerate')}</button>}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Follow-up e-mail (lot H4)
+//
+// JobBlast never sends this e-mail: the server only ever drafts subject +
+// body text (api-server/src/lib/ai/follow-up.ts). The user copies it, or
+// opens it in their own mail client via a mailto: link, and sends it
+// themselves - "✓ I followed up" only records that they did.
+// ---------------------------------------------------------------------------
+
+function FollowUpPanel({ application, onClose }: { application: Application; onClose: () => void }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const followUp = useGetFollowUpEmail(application.id, { query: { queryKey: getGetFollowUpEmailQueryKey(application.id), retry: false } });
+  const markFollowedUp = useMarkFollowedUp();
+
+  const handleCopy = async () => {
+    if (!followUp.data) return;
+    try {
+      await navigator.clipboard.writeText(`${followUp.data.subject}\n\n${followUp.data.body}`);
+      toast(t('followUp.toastCopied'));
+    } catch {
+      toast(t('followUp.toastCopyFailed'));
+    }
+  };
+
+  const mailtoHref = followUp.data
+    ? `mailto:?subject=${encodeURIComponent(followUp.data.subject)}&body=${encodeURIComponent(followUp.data.body)}`
+    : undefined;
+
+  const handleMarkFollowedUp = () => markFollowedUp.mutate({ id: application.id }, {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
+      toast(t('followUp.toastMarked'));
+      onClose();
+    },
+    onError: () => toast(t('followUp.toastMarkFailed')),
+  });
+
+  return (
+    <div className="fixed inset-0 z-40 grid place-items-center bg-[hsl(var(--foreground)/.38)] p-4" onClick={onClose}>
+      <div className="surface w-full max-w-2xl max-h-[88vh] flex flex-col p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <div className="eyebrow">{t('followUp.eyebrow')}</div>
+            <h2 className="text-xl font-bold tracking-[-.04em] mt-2">{application.company}</h2>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.title}</p>
+          </div>
+          <button className="btn btn-ghost icon-btn" onClick={onClose} aria-label={t('followUp.close')} data-testid="button-close-follow-up"><X size={17} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-1" data-testid="follow-up-body">
+          {followUp.isLoading && <LoadingState label={t('followUp.loading')} />}
+          {followUp.isError && <ErrorState onRetry={() => followUp.refetch()} />}
+          {followUp.data && (
+            <div className="grid gap-4">
+              <div>
+                <div className="label">{t('followUp.subjectLabel')}</div>
+                <div className="input" data-testid="text-follow-up-subject">{followUp.data.subject}</div>
+              </div>
+              <div>
+                <div className="label">{t('followUp.bodyLabel')}</div>
+                <div className="textarea min-h-[220px] whitespace-pre-wrap text-[13px] leading-relaxed" data-testid="text-follow-up-body">{followUp.data.body}</div>
+              </div>
+              {followUp.data.source === 'template' && <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('followUp.templateNote')}</p>}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 mt-5 pt-4 border-t border-[hsl(var(--border))]">
+          <button className="btn btn-ghost" onClick={handleCopy} disabled={!followUp.data} data-testid="button-copy-follow-up"><Copy size={14} /> {t('followUp.copy')}</button>
+          <a className="btn btn-ghost" href={mailtoHref} aria-disabled={!mailtoHref} onClick={(event) => { if (!mailtoHref) event.preventDefault(); }} data-testid="link-mailto-follow-up"><Mail size={14} /> {t('followUp.openInMail')}</a>
+          <button className="btn btn-primary" onClick={handleMarkFollowedUp} disabled={markFollowedUp.isPending || !followUp.data} data-testid="button-mark-followed-up"><Check size={14} /> {markFollowedUp.isPending ? t('followUp.marking') : t('followUp.markFollowedUp')}</button>
         </div>
       </div>
     </div>

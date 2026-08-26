@@ -21,4 +21,13 @@ export interface Application {
   notes: string;
   /** @nullable */
   followUpDate: Date | null;
+  /**
+     * When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.
+     * @nullable
+     */
+  lastFollowedUpAt: Date | null;
+  /** How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions. */
+  followUpCount: number;
+  /** Whether this application is due for a follow-up suggestion right now (status "applied", no reply, past the account's follow-up delay, under the suggestion cap). */
+  followUpEligible: boolean;
 }

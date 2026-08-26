@@ -166,6 +166,25 @@ export const en = {
   'applications.saving': 'Saving',
   'applications.saveChanges': 'Save changes',
   'applications.prep': 'Prep',
+  'applications.followUpBadge': 'Follow up',
+  'applications.prepareFollowUp': 'Prepare follow-up',
+
+  // Follow-up e-mail panel (lot H4) - the server only ever drafts subject +
+  // body text; JobBlast never sends this e-mail itself.
+  'followUp.eyebrow': 'Follow-up email',
+  'followUp.close': 'Close follow-up',
+  'followUp.loading': 'Preparing your follow-up',
+  'followUp.subjectLabel': 'Subject',
+  'followUp.bodyLabel': 'Body',
+  'followUp.templateNote': 'Template draft. Configure an AI provider in Settings for a personalized version.',
+  'followUp.copy': 'Copy',
+  'followUp.toastCopied': 'Follow-up email copied.',
+  'followUp.toastCopyFailed': 'Could not copy. Select the text and copy it manually.',
+  'followUp.openInMail': 'Open in mail',
+  'followUp.markFollowedUp': 'I followed up',
+  'followUp.marking': 'Saving…',
+  'followUp.toastMarked': 'Marked as followed up.',
+  'followUp.toastMarkFailed': 'Could not update the status.',
 
   // Interview prep brief (shown on applications in the "interview" status)
   'brief.eyebrow': 'Interview prep brief',
