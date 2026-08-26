@@ -1,8 +1,11 @@
 import { Router, type IRouter } from "express";
 import { GetDashboardResponse } from "@workspace/api-zod";
 import { actingUserId } from "../lib/auth/middleware";
+import { getUserById } from "../lib/auth/store";
+import { isFirstBatchPending } from "../lib/dashboard-status";
+import { IS_SAAS } from "../lib/mode";
 import { listApplications } from "../lib/repo/applications";
-import { countUserQueue } from "../lib/repo/postings";
+import { countUserQueue, hasAnyUserPostings } from "../lib/repo/postings";
 import { ensureProfile } from "../lib/repo/profile";
 
 const router: IRouter = Router();
@@ -15,6 +18,22 @@ router.get("/dashboard", async (req, res): Promise<void> => {
   await ensureProfile(userId);
   const applications = await listApplications(userId);
   const queue = await countUserQueue(userId, STRONG_MATCH_SCORE);
+
+  // saas only (G1 onboarding lot): whether to explain an empty queue as
+  // "your first batch is still on its way" rather than showing it silently.
+  // Gated on IS_SAAS, not just the underlying signals, so a fresh self-hosted
+  // install's dashboard is unaffected during the few minutes before its own
+  // first refresh completes - see lib/dashboard-status.ts.
+  let firstBatchPending = false;
+  if (IS_SAAS) {
+    const [hasAnyPostings, user] = await Promise.all([hasAnyUserPostings(userId), getUserById(userId)]);
+    firstBatchPending = isFirstBatchPending({
+      hasAnyPostings,
+      accountCreatedAt: user?.createdAt ?? new Date(0),
+      now: new Date(),
+    });
+  }
+
   const today = new Date();
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   // "approved" rows are prepared applications the user hasn't actually sent
@@ -44,6 +63,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     needsFollowUp,
     streakDays: 4,
     recentApplications: applications.slice(0, 4),
+    firstBatchPending,
   });
   res.json(data);
 });

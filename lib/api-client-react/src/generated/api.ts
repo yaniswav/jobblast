@@ -43,6 +43,8 @@ import type {
   ListApplicationsParams,
   ListJobsParams,
   LoginRequest,
+  OnboardingCompleteResult,
+  OnboardingStatus,
   Profile,
   ProfileUpdate,
   RegisterRequest,
@@ -368,6 +370,156 @@ export const useLogout = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLogoutMutationOptions(options));
+    }
+
+export const getGetOnboardingStatusUrl = () => {
+
+
+
+
+  return `/api/onboarding/status`
+}
+
+/**
+ * SaaS mode only. `nextStep` is derived from the account's actual stored profile and settings (which step still has no data), not from a separately tracked wizard position, so leaving mid-wizard and coming back resumes at the right place.
+ * @summary Whether the signed-in account has finished onboarding, and which step to resume on
+ */
+export const getOnboardingStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<OnboardingStatus> => {
+
+  return customFetch<OnboardingStatus>(getGetOnboardingStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOnboardingStatusQueryKey = () => {
+    return [
+    `/api/onboarding/status`
+    ] as const;
+    }
+
+
+export const getGetOnboardingStatusQueryOptions = <TData = Awaited<ReturnType<typeof getOnboardingStatus>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOnboardingStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOnboardingStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOnboardingStatus>>> = ({ signal }) => getOnboardingStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOnboardingStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOnboardingStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getOnboardingStatus>>>
+export type GetOnboardingStatusQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Whether the signed-in account has finished onboarding, and which step to resume on
+ */
+
+export function useGetOnboardingStatus<TData = Awaited<ReturnType<typeof getOnboardingStatus>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOnboardingStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOnboardingStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCompleteOnboardingUrl = () => {
+
+
+
+
+  return `/api/onboarding/complete`
+}
+
+/**
+ * SaaS mode only. Enqueues the shared-refresh and scoring jobs this account is waiting on via the existing queue (the same path `POST /jobs/refresh` uses) - never a fetch inline in this request.
+ * @summary Marks onboarding done and enqueues the account's first refresh cycle
+ */
+export const completeOnboarding = async ( options?: Parameters<typeof customFetch>[1]): Promise<OnboardingCompleteResult> => {
+
+  return customFetch<OnboardingCompleteResult>(getCompleteOnboardingUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteOnboardingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeOnboarding>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeOnboarding>>, TError,void, TContext> => {
+
+const mutationKey = ['completeOnboarding'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeOnboarding>>, void> = () => {
+
+
+          return  completeOnboarding(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteOnboardingMutationResult = NonNullable<Awaited<ReturnType<typeof completeOnboarding>>>
+
+    export type CompleteOnboardingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Marks onboarding done and enqueues the account's first refresh cycle
+ */
+export const useCompleteOnboarding = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeOnboarding>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeOnboarding>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCompleteOnboardingMutationOptions(options));
     }
 
 export const getGetLegalInfoUrl = () => {

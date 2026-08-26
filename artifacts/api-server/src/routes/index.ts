@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireUser } from "../lib/auth/middleware";
 import healthRouter from "./health";
 import authRouter from "./auth";
+import onboardingRouter from "./onboarding";
 import dashboardRouter from "./dashboard";
 import jobsRouter from "./jobs";
 import applicationsRouter from "./applications";
@@ -20,6 +21,7 @@ router.use(requireUser);
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(onboardingRouter);
 router.use(dashboardRouter);
 router.use(jobsRouter);
 router.use(applicationsRouter);

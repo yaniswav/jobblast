@@ -136,6 +136,22 @@ export async function skipUserPosting(
   return row !== undefined;
 }
 
+/**
+ * Whether this account has ever had a single posting attached, in any
+ * status. Used by the dashboard (lib/dashboard-status.ts) to tell "nothing
+ * has arrived yet" apart from "the queue is empty because everything in it
+ * was reviewed or skipped" - `countUserQueue` alone cannot make that
+ * distinction, since it only counts `status = 'queued'` rows.
+ */
+export async function hasAnyUserPostings(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ one: sql<number>`1` })
+    .from(userPostingsTable)
+    .where(eq(userPostingsTable.userId, userId))
+    .limit(1);
+  return row !== undefined;
+}
+
 export type QueueCounts = { queued: number; strongMatches: number };
 
 /** Dashboard funnel numbers, counted in SQL rather than by loading the queue. */

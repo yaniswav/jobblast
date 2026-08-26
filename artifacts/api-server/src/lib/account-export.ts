@@ -10,7 +10,7 @@
 // GET /documents/:type/file for an authenticated request.
 
 import { getUserById } from "./auth/store";
-import { readAiSettings, readAutomations } from "./config-store";
+import { readAiSettings, readAutomations, readSearchCriteria } from "./config-store";
 import { listApplications } from "./repo/applications";
 import { listDocuments } from "./repo/documents";
 import { listBriefs } from "./repo/interview-briefs";
@@ -32,6 +32,7 @@ export type AccountExport = {
     gmailSync: { enabled: boolean; dryRun: boolean };
     aiScout: { enabled: boolean };
     notionInbox: { enabled: boolean; pageUrl: string; dataSourceUrl: string };
+    searchCriteria: { keywords: string[]; targetLocationKeywords: string[]; letterLanguages: string[] };
   };
   profile: Awaited<ReturnType<typeof getProfile>>;
   applications: Awaited<ReturnType<typeof listApplications>>;
@@ -75,7 +76,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExport>
       createdAt: user.createdAt.toISOString(),
       lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
     },
-    settings: { ai: readAiSettings(), ...readAutomations() },
+    settings: { ai: readAiSettings(), ...readAutomations(), searchCriteria: readSearchCriteria() },
     profile,
     applications,
     postings,

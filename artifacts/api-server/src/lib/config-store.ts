@@ -204,6 +204,57 @@ export async function writeAiSettings(patch: AiSettingsPatch): Promise<AiSetting
 }
 
 // ---------------------------------------------------------------------------
+// Search criteria (G1 onboarding lot): the subset of `sources.*` / `scoring`
+// / `candidate` that pilots the shared refresh and the scoring pass, exposed
+// as one small, named surface instead of the whole config.
+//
+// `keywords` fans out to every enabled source whose query is a free-text
+// keyword list (France Travail, Adzuna, Himalayas): they are three different
+// config paths today, but one thing from this account's point of view - "what
+// am I searching for". `targetLocationKeywords` overrides the scoring pass's
+// location bonus/penalty platform-wide (docs/CONFIG.md); it deliberately does
+// NOT touch source-side location narrowing (Adzuna's `where`, France
+// Travail's `departements`), which stay France-scoped defaults - a fresh
+// account targeting elsewhere gets correctly-scored results, just from a
+// still France-leaning fetch. Worth widening in a later lot.
+// ---------------------------------------------------------------------------
+
+export type SearchCriteriaSettings = {
+  keywords: string[];
+  targetLocationKeywords: string[];
+  letterLanguages: string[];
+};
+export type SearchCriteriaPatch = Partial<SearchCriteriaSettings>;
+
+export function readSearchCriteria(): SearchCriteriaSettings {
+  const cfg = loadConfig();
+  return {
+    keywords: cfg.sources.franceTravail.keywords,
+    targetLocationKeywords: cfg.scoring.targetLocationKeywords,
+    letterLanguages: cfg.candidate.letterLanguages,
+  };
+}
+
+export async function writeSearchCriteria(patch: SearchCriteriaPatch): Promise<SearchCriteriaSettings> {
+  const patches: Array<{ path: JSONPath; value: unknown }> = [];
+  if (patch.keywords !== undefined) {
+    patches.push({ path: ["sources", "franceTravail", "keywords"], value: patch.keywords });
+    patches.push({ path: ["sources", "adzuna", "queries"], value: patch.keywords });
+    patches.push({ path: ["sources", "himalayas", "queries"], value: patch.keywords });
+  }
+  if (patch.targetLocationKeywords !== undefined) {
+    patches.push({ path: ["scoring", "targetLocationKeywords"], value: patch.targetLocationKeywords });
+  }
+  if (patch.letterLanguages !== undefined) {
+    patches.push({ path: ["candidate", "letterLanguages"], value: patch.letterLanguages });
+    const [first] = patch.letterLanguages;
+    if (first) patches.push({ path: ["candidate", "fallbackLetterLanguage"], value: first });
+  }
+  await writeSettings(patches);
+  return readSearchCriteria();
+}
+
+// ---------------------------------------------------------------------------
 // Automation toggles (Gmail sync, AI Scout, Notion Inbox)
 // ---------------------------------------------------------------------------
 

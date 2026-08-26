@@ -28,7 +28,7 @@ import { useLocale, useT, type Locale } from '@/i18n';
 // the backend returns that isn't in this map still renders fine (falls back
 // to the raw id): the wizard is capability-driven, it never assumes which
 // providers exist, it only dresses up the ones it happens to recognize.
-const PROVIDER_LABELS: Record<string, string> = {
+export const PROVIDER_LABELS: Record<string, string> = {
   none: 'No AI',
   'claude-cli': 'Claude Code CLI',
   'codex-cli': 'Codex CLI',
@@ -311,7 +311,10 @@ export default function Settings() {
   );
 }
 
-function ByokSection({ t }: { t: ReturnType<typeof useT> }) {
+// Exported for reuse by the onboarding wizard's BYOK step
+// (pages/onboarding.tsx), which reuses this section verbatim rather than
+// re-implementing the "paste, test, save" credential card.
+export function ByokSection({ t }: { t: ReturnType<typeof useT> }) {
   const [locale] = useLocale();
   const credentials = useListAiCredentials();
 

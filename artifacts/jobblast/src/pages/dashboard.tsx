@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronRight, Flame, Target, TrendingUp, TriangleAlert, X as XIcon } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Flame, Sparkles, Target, TrendingUp, TriangleAlert, X as XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'wouter';
 import {
@@ -108,6 +108,30 @@ function ByokOutageBanner() {
   );
 }
 
+/**
+ * "Your first batch is on its way." G1 onboarding lot: right after
+ * onboarding finishes, the review queue and this whole dashboard are
+ * genuinely empty because the shared refresh this account is waiting on has
+ * not landed yet - see `firstBatchPending` in routes/dashboard.ts. Without
+ * this, a brand-new account sees the exact same silent empty states as an
+ * account that skipped everything, with no way to tell "still loading" from
+ * "nothing here".
+ */
+function FirstBatchBanner() {
+  const t = useT();
+  return (
+    <div className="nudge-banner" data-testid="banner-first-batch-pending">
+      <div className="flex items-start gap-3">
+        <Sparkles size={18} className="text-[hsl(var(--primary))] mt-0.5 flex-none" />
+        <div>
+          <div className="font-bold text-sm">{t('dashboard.firstBatchTitle')}</div>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('dashboard.firstBatchBody')}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const dashboard = useGetDashboard();
   const [locale] = useLocale();
@@ -121,6 +145,7 @@ export default function Dashboard() {
     <div className="content-wrap">
       <ClaudeCliNudge />
       <ByokOutageBanner />
+      {data.firstBatchPending && <FirstBatchBanner />}
       <section className="mb-8">
         <div className="eyebrow">{t('dashboard.eyebrow')}</div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-5">
@@ -137,7 +162,7 @@ export default function Dashboard() {
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <section className="surface">
           <div className="p-5 pb-3 section-heading"><div><h2>{t('dashboard.recentApplications')}</h2><p>{t('dashboard.keepStoryMoving')}</p></div><Link href="/applications" className="text-xs font-bold text-[hsl(var(--primary))] flex items-center gap-1" data-testid="link-view-applications">{t('dashboard.viewAll')} <ChevronRight size={14} /></Link></div>
-          {data.recentApplications?.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('dashboard.colRole')}</th><th>{t('dashboard.colStatus')}</th><th>{t('dashboard.colApplied')}</th></tr></thead><tbody>{data.recentApplications.slice(0, 5).map((app) => <tr key={app.id} className="list-enter"><td><div className="flex items-center gap-3"><div className="avatar">{app.companyInitials}</div><div><div className="font-bold">{app.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))]">{app.company} · {app.location}</div></div></div></td><td><StatusBadge status={app.status} /></td><td className="text-xs text-[hsl(var(--muted-foreground))]">{formatDate(app.appliedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title={t('dashboard.emptyTitle')} body={t('dashboard.emptyBody')} action={<Link href="/review" className="btn btn-primary" data-testid="link-empty-review">{t('dashboard.openReviewQueue')}</Link>} />}
+          {data.recentApplications?.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('dashboard.colRole')}</th><th>{t('dashboard.colStatus')}</th><th>{t('dashboard.colApplied')}</th></tr></thead><tbody>{data.recentApplications.slice(0, 5).map((app) => <tr key={app.id} className="list-enter"><td><div className="flex items-center gap-3"><div className="avatar">{app.companyInitials}</div><div><div className="font-bold">{app.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))]">{app.company} · {app.location}</div></div></div></td><td><StatusBadge status={app.status} /></td><td className="text-xs text-[hsl(var(--muted-foreground))]">{formatDate(app.appliedAt)}</td></tr>)}</tbody></table></div> : data.firstBatchPending ? <EmptyState title={t('dashboard.firstBatchEmptyTitle')} body={t('dashboard.firstBatchEmptyBody')} /> : <EmptyState title={t('dashboard.emptyTitle')} body={t('dashboard.emptyBody')} action={<Link href="/review" className="btn btn-primary" data-testid="link-empty-review">{t('dashboard.openReviewQueue')}</Link>} />}
         </section>
         <section className="surface-dark p-6 relative overflow-hidden"><div className="absolute -right-12 -top-12 h-40 w-40 rounded-full border border-[hsl(var(--sidebar-primary)/.28)]" /><div className="absolute -right-5 -top-5 h-24 w-24 rounded-full border border-[hsl(var(--sidebar-primary)/.2)]" /><div className="eyebrow text-[hsl(var(--sidebar-primary))]">{t('dashboard.funnelHealth')}</div><h2 className="text-2xl font-bold tracking-[-.05em] mt-3">{t('dashboard.smallMoves')} <span className="text-[hsl(var(--sidebar-primary))]">{t('dashboard.compounding')}</span></h2><div className="grid grid-cols-3 gap-3 mt-8"><FunnelStat value={data.interviewCount} labelKey="dashboard.interviews" /><FunnelStat value={data.offerCount} labelKey="dashboard.offers" /><FunnelStat value={data.needsFollowUp} labelKey="dashboard.followUps" /></div><div className="mt-8 pt-5 border-t border-[hsl(var(--sidebar-border))] flex items-center justify-between text-xs text-[hsl(var(--sidebar-foreground)/.65)]"><span>{t('dashboard.queueHealth')}</span><span className="font-mono-app text-[hsl(var(--sidebar-primary))]">{t('dashboard.queueReady', { count: data.queuedCount })}</span></div></section>
       </div>

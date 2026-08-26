@@ -20,7 +20,14 @@ import {
   UpdateSettingsBody,
   UpdateSettingsResponse,
 } from "@workspace/api-zod";
-import { readAiSettings, readAutomations, writeAiSettings, writeAutomations } from "../lib/config-store";
+import {
+  readAiSettings,
+  readAutomations,
+  readSearchCriteria,
+  writeAiSettings,
+  writeAutomations,
+  writeSearchCriteria,
+} from "../lib/config-store";
 import { listAiProviderOptions } from "../lib/ai/provider-options";
 import { forgetUserProvider, getTextProvider } from "../lib/ai/provider";
 import { testByokCredential } from "../lib/ai/byok-test";
@@ -38,7 +45,7 @@ import {
 const router: IRouter = Router();
 
 function currentState() {
-  return { ai: readAiSettings(), ...readAutomations() };
+  return { ai: readAiSettings(), ...readAutomations(), searchCriteria: readSearchCriteria() };
 }
 
 /** BYOK only exists in saas: everywhere else the key lives in .env, not the database. */
@@ -86,6 +93,7 @@ router.put("/settings", async (req, res): Promise<void> => {
         notionInbox: body.data.notionInbox,
       });
     }
+    if (body.data.searchCriteria) await writeSearchCriteria(body.data.searchCriteria);
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
     return;

@@ -24,6 +24,8 @@ tags:
     description: AI provider setup wizard and automation toggles
   - name: auth
     description: Mode discovery and, in SaaS mode, accounts and sessions
+  - name: onboarding
+    description: New-account guided setup (SaaS mode only)
   - name: legal
     description: Operator identity and data policy (SaaS mode only)
   - name: account
@@ -112,6 +114,51 @@ paths:
       responses:
         "204":
           description: Signed out
+  /onboarding/status:
+    get:
+      operationId: getOnboardingStatus
+      tags: [onboarding]
+      summary: Whether the signed-in account has finished onboarding, and which step to resume on
+      description: >
+        SaaS mode only. `nextStep` is derived from the account's actual
+        stored profile and settings (which step still has no data), not from
+        a separately tracked wizard position, so leaving mid-wizard and
+        coming back resumes at the right place.
+      responses:
+        "200":
+          description: Onboarding status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingStatus"
+        "404":
+          description: Onboarding does not exist on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /onboarding/complete:
+    post:
+      operationId: completeOnboarding
+      tags: [onboarding]
+      summary: Marks onboarding done and enqueues the account's first refresh cycle
+      description: >
+        SaaS mode only. Enqueues the shared-refresh and scoring jobs this
+        account is waiting on via the existing queue (the same path
+        `POST /jobs/refresh` uses) - never a fetch inline in this request.
+      responses:
+        "200":
+          description: Onboarding marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingCompleteResult"
+        "404":
+          description: Onboarding does not exist on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /legal:
     get:
       operationId: getLegalInfo
@@ -821,6 +868,29 @@ components:
       required:
         - mode
         - user
+    OnboardingStep:
+      type: string
+      enum: [profile, criteria, byok]
+    OnboardingStatus:
+      type: object
+      properties:
+        completed:
+          type: boolean
+        nextStep:
+          description: Null once `completed` is true.
+          oneOf:
+            - $ref: "#/components/schemas/OnboardingStep"
+            - type: "null"
+      required:
+        - completed
+        - nextStep
+    OnboardingCompleteResult:
+      type: object
+      properties:
+        completed:
+          type: boolean
+      required:
+        - completed
     RegisterRequest:
       type: object
       properties:
@@ -1085,6 +1155,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Application"
+        firstBatchPending:
+          description: >
+            True when this account has never had a single posting yet and is
+            still within the "still fetching" window after account creation
+            (G1 onboarding lot) - lets the dashboard say so instead of
+            showing a silent empty queue. Always false in selfhosted.
+          type: boolean
       required:
         - dailyGoal
         - appliedToday
@@ -1096,6 +1173,7 @@ components:
         - needsFollowUp
         - streakDays
         - recentApplications
+        - firstBatchPending
     Profile:
       type: object
       properties:
@@ -1282,6 +1360,48 @@ components:
         - enabled
         - pageUrl
         - dataSourceUrl
+    SearchCriteriaSettings:
+      type: object
+      description: >
+        The subset of `sources.*` / `scoring` / `candidate` that pilots the
+        shared refresh and scoring pass (docs/SAAS-ARCHITECTURE.md sections
+        3.3 and 6) - exposed as one small surface for the onboarding wizard,
+        not the whole config.
+      properties:
+        keywords:
+          description: Free-text search keywords, fanned out to every keyword-driven source.
+          type: array
+          items:
+            type: string
+        targetLocationKeywords:
+          description: Overrides the scoring pass's location bonus/penalty for every source.
+          type: array
+          items:
+            type: string
+        letterLanguages:
+          description: Languages the candidate can credibly write an application in (ISO 639-1).
+          type: array
+          items:
+            type: string
+      required:
+        - keywords
+        - targetLocationKeywords
+        - letterLanguages
+    SearchCriteriaSettingsUpdate:
+      type: object
+      properties:
+        keywords:
+          type: array
+          items:
+            type: string
+        targetLocationKeywords:
+          type: array
+          items:
+            type: string
+        letterLanguages:
+          type: array
+          items:
+            type: string
     SettingsState:
       type: object
       properties:
@@ -1293,11 +1413,14 @@ components:
           $ref: "#/components/schemas/AiScoutSettings"
         notionInbox:
           $ref: "#/components/schemas/NotionInboxSettings"
+        searchCriteria:
+          $ref: "#/components/schemas/SearchCriteriaSettings"
       required:
         - ai
         - gmailSync
         - aiScout
         - notionInbox
+        - searchCriteria
     AiSettingsUpdate:
       type: object
       properties:
@@ -1337,6 +1460,8 @@ components:
           $ref: "#/components/schemas/AiScoutSettingsUpdate"
         notionInbox:
           $ref: "#/components/schemas/NotionInboxSettingsUpdate"
+        searchCriteria:
+          $ref: "#/components/schemas/SearchCriteriaSettingsUpdate"
     AiTestResult:
       type: object
       properties:

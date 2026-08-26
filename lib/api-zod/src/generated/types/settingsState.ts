@@ -9,10 +9,12 @@ import type { AiScoutSettings } from './aiScoutSettings';
 import type { AiSettings } from './aiSettings';
 import type { GmailSyncSettings } from './gmailSyncSettings';
 import type { NotionInboxSettings } from './notionInboxSettings';
+import type { SearchCriteriaSettings } from './searchCriteriaSettings';
 
 export interface SettingsState {
   ai: AiSettings;
   gmailSync: GmailSyncSettings;
   aiScout: AiScoutSettings;
   notionInbox: NotionInboxSettings;
+  searchCriteria: SearchCriteriaSettings;
 }

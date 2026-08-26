@@ -63,6 +63,11 @@ export function ensureLocalUser(): Promise<void> {
         email: "local@jobblast.local",
         passwordHash: "",
         displayName: "Local user",
+        // Self-hosted has no onboarding wizard at all (lib/onboarding.ts) -
+        // belt and suspenders alongside the IS_SAAS gate the frontend already
+        // checks, so this column can never make a self-hosted install redirect
+        // anywhere.
+        onboardingCompletedAt: new Date(),
       })
       .onConflictDoNothing();
   })().catch((err: unknown) => {

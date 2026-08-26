@@ -67,6 +67,25 @@ export const LogoutResponse = zod.void()
 
 
 /**
+ * SaaS mode only. `nextStep` is derived from the account's actual stored profile and settings (which step still has no data), not from a separately tracked wizard position, so leaving mid-wizard and coming back resumes at the right place.
+ * @summary Whether the signed-in account has finished onboarding, and which step to resume on
+ */
+export const GetOnboardingStatusResponse = zod.object({
+  "completed": zod.boolean(),
+  "nextStep": zod.union([zod.enum(['profile', 'criteria', 'byok']),zod.null()]).describe('Null once `completed` is true.')
+})
+
+
+/**
+ * SaaS mode only. Enqueues the shared-refresh and scoring jobs this account is waiting on via the existing queue (the same path `POST /jobs/refresh` uses) - never a fetch inline in this request.
+ * @summary Marks onboarding done and enqueues the account's first refresh cycle
+ */
+export const CompleteOnboardingResponse = zod.object({
+  "completed": zod.boolean()
+})
+
+
+/**
  * Public - reachable from the login screen, before anyone has signed in. The operator's identity comes entirely from environment variables (JOBBLAST_LEGAL_*); `available` is false when the operator has not set them yet.
  * @summary Operator identity and data policy (SaaS mode only)
  */
@@ -115,7 +134,12 @@ export const GetAccountExportResponse = zod.object({
   "enabled": zod.boolean(),
   "pageUrl": zod.string(),
   "dataSourceUrl": zod.string()
-})
+}),
+  "searchCriteria": zod.object({
+  "keywords": zod.array(zod.string()).describe('Free-text search keywords, fanned out to every keyword-driven source.'),
+  "targetLocationKeywords": zod.array(zod.string()).describe('Overrides the scoring pass\'s location bonus\/penalty for every source.'),
+  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).')
+}).describe('The subset of `sources.\*` \/ `scoring` \/ `candidate` that pilots the shared refresh and scoring pass (docs\/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.\n')
 }),
   "profile": zod.union([zod.object({
   "id": zod.number(),
@@ -234,7 +258,8 @@ export const GetDashboardResponse = zod.object({
   "coverLetterVersion": zod.string(),
   "notes": zod.string(),
   "followUpDate": zod.coerce.date().nullable()
-}))
+})),
+  "firstBatchPending": zod.boolean().describe('True when this account has never had a single posting yet and is still within the \"still fetching\" window after account creation (G1 onboarding lot) - lets the dashboard say so instead of showing a silent empty queue. Always false in selfhosted.\n')
 })
 
 
@@ -609,7 +634,12 @@ export const GetSettingsResponse = zod.object({
   "enabled": zod.boolean(),
   "pageUrl": zod.string(),
   "dataSourceUrl": zod.string()
-})
+}),
+  "searchCriteria": zod.object({
+  "keywords": zod.array(zod.string()).describe('Free-text search keywords, fanned out to every keyword-driven source.'),
+  "targetLocationKeywords": zod.array(zod.string()).describe('Overrides the scoring pass\'s location bonus\/penalty for every source.'),
+  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).')
+}).describe('The subset of `sources.\*` \/ `scoring` \/ `candidate` that pilots the shared refresh and scoring pass (docs\/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.\n')
 })
 
 
@@ -632,6 +662,11 @@ export const UpdateSettingsBody = zod.object({
   "enabled": zod.boolean().optional(),
   "pageUrl": zod.string().optional(),
   "dataSourceUrl": zod.string().optional()
+}).optional(),
+  "searchCriteria": zod.object({
+  "keywords": zod.array(zod.string()).optional(),
+  "targetLocationKeywords": zod.array(zod.string()).optional(),
+  "letterLanguages": zod.array(zod.string()).optional()
 }).optional()
 })
 
@@ -651,7 +686,12 @@ export const UpdateSettingsResponse = zod.object({
   "enabled": zod.boolean(),
   "pageUrl": zod.string(),
   "dataSourceUrl": zod.string()
-})
+}),
+  "searchCriteria": zod.object({
+  "keywords": zod.array(zod.string()).describe('Free-text search keywords, fanned out to every keyword-driven source.'),
+  "targetLocationKeywords": zod.array(zod.string()).describe('Overrides the scoring pass\'s location bonus\/penalty for every source.'),
+  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).')
+}).describe('The subset of `sources.\*` \/ `scoring` \/ `candidate` that pilots the shared refresh and scoring pass (docs\/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.\n')
 })
 
 

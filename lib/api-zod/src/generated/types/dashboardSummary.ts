@@ -18,4 +18,6 @@ export interface DashboardSummary {
   needsFollowUp: number;
   streakDays: number;
   recentApplications: Application[];
+  /** True when this account has never had a single posting yet and is still within the "still fetching" window after account creation (G1 onboarding lot) - lets the dashboard say so instead of showing a silent empty queue. Always false in selfhosted. */
+  firstBatchPending: boolean;
 }

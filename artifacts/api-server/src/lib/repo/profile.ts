@@ -49,6 +49,18 @@ export async function ensureProfile(userId: string): Promise<Profile> {
   return row;
 }
 
+/**
+ * Whether this account has pasted or uploaded real resume content, as
+ * opposed to still carrying the neutral placeholder `ensureProfile()` seeds
+ * every new row with. Used by the onboarding wizard (lib/onboarding.ts) to
+ * decide whether the profile step is done - a plain non-empty check would
+ * always be true, since the seed text itself is non-empty.
+ */
+export function hasRealResume(profile: Pick<Profile, "masterResume">): boolean {
+  const value = profile.masterResume.trim();
+  return value.length > 0 && value !== seedProfile.masterResume.trim();
+}
+
 export async function updateProfile(
   userId: string,
   patch: Partial<Omit<Profile, "id" | "userId">>,

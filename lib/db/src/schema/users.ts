@@ -33,6 +33,14 @@ export const usersTable = pgTable("users", {
   // depends on the SMTP lot (docs/SAAS-ARCHITECTURE.md open question 3) and
   // is intentionally not implemented here.
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  // G1 onboarding lot: null until the account has been through the onboarding
+  // wizard (profile, search criteria, optional BYOK) and pressed "finish".
+  // The explicit source of truth for "is this account onboarded" - see
+  // lib/onboarding.ts for why a flag beats inferring it from profile/config
+  // contents. Self-hosted's local user is seeded with this already set
+  // (ensureLocalUser in lib/auth/store.ts), so the onboarding gate - which
+  // only ever runs in saas anyway - can never fire there.
+  onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
 });
 
 export type User = typeof usersTable.$inferSelect;

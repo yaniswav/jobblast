@@ -33,6 +33,25 @@ export interface AuthSession {
   user: AuthUser | null;
 }
 
+export type OnboardingStep = typeof OnboardingStep[keyof typeof OnboardingStep];
+
+
+export const OnboardingStep = {
+  profile: 'profile',
+  criteria: 'criteria',
+  byok: 'byok',
+} as const;
+
+export interface OnboardingStatus {
+  completed: boolean;
+  /** Null once `completed` is true. */
+  nextStep: OnboardingStep | null;
+}
+
+export interface OnboardingCompleteResult {
+  completed: boolean;
+}
+
 export interface RegisterRequest {
   inviteCode: string;
   email: string;
@@ -209,6 +228,8 @@ export interface DashboardSummary {
   needsFollowUp: number;
   streakDays: number;
   recentApplications: Application[];
+  /** True when this account has never had a single posting yet and is still within the "still fetching" window after account creation (G1 onboarding lot) - lets the dashboard say so instead of showing a silent empty queue. Always false in selfhosted. */
+  firstBatchPending: boolean;
 }
 
 export interface Profile {
@@ -313,11 +334,30 @@ export interface NotionInboxSettings {
   dataSourceUrl: string;
 }
 
+/**
+ * The subset of `sources.*` / `scoring` / `candidate` that pilots the shared refresh and scoring pass (docs/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.
+ */
+export interface SearchCriteriaSettings {
+  /** Free-text search keywords, fanned out to every keyword-driven source. */
+  keywords: string[];
+  /** Overrides the scoring pass's location bonus/penalty for every source. */
+  targetLocationKeywords: string[];
+  /** Languages the candidate can credibly write an application in (ISO 639-1). */
+  letterLanguages: string[];
+}
+
+export interface SearchCriteriaSettingsUpdate {
+  keywords?: string[];
+  targetLocationKeywords?: string[];
+  letterLanguages?: string[];
+}
+
 export interface SettingsState {
   ai: AiSettings;
   gmailSync: GmailSyncSettings;
   aiScout: AiScoutSettings;
   notionInbox: NotionInboxSettings;
+  searchCriteria: SearchCriteriaSettings;
 }
 
 export interface AiSettingsUpdate {
@@ -345,6 +385,7 @@ export interface SettingsUpdate {
   gmailSync?: GmailSyncSettingsUpdate;
   aiScout?: AiScoutSettingsUpdate;
   notionInbox?: NotionInboxSettingsUpdate;
+  searchCriteria?: SearchCriteriaSettingsUpdate;
 }
 
 export interface AiTestResult {

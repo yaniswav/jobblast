@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useGetAuthSession } from '@workspace/api-client-react';
+import { getGetOnboardingStatusQueryKey, useGetAuthSession, useGetOnboardingStatus } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -8,6 +8,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import Login from '@/pages/login';
+import Onboarding from '@/pages/onboarding';
 import Review from '@/pages/review';
 import Applications from '@/pages/applications';
 import Profile from '@/pages/profile';
@@ -54,8 +55,45 @@ function AuthGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Decides whether the guided setup wizard or the real app renders, for a
+ * signed-in saas account.
+ *
+ * `GET /onboarding/status` 404s in selfhosted (never enabled there), so the
+ * query only runs once we know the mode - a self-hosted install never even
+ * makes this request, let alone shows the wizard. A saas account that has
+ * already finished onboarding gets the same treatment: `completed` stays
+ * true forever after the Finish step, so this component is a no-op for it on
+ * every later visit.
+ */
+function OnboardingGate({ children }: { children: ReactNode }) {
+  const t = useT();
+  const session = useGetAuthSession();
+  const isSaas = session.data?.mode === 'saas';
+  const status = useGetOnboardingStatus({ query: { queryKey: getGetOnboardingStatusQueryKey(), enabled: isSaas } });
+
+  if (!isSaas) return <>{children}</>;
+
+  if (status.isPending) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">{t('loading.workspace')}</p>
+      </div>
+    );
+  }
+
+  // A failed probe falls through to the real app rather than trapping the
+  // account on a wizard that cannot load - the same fail-open choice AuthGate
+  // makes above.
+  if (status.data && !status.data.completed) {
+    return <Onboarding nextStep={status.data.nextStep ?? 'profile'} />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
-  return <I18nProvider><QueryClientProvider client={queryClient}><TooltipProvider><AuthGate><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter></AuthGate><Toaster /><SonnerToaster /></TooltipProvider></QueryClientProvider></I18nProvider>;
+  return <I18nProvider><QueryClientProvider client={queryClient}><TooltipProvider><AuthGate><OnboardingGate><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter></OnboardingGate></AuthGate><Toaster /><SonnerToaster /></TooltipProvider></QueryClientProvider></I18nProvider>;
 }
 
 export default App;
