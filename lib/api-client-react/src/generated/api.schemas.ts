@@ -31,6 +31,8 @@ export interface AuthUser {
 export interface AuthSession {
   mode: JobBlastMode;
   user: AuthUser | null;
+  /** Whether the server can actually send email right now (saas mode, transport "smtp", fully configured). Always false in selfhosted. The frontend shows the "forgot password" link only when this is true - see docs/SAAS-ARCHITECTURE.md section 2 and the G2 lot's email transport. */
+  emailEnabled: boolean;
 }
 
 export type OnboardingStep = typeof OnboardingStep[keyof typeof OnboardingStep];
@@ -62,6 +64,15 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
 }
 
 export type JobStatus = typeof JobStatus[keyof typeof JobStatus];
@@ -442,6 +453,16 @@ export type LegalInfoQuotas = {
 };
 
 /**
+ * The 11-month-warning / 12-month-delete policy (lib/queue/inactivity-selection.ts). `enabled` mirrors `emailEnabled`: with no working email transport the pass never warns and never deletes, by design.
+ */
+export type LegalInfoInactivityPurge = {
+  enabled: boolean;
+  warningAfterMonths: number;
+  deleteAfterMonths: number;
+  warningGraceDays: number;
+};
+
+/**
  * The operator's identity comes entirely from JOBBLAST_LEGAL_* env vars (docs/SAAS-ARCHITECTURE.md section 8) - never hardcoded, since each self-hosted operator running their own beta fills in their own.
  */
 export interface LegalInfo {
@@ -458,6 +479,10 @@ export interface LegalInfo {
   /** How long an unreferenced shared posting is kept before the daily prune job removes it. */
   postingsRetentionDays: number;
   quotas: LegalInfoQuotas;
+  /** Whether the server can actually send email right now (same value as AuthSession.emailEnabled). */
+  emailEnabled: boolean;
+  /** The 11-month-warning / 12-month-delete policy (lib/queue/inactivity-selection.ts). `enabled` mirrors `emailEnabled`: with no working email transport the pass never warns and never deletes, by design. */
+  inactivityPurge: LegalInfoInactivityPurge;
 }
 
 /**

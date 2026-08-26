@@ -11,4 +11,6 @@ import type { JobBlastMode } from './jobBlastMode';
 export interface AuthSession {
   mode: JobBlastMode;
   user: AuthUser | null;
+  /** Whether the server can actually send email right now (saas mode, transport "smtp", fully configured). Always false in selfhosted. The frontend shows the "forgot password" link only when this is true - see docs/SAAS-ARCHITECTURE.md section 2 and the G2 lot's email transport. */
+  emailEnabled: boolean;
 }

@@ -6,17 +6,22 @@
 // a cookie into a session). Keeping them apart is what lets the scoping
 // guard in lib/scoping.test.ts stay a simple, unambiguous rule.
 
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
+import fs from "node:fs";
+import { and, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import {
   db,
   inviteCodesTable,
   LOCAL_USER_ID,
+  passwordResetTokensTable,
   sessionsTable,
   usersTable,
   type User,
 } from "@workspace/db";
 import { logger } from "../logger";
+import { removeUserFromPendingJobs } from "../queue/store";
+import { userDataDir } from "../storage";
 import { hashPassword, validatePassword, verifyPassword } from "./password";
+import { generateResetToken, hashResetToken, resetTokenExpiry } from "./reset-token";
 import {
   DEFAULT_SESSION_POLICY,
   generateSessionToken,
@@ -104,6 +109,31 @@ export async function getUserById(userId: string): Promise<User | null> {
     .where(eq(usersTable.id, userId))
     .limit(1);
   return row ?? null;
+}
+
+/** Case-insensitive lookup by address. Never throws on "not found" - callers that must not confirm an address exists (forgot-password) check for null themselves. */
+export async function getUserByEmail(rawEmail: string): Promise<User | null> {
+  const [row] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, normalizeEmail(rawEmail)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Every account id that still exists, from a candidate list. Used by
+ * lib/queue/handlers.ts's runRefresh() to tolerate a subscriber deleted
+ * after a shared-refresh job was enqueued but before it ran - see that
+ * file's doc comment on the FK-violation bug this guards against.
+ */
+export async function filterExistingUserIds(userIds: readonly string[]): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  const rows = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(inArray(usersTable.id, [...userIds]));
+  return rows.map((row) => row.id);
 }
 
 export type RegisterInput = {
@@ -286,21 +316,21 @@ export async function deleteSession(token: string): Promise<void> {
 const LAST_SEEN_TOUCH_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Inactivity tracking only: refreshes `users.last_seen_at` at most once a
- * day per account. A single conditional UPDATE (no read first), so a normal
- * request pays for one no-op write most of the time rather than a read plus
- * a write. Only ever called from resolveSession(), so this only runs in
- * saas - selfhosted never issues a session at all.
- *
- * This column is not yet acted on: the 12-month inactivity auto-purge with a
- * 30-day warning email depends on the SMTP lot and is intentionally not
- * implemented here (docs/SAAS-ARCHITECTURE.md open question 3).
+ * Inactivity tracking: refreshes `users.last_seen_at` at most once a day per
+ * account, and clears `inactivityWarningSentAt` in the same UPDATE - an
+ * account that comes back after being warned gets a clean slate, so a later
+ * inactive stretch can warn it again rather than silently skipping straight
+ * to deletion (lib/queue/inactivity-selection.ts). A single conditional
+ * UPDATE (no read first), so a normal request pays for one no-op write most
+ * of the time rather than a read plus a write. Only ever called from
+ * resolveSession(), so this only runs in saas - selfhosted never issues a
+ * session at all.
  */
 async function touchUserLastSeen(userId: string, now: Date): Promise<void> {
   const staleBefore = new Date(now.getTime() - LAST_SEEN_TOUCH_MS);
   await db
     .update(usersTable)
-    .set({ lastSeenAt: now })
+    .set({ lastSeenAt: now, inactivityWarningSentAt: null })
     .where(and(eq(usersTable.id, userId), or(isNull(usersTable.lastSeenAt), lt(usersTable.lastSeenAt, staleBefore))));
 }
 
@@ -308,10 +338,16 @@ async function touchUserLastSeen(userId: string, now: Date): Promise<void> {
  * Deletes the account row. Every child table references `users(id)` with
  * `on delete cascade` (sessions, user_settings, user_ai_credentials,
  * usage_counters, profiles, applications, documents, interview_briefs,
- * user_postings, jobs), so this one statement removes the account's entire
- * footprint in the database. The caller is still responsible for deleting
- * `data/users/<uuid>/` on disk (lib/storage.ts userDataDir) - that is not a
- * database concern.
+ * user_postings, password_reset_tokens, per-account jobs), so this one
+ * statement removes the account's entire footprint in the database - except
+ * one thing the FK graph cannot reach: a pending `postings.refresh` job's
+ * payload names its subscribers by id inside a jsonb array, not a foreign
+ * key, so this account's id can be left behind in another job's payload
+ * after this row is gone (see lib/queue/store.ts's removeUserFromPendingJobs
+ * doc comment, and lib/queue/handlers.ts's runRefresh for the bug that
+ * caused). deleteAccountCompletely() below is the entry point that actually
+ * cleans that up first; call that, not this, unless a caller specifically
+ * needs the bare row delete.
  *
  * Deliberately not in lib/repo/: same reason as the rest of this file, it
  * establishes/removes who an account IS rather than acting on behalf of one
@@ -319,4 +355,136 @@ async function touchUserLastSeen(userId: string, now: Date): Promise<void> {
  */
 export async function deleteAccount(userId: string): Promise<void> {
   await db.delete(usersTable).where(eq(usersTable.id, userId));
+}
+
+/**
+ * The one real "delete this account" entry point, used by both
+ * `DELETE /account` (routes/account.ts, self-service) and the inactivity
+ * purge job (lib/queue/handlers.ts "users.inactivity"). Order matters:
+ *
+ *   1. Scrub this account's id out of any pending platform-wide job payload
+ *      (the gap the FK graph cannot cover - see deleteAccount()'s comment).
+ *   2. Delete the row, cascading everything else.
+ *   3. Best-effort remove `data/users/<uuid>/` on disk. A failure here is
+ *      logged, not thrown: the account is already gone from the database, so
+ *      leaving orphaned files is a cleanup problem, not a reason to make the
+ *      caller think deletion failed.
+ *
+ * `reason` only affects the log line ("self-service" vs "inactivity") - no
+ * personal data in either case, just the account id.
+ */
+export async function deleteAccountCompletely(
+  userId: string,
+  reason: "self-service" | "inactivity",
+): Promise<void> {
+  await removeUserFromPendingJobs(userId);
+  await deleteAccount(userId);
+
+  try {
+    await fs.promises.rm(userDataDir(userId), { recursive: true, force: true });
+  } catch (err) {
+    logger.error({ err, userId }, "Account deleted from the database, but its files could not be removed");
+  }
+
+  logger.info({ userId, reason }, "Account deleted");
+}
+
+// ---------------------------------------------------------------------------
+// Password reset (G2 lot). Single-use, hashed at rest, 30-minute TTL - see
+// lib/auth/reset-token.ts for the pure token logic this wraps in SQL.
+// ---------------------------------------------------------------------------
+
+/** Issues a reset token for an account already known to exist. Callers (routes/auth.ts) look the account up first, so a null result never reaches here. */
+export async function createPasswordResetToken(
+  userId: string,
+): Promise<{ token: string; expiresAt: Date }> {
+  const token = generateResetToken();
+  const expiresAt = new Date(resetTokenExpiry(Date.now()));
+  await db.insert(passwordResetTokensTable).values({
+    userId,
+    tokenHash: hashResetToken(token),
+    expiresAt,
+  });
+  return { token, expiresAt };
+}
+
+/**
+ * Consumes a reset token atomically: the UPDATE's own `WHERE used_at IS
+ * NULL AND expires_at > now()` is the single-use guarantee, not a
+ * read-then-check in application code, so two concurrent requests for the
+ * same token can never both succeed. Returns the account id on success, or
+ * null for an unknown, expired or already-used token - deliberately the
+ * same generic outcome for all three, so a guess reveals nothing about which
+ * case it was.
+ */
+export async function consumePasswordResetToken(token: string): Promise<{ userId: string } | null> {
+  const tokenHash = hashResetToken(token);
+  const now = new Date();
+  const [row] = await db
+    .update(passwordResetTokensTable)
+    .set({ usedAt: now })
+    .where(
+      and(
+        eq(passwordResetTokensTable.tokenHash, tokenHash),
+        isNull(passwordResetTokensTable.usedAt),
+        gt(passwordResetTokensTable.expiresAt, now),
+      ),
+    )
+    .returning({ userId: passwordResetTokensTable.userId });
+
+  return row ? { userId: row.userId } : null;
+}
+
+/**
+ * Sets a new password and invalidates every session on the account - a
+ * password reset is exactly the moment an attacker who had a live session
+ * (the reason the account owner is resetting in the first place, sometimes)
+ * must be logged out everywhere, not just have their password stop working
+ * next time.
+ */
+export async function resetPassword(userId: string, newPassword: string): Promise<void> {
+  const passwordHash = await hashPassword(newPassword);
+  await db.transaction(async (tx) => {
+    await tx.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, userId));
+    await tx.delete(sessionsTable).where(eq(sessionsTable.userId, userId));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Inactivity purge (G2 lot). Pure decision logic lives in
+// lib/queue/inactivity-selection.ts; this is the SQL shell around it.
+// ---------------------------------------------------------------------------
+
+export type InactivityAccountRow = {
+  id: string;
+  email: string;
+  locale: string | null;
+  lastSeenAt: Date | null;
+  createdAt: Date;
+  inactivityWarningSentAt: Date | null;
+};
+
+/**
+ * Every active account, with the fields lib/queue/inactivity-selection.ts's
+ * decideInactivityAction() needs. The local user is excluded on principle
+ * (selfhosted has no email and no purge concept at all), even though in
+ * practice it is never seeded in saas mode to begin with.
+ */
+export async function listInactivityCandidates(): Promise<InactivityAccountRow[]> {
+  return db
+    .select({
+      id: usersTable.id,
+      email: usersTable.email,
+      locale: usersTable.locale,
+      lastSeenAt: usersTable.lastSeenAt,
+      createdAt: usersTable.createdAt,
+      inactivityWarningSentAt: usersTable.inactivityWarningSentAt,
+    })
+    .from(usersTable)
+    .where(and(eq(usersTable.status, "active"), sql`${usersTable.id} <> ${LOCAL_USER_ID}`))
+    .orderBy(usersTable.id);
+}
+
+export async function markInactivityWarningSent(userId: string, now: Date = new Date()): Promise<void> {
+  await db.update(usersTable).set({ inactivityWarningSentAt: now }).where(eq(usersTable.id, userId));
 }

@@ -114,6 +114,68 @@ paths:
       responses:
         "204":
           description: Signed out
+  /auth/forgot:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request a password reset link (SaaS mode only)
+      description: >
+        Always responds 204, whether or not the address belongs to an
+        account, so this endpoint never confirms which addresses are
+        registered. When the email transport is not configured (or the
+        address is unknown), nothing is sent and the response is identical.
+        Rate limited by IP and by email (docs/SAAS-ARCHITECTURE.md section 2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "204":
+          description: Always returned on a well-formed request, regardless of outcome
+        "429":
+          description: Too many attempts for this IP or this email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/reset:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password from a reset token (SaaS mode only)
+      description: >
+        The token is single-use, 30-minute TTL, hashed at rest. On success every
+        session on the account is invalidated, so a reset also signs out
+        anyone else holding a live session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "204":
+          description: Password changed, every session on the account invalidated
+        "400":
+          description: The token is invalid, expired or already used, or the new password does not meet the minimum requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /onboarding/status:
     get:
       operationId: getOnboardingStatus
@@ -865,9 +927,18 @@ components:
           oneOf:
             - $ref: "#/components/schemas/AuthUser"
             - type: "null"
+        emailEnabled:
+          description: >
+            Whether the server can actually send email right now (saas mode,
+            transport "smtp", fully configured). Always false in selfhosted.
+            The frontend shows the "forgot password" link only when this is
+            true - see docs/SAAS-ARCHITECTURE.md section 2 and the G2 lot's
+            email transport.
+          type: boolean
       required:
         - mode
         - user
+        - emailEnabled
     OnboardingStep:
       type: string
       enum: [profile, criteria, byok]
@@ -916,6 +987,23 @@ components:
       required:
         - email
         - password
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+        - email
+    ResetPasswordRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+      required:
+        - token
+        - newPassword
     JobStatus:
       type: string
       enum: [queued, skipped, applied]
@@ -1548,6 +1636,30 @@ components:
             - tailorPerDay
             - fitPerDay
             - briefPerDay
+        emailEnabled:
+          description: Whether the server can actually send email right now (same value as AuthSession.emailEnabled).
+          type: boolean
+        inactivityPurge:
+          description: >
+            The 11-month-warning / 12-month-delete policy
+            (lib/queue/inactivity-selection.ts). `enabled` mirrors
+            `emailEnabled`: with no working email transport the pass never
+            warns and never deletes, by design.
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            warningAfterMonths:
+              type: number
+            deleteAfterMonths:
+              type: number
+            warningGraceDays:
+              type: number
+          required:
+            - enabled
+            - warningAfterMonths
+            - deleteAfterMonths
+            - warningGraceDays
       required:
         - available
         - operator
@@ -1556,6 +1668,8 @@ components:
         - country
         - postingsRetentionDays
         - quotas
+        - emailEnabled
+        - inactivityPurge
     AccountExportUser:
       type: object
       description: Never includes the password hash.

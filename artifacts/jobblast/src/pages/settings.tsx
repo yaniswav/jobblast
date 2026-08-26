@@ -22,6 +22,7 @@ import {
   type AiTestResult,
 } from '@workspace/api-client-react';
 import { ErrorState, LoadingState } from '@/components/app-shell';
+import { SearchCriteriaFields } from '@/components/search-criteria-fields';
 import { useLocale, useT, type Locale } from '@/i18n';
 
 // Cosmetic only - purely presentational labels for known provider ids. An id
@@ -231,6 +232,8 @@ export default function Settings() {
         )}
       </section>
 
+      <SearchCriteriaSection t={t} />
+
       {isSaas && <ByokSection t={t} />}
       {isSaas && <AccountSection t={t} />}
 
@@ -308,6 +311,127 @@ export default function Settings() {
       </section>
       )}
     </div>
+  );
+}
+
+/**
+ * Search criteria (keywords, target locations, letter languages) - the same
+ * three fields the onboarding wizard's criteria step collects
+ * (pages/onboarding.tsx), available here too so an account can revisit them
+ * after finishing onboarding (or a self-hosted install, which has no wizard
+ * at all, can set them for the first time). GET/PUT /settings's
+ * `searchCriteria` block is universal - not saas-gated - so this section
+ * renders in both modes, unlike ByokSection/AccountSection below it.
+ */
+function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
+  const settings = useGetSettings();
+  const update = useUpdateSettings();
+  const queryClient = useQueryClient();
+
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [newKeyword, setNewKeyword] = useState('');
+  const [locations, setLocations] = useState<string[]>([]);
+  const [newLocation, setNewLocation] = useState('');
+  const [languages, setLanguages] = useState<string[]>(['en']);
+
+  useEffect(() => {
+    if (!settings.data) return;
+    setKeywords(settings.data.searchCriteria.keywords);
+    setLocations(settings.data.searchCriteria.targetLocationKeywords);
+    if (settings.data.searchCriteria.letterLanguages.length > 0) {
+      setLanguages(settings.data.searchCriteria.letterLanguages);
+    }
+  }, [settings.data]);
+
+  const addKeyword = () => {
+    const value = newKeyword.trim();
+    if (value && !keywords.includes(value)) setKeywords((current) => [...current, value]);
+    setNewKeyword('');
+  };
+  const removeKeyword = (value: string) => setKeywords((current) => current.filter((item) => item !== value));
+  const addLocation = () => {
+    const value = newLocation.trim();
+    if (value && !locations.includes(value)) setLocations((current) => [...current, value]);
+    setNewLocation('');
+  };
+  const removeLocation = (value: string) => setLocations((current) => current.filter((item) => item !== value));
+  const toggleLanguage = (code: string) =>
+    setLanguages((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
+
+  const save = () => {
+    update.mutate(
+      {
+        data: {
+          searchCriteria: {
+            keywords,
+            targetLocationKeywords: locations,
+            letterLanguages: languages.length > 0 ? languages : ['en'],
+          },
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
+          toast(t('settings.toastSettingsSaved'));
+        },
+        onError: () => toast(t('settings.toastSettingsSaveFailed')),
+      },
+    );
+  };
+
+  if (settings.isLoading) {
+    return (
+      <section className="surface p-6 mt-5">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('loading.settings')}</p>
+      </section>
+    );
+  }
+  if (settings.isError || !settings.data) {
+    return (
+      <section className="surface p-6 mt-5">
+        <ErrorState onRetry={() => settings.refetch()} />
+      </section>
+    );
+  }
+
+  return (
+    <section className="surface p-6 mt-5">
+      <div className="section-heading">
+        <div>
+          <h2>{t('settings.searchCriteriaSectionTitle')}</h2>
+          <p>{t('settings.searchCriteriaSectionSubtitle')}</p>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <SearchCriteriaFields
+          testIdPrefix="settings"
+          keywords={keywords}
+          newKeyword={newKeyword}
+          setNewKeyword={setNewKeyword}
+          onAddKeyword={addKeyword}
+          onRemoveKeyword={removeKeyword}
+          locations={locations}
+          newLocation={newLocation}
+          setNewLocation={setNewLocation}
+          onAddLocation={addLocation}
+          onRemoveLocation={removeLocation}
+          languages={languages}
+          onToggleLanguage={toggleLanguage}
+        />
+      </div>
+
+      <div className="flex justify-end mt-5">
+        <button
+          className="btn btn-primary"
+          onClick={save}
+          disabled={update.isPending}
+          data-testid="button-save-search-criteria"
+        >
+          <Save size={15} /> {update.isPending ? t('settings.savingProvider') : t('settings.searchCriteriaSaveButton')}
+        </button>
+      </div>
+    </section>
   );
 }
 

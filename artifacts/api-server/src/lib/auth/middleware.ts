@@ -36,6 +36,11 @@ const PUBLIC_PATHS = new Set([
   "/auth/login",
   "/auth/register",
   "/auth/logout",
+  // Password reset (G2 lot): both ends of the flow happen before anyone is
+  // signed in - a session is exactly what a locked-out account does not
+  // have yet.
+  "/auth/forgot",
+  "/auth/reset",
   // The operator's identity and data policy (routes/legal.ts): has to be
   // reachable from the login screen, before anyone has signed in.
   "/legal",

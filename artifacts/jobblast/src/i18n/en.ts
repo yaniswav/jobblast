@@ -264,6 +264,11 @@ export const en = {
   'settings.saveAutomations': 'Save automations',
   'settings.savingAutomations': 'Saving…',
 
+  // Search criteria section (both modes - keywords, target locations, letter languages)
+  'settings.searchCriteriaSectionTitle': 'Search criteria',
+  'settings.searchCriteriaSectionSubtitle': 'What gets fetched, and how it is scored for you. Same fields as onboarding.',
+  'settings.searchCriteriaSaveButton': 'Save search criteria',
+
   // BYOK section (SaaS mode only): bring-your-own-key AI provider credentials
   'settings.byokSectionTitle': 'Your API keys',
   'settings.byokSectionSubtitle': 'Bring your own key for each provider. It is encrypted and never shown again after you save it.',
@@ -324,6 +329,23 @@ export const en = {
   'auth.switchToSignIn': 'Already have an account? Sign in',
   'auth.signInFailed': 'Wrong email or password.',
   'auth.registerFailed': 'That did not work. Check your invite code, email and password.',
+  'auth.forgotPasswordLink': 'Forgot your password?',
+  'auth.backToSignIn': 'Back to sign in',
+
+  // Forgot / reset password (SaaS mode only, and only when the server has a
+  // working email transport - see auth.emailEnabled on GetAuthSession)
+  'auth.forgotTitle': 'Reset your password',
+  'auth.forgotSubtitle': "Enter your email and we will send you a link, if there is an account for it.",
+  'auth.forgotSubmitButton': 'Send reset link',
+  'auth.forgotSentNotice': 'If an account exists for that address, a reset link is on its way. It expires in 30 minutes.',
+  'auth.forgotUnavailable': 'Password reset is not set up on this server yet. Ask the operator to sign you in another way.',
+  'auth.resetTitle': 'Choose a new password',
+  'auth.resetSubtitle': 'This link works once and expires 30 minutes after it was sent.',
+  'auth.resetNewPasswordLabel': 'New password',
+  'auth.resetSubmitButton': 'Set new password',
+  'auth.resetSuccessNotice': 'Password changed. Every device signed in to this account has been signed out.',
+  'auth.resetMissingToken': 'This link is missing its token. Request a new one.',
+  'auth.resetFailed': 'This reset link is invalid, expired or has already been used.',
 
   // Onboarding wizard (SaaS mode only; G1 lot). Shown to a new account until
   // it presses "Finish" on the last step.
@@ -398,7 +420,8 @@ export const en = {
   'privacy.cookiesHeading': 'Cookies',
   'privacy.cookiesBody': 'Exactly one cookie, used to keep you signed in. Strictly necessary, so no consent banner is shown.',
   'privacy.inactivityHeading': 'Inactivity',
-  'privacy.inactivityBody': 'The date of your last visit is recorded, at most once a day, so an automatic cleanup of long-inactive accounts can be planned. That cleanup is not active yet; this page will be updated with the exact policy and a warning period before it is turned on.',
+  'privacy.inactivityBodyActive': 'The date of your last visit is recorded, at most once a day. After {warningMonths} months of inactivity you get one warning email; after {deleteMonths} months, and at least {graceDays} days after that warning, the account and its data are deleted automatically. Signing in at any point resets this.',
+  'privacy.inactivityBodyInactive': 'The date of your last visit is recorded, at most once a day, so an automatic cleanup of long-inactive accounts can be planned. That cleanup is not active on this server: it requires a working email transport, which is not configured here yet, and without email JobBlast never warns and never deletes for inactivity.',
   'privacy.betaHeading': 'Beta status',
   'privacy.betaBody': 'This is a free, best-effort beta with no uptime guarantee. You will be emailed before any shutdown that would remove your data.',
 

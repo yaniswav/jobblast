@@ -14,7 +14,7 @@ type Mode = 'signIn' | 'register';
  * self-hosted install reports its implicit local user from
  * GET /auth/session, so this screen never mounts there.
  */
-export default function Login() {
+export default function Login({ emailEnabled }: { emailEnabled: boolean }) {
   const t = useT();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>('signIn');
@@ -95,6 +95,15 @@ export default function Login() {
               />
               {mode === 'register' && (
                 <p className="text-xs text-gray-500">{t('auth.passwordHint')}</p>
+              )}
+              {mode === 'signIn' && emailEnabled && (
+                <a
+                  href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/forgot`}
+                  className="text-xs text-gray-500 underline underline-offset-4 self-start"
+                  data-testid="link-forgot-password"
+                >
+                  {t('auth.forgotPasswordLink')}
+                </a>
               )}
             </div>
 

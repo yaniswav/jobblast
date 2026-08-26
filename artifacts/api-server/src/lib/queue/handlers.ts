@@ -24,11 +24,19 @@
 import type { Job, JobKind } from "@workspace/db";
 import { runFitAnalysisPass } from "../ai/fit-analysis";
 import { tailorOnePosting } from "../ai/tailor";
-import { listActiveUserIds } from "../auth/store";
+import {
+  deleteAccountCompletely,
+  filterExistingUserIds,
+  listActiveUserIds,
+  listInactivityCandidates,
+  markInactivityWarningSent,
+} from "../auth/store";
 import { primeUserConfig } from "../config-store";
 import { loadConfig } from "../config";
+import { inactivityWarningEmail, isEmailEnabled, resolveEmailLocale, sendEmail } from "../email";
 import { logger } from "../logger";
-import { IS_SAAS } from "../mode";
+import { appOrigin, IS_SAAS } from "../mode";
+import { decideInactivityAction } from "./inactivity-selection";
 import { fetchSignatureIntoPool, scorePostingsForUser, sourceDisplayName } from "../sources/refresh";
 import {
   groupBySignature,
@@ -151,6 +159,7 @@ export async function enqueueRefreshForUser(userId: string): Promise<number> {
 export async function enqueueHygieneCycle(): Promise<void> {
   await enqueueJob({ kind: "sessions.sweep", userId: null, dedupeKey: "sessions.sweep:daily" });
   await enqueueJob({ kind: "postings.prune", userId: null, dedupeKey: "postings.prune:daily" });
+  await enqueueJob({ kind: "users.inactivity", userId: null, dedupeKey: "users.inactivity:daily" });
 }
 
 /** Enqueues one nightly fit-analysis batch per account. */
@@ -213,12 +222,41 @@ function readSource(payload: Record<string, unknown>): SourceId {
   return source as SourceId;
 }
 
+/**
+ * `postings.refresh` carries its subscribers by id inside `payload`, not a
+ * FK (it is a platform-wide job - `user_id` is null - see
+ * lib/db/src/schema/jobs.ts), so an account deleted after this job was
+ * enqueued but before it ran is not automatically scrubbed out the way a
+ * per-account job's own `user_id` column would be. That used to fail this
+ * whole job the moment it reached that subscriber's `user.score` enqueue (a
+ * FK violation inserting a job for a `user_id` that no longer exists),
+ * taking every *other* subscriber's scoring pass down with it - not just
+ * skipping the deleted one. Filtering the subscriber list against accounts
+ * that still exist, once, up front, is what makes this tolerate that: a
+ * missing subscriber is skipped and logged, everyone else still gets scored.
+ * lib/queue/store.ts's removeUserFromPendingJobs() is the other half of this
+ * fix, scrubbing a deleted account out of pending payloads proactively so
+ * this filter is normally a no-op rather than the only safety net.
+ */
 async function runRefresh(payload: Record<string, unknown>): Promise<void> {
   const source = readSource(payload);
   const signature = readString(payload, "signature");
   const subscribers = readSubscribers(payload);
-  const first = subscribers[0];
-  if (!first) throw new Error("A refresh job needs at least one subscriber");
+
+  const existing = await filterExistingUserIds(subscribers);
+  const missing = subscribers.length - existing.length;
+  if (missing > 0) {
+    logger.warn(
+      { signature, missing },
+      "Refresh job: skipping subscriber(s) whose account no longer exists",
+    );
+  }
+
+  const first = existing[0];
+  if (!first) {
+    logger.warn({ signature }, "Refresh job: no remaining subscriber, skipping the fetch");
+    return;
+  }
 
   // Fetch under the first subscriber's configuration. Every subscriber has
   // identical parameters for this source - that is what sharing a signature
@@ -226,14 +264,14 @@ async function runRefresh(payload: Record<string, unknown>): Promise<void> {
   const fetchedAt = new Date();
   const result = await asUser(first, () => fetchSignatureIntoPool(source));
   logger.info(
-    { source: sourceDisplayName(source), signature, ...result, subscribers: subscribers.length },
+    { source: sourceDisplayName(source), signature, ...result, subscribers: existing.length },
     "Shared fetch complete",
   );
 
   // The scoring half, one job per waiting account. `since` is the moment
   // before the fetch, so an advert whose lastSeenAt was refreshed by it is
   // inside the window.
-  for (const userId of subscribers) {
+  for (const userId of existing) {
     await enqueueJob({
       kind: "user.score",
       userId,
@@ -260,6 +298,57 @@ async function runTailor(userId: string, payload: Record<string, unknown>): Prom
   const postingId = Number(payload["postingId"]);
   if (!Number.isInteger(postingId)) throw new Error('Job payload is missing a "postingId" number');
   await asUser(userId, () => tailorOnePosting(userId, postingId));
+}
+
+/**
+ * The 11-month warning / 12-month purge pass (G2 lot,
+ * docs/SAAS-ARCHITECTURE.md open question 3). isEmailEnabled() is checked
+ * twice, deliberately: once here, so a disabled transport skips the account
+ * query entirely rather than paying for it every day for nothing, and again
+ * inside decideInactivityAction() itself (lib/queue/inactivity-selection.ts),
+ * so the fail-safe rule is provably part of the tested decision, not just an
+ * early return trusted by inspection.
+ *
+ * One account's failure (an email that would not send, a delete that hit a
+ * database error) is caught and logged, never allowed to stop the loop -
+ * the same "no account can take the whole pass down" property runRefresh()
+ * now has for a different reason.
+ */
+async function runInactivityPass(): Promise<void> {
+  if (!isEmailEnabled()) {
+    logger.info({}, "Inactivity pass: email transport is not configured, skipping");
+    return;
+  }
+
+  const candidates = await listInactivityCandidates();
+  const now = new Date();
+  const link = appOrigin() ?? "";
+
+  for (const account of candidates) {
+    const action = decideInactivityAction(account, now, true);
+    if (action === "none") continue;
+
+    if (action === "warn") {
+      const content = inactivityWarningEmail(resolveEmailLocale(account.locale), link);
+      try {
+        await sendEmail({ to: account.email, subject: content.subject, text: content.text, html: content.html });
+        // Only marked sent once the email actually left - if it did not,
+        // the next daily run tries again instead of silently giving up.
+        await markInactivityWarningSent(account.id, now);
+        logger.info({ userId: account.id }, "Inactivity pass: warning sent");
+      } catch (err) {
+        logger.error({ err, userId: account.id }, "Inactivity pass: warning email failed, will retry");
+      }
+      continue;
+    }
+
+    try {
+      await deleteAccountCompletely(account.id, "inactivity");
+      logger.info({ userId: account.id }, "Inactivity pass: account deleted after 12 months of inactivity");
+    } catch (err) {
+      logger.error({ err, userId: account.id }, "Inactivity pass: could not delete an inactive account");
+    }
+  }
 }
 
 /**
@@ -290,6 +379,9 @@ export async function runJob(job: Job): Promise<void> {
       return;
     case "postings.prune":
       await prunePostings();
+      return;
+    case "users.inactivity":
+      await runInactivityPass();
       return;
     default:
       throw new Error(`Unknown job kind "${job.kind}"`);

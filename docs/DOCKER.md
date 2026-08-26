@@ -218,7 +218,40 @@ quota caps, so the page never drifts from the real configuration. Leaving
 rather than a page full of blanks - fill it in before inviting anyone
 outside your own testing.
 
-## 11. TLS / a real domain
+## 11. Mailpit (local email testing)
+
+The email transport (G2 lot: password reset, the 11-month inactivity
+warning) defaults to `JOBBLAST_EMAIL_TRANSPORT=none` - no error, nothing
+sent, both features stay off. To actually see an email locally, use
+[Mailpit](https://mailpit.axllent.org/), a free SMTP catcher with a web UI:
+it accepts any message and never delivers anywhere real.
+
+`deploy/saas/compose.yaml` defines a `mailpit` service behind the `dev`
+Compose profile, so it never starts on a plain `up -d`:
+
+```bash
+docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker \
+  --profile dev up -d mailpit
+```
+
+Then uncomment the four `JOBBLAST_SMTP_*` / `JOBBLAST_EMAIL_FROM` lines under
+"Uncomment these four to test locally against the `mailpit` service" in
+`deploy/saas/.env.docker` (host `mailpit`, port `1025`, no user/password -
+Mailpit accepts unauthenticated local SMTP) and restart `app`:
+
+```bash
+docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker restart app
+```
+
+Open **http://localhost:8025** to read what `app` sent (a password reset
+link, an inactivity warning), or query its HTTP API directly
+(`GET http://localhost:8025/api/v1/messages`). Never enable the `dev`
+profile, or point `JOBBLAST_EMAIL_TRANSPORT` at Mailpit, on a real
+deployment - a real deployment needs a real relay (Brevo, Resend; see the
+env file's "A real deployment" comment and
+docs/SAAS-ARCHITECTURE.md section 2).
+
+## 12. TLS / a real domain
 
 This local stack runs Caddy on plain HTTP (`deploy/saas/Caddyfile`,
 `{$JOBBLAST_DOMAIN:http://localhost}`) mapped to `localhost:8080` - there is

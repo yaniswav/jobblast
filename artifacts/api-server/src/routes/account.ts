@@ -3,17 +3,14 @@
 // has full access to their own files and database, so these endpoints add
 // nothing there and stay 404, same as the BYOK routes in routes/settings.ts.
 
-import fs from "node:fs";
 import { Router, type IRouter, type Response } from "express";
 import { DeleteAccountBody, GetAccountExportResponse } from "@workspace/api-zod";
 import { buildAccountExport } from "../lib/account-export";
 import { verifyPassword } from "../lib/auth/password";
-import { deleteAccount, getUserById } from "../lib/auth/store";
+import { deleteAccountCompletely, getUserById } from "../lib/auth/store";
 import { actingUserId } from "../lib/auth/middleware";
 import { SESSION_COOKIE_NAME } from "../lib/auth/session";
-import { logger } from "../lib/logger";
 import { IS_SAAS } from "../lib/mode";
-import { userDataDir } from "../lib/storage";
 
 const router: IRouter = Router();
 
@@ -52,20 +49,13 @@ router.delete("/account", async (req, res): Promise<void> => {
     return;
   }
 
-  // The DB delete cascades everything (sessions, settings, credentials,
-  // usage counters, profile, applications, documents, briefs, user_postings,
-  // pending jobs - see deleteAccount()'s doc comment). Files on disk are a
-  // separate concern, removed after the row is gone so a failure here never
-  // leaves an orphaned account with no data.
-  await deleteAccount(userId);
+  // Scrubs this id out of pending queue payloads, deletes the row (cascading
+  // sessions, settings, credentials, usage counters, profile, applications,
+  // documents, briefs, user_postings, per-account jobs), then best-effort
+  // removes the files on disk - see deleteAccountCompletely()'s doc comment
+  // in lib/auth/store.ts.
+  await deleteAccountCompletely(userId, "self-service");
 
-  try {
-    await fs.promises.rm(userDataDir(userId), { recursive: true, force: true });
-  } catch (err) {
-    logger.error({ err, userId }, "Account deleted from the database, but its files could not be removed");
-  }
-
-  logger.info({ userId }, "Account deleted");
   res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
   res.sendStatus(204);
 });

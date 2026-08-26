@@ -111,7 +111,15 @@ export default function Privacy() {
 
         <div>
           <h2 className="font-bold text-sm mb-1">{t('privacy.inactivityHeading')}</h2>
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('privacy.inactivityBody')}</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            {info.inactivityPurge.enabled
+              ? t('privacy.inactivityBodyActive', {
+                  warningMonths: info.inactivityPurge.warningAfterMonths,
+                  deleteMonths: info.inactivityPurge.deleteAfterMonths,
+                  graceDays: info.inactivityPurge.warningGraceDays,
+                })
+              : t('privacy.inactivityBodyInactive')}
+          </p>
         </div>
 
         <div>

@@ -31,7 +31,7 @@ const REFRESH_CYCLE_MS = 60 * 60 * 1000;
 /** Fit analysis is batched rather than immediate: short calls, and it is what makes the queue triageable. */
 const FIT_CYCLE_MS = 6 * 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-/** Sessions and unreferenced postings, both daily (docs/SAAS-ARCHITECTURE.md section 8). */
+/** Sessions, unreferenced postings and the inactivity warn/purge pass, all daily (docs/SAAS-ARCHITECTURE.md section 8). */
 const HYGIENE_CYCLE_MS = 24 * 60 * 60 * 1000;
 /** Finished rows are kept this long, so "why did my letter not appear" is answerable. */
 const FINISHED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;

@@ -18,9 +18,9 @@ import {
   type AiProviderId,
   type OnboardingStep,
 } from '@workspace/api-client-react';
-import { useT, type TranslationKey } from '@/i18n';
+import { useT } from '@/i18n';
 import { ByokSection, PROVIDER_LABELS } from '@/pages/settings';
-import { TagEditor } from '@/pages/profile';
+import { SearchCriteriaFields } from '@/components/search-criteria-fields';
 
 // Neutral placeholders `ensureProfile()` seeds a brand-new row with
 // (artifacts/api-server/src/lib/repo/profile.ts). Matched by prefix rather
@@ -251,15 +251,6 @@ function ProfileStep({ onNext }: { onNext: () => void }) {
 // Step b: search criteria (keywords, target locations, letter languages)
 // ---------------------------------------------------------------------------
 
-const LANGUAGE_OPTIONS: { code: string; labelKey: TranslationKey }[] = [
-  { code: 'en', labelKey: 'onboarding.langEnglish' },
-  { code: 'fr', labelKey: 'onboarding.langFrench' },
-  { code: 'es', labelKey: 'onboarding.langSpanish' },
-  { code: 'de', labelKey: 'onboarding.langGerman' },
-  { code: 'ja', labelKey: 'onboarding.langJapanese' },
-  { code: 'zh', labelKey: 'onboarding.langChinese' },
-];
-
 function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const t = useT();
   const settings = useGetSettings();
@@ -327,49 +318,21 @@ function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
         subtitle={t('onboarding.stepCriteriaSubtitle')}
       />
       <section className="surface p-6">
-        <div className="grid gap-5">
-          <TagEditor
-            label={t('onboarding.keywordsLabel')}
-            values={keywords}
-            draft={newKeyword}
-            setDraft={setNewKeyword}
-            onAdd={addKeyword}
-            onRemove={removeKeyword}
-            placeholder={t('onboarding.keywordsPlaceholder')}
-            testId="onboarding-keyword"
-          />
-          <TagEditor
-            label={t('onboarding.locationsLabel')}
-            values={locations}
-            draft={newLocation}
-            setDraft={setNewLocation}
-            onAdd={addLocation}
-            onRemove={removeLocation}
-            placeholder={t('onboarding.locationsPlaceholder')}
-            testId="onboarding-location"
-          />
-          <div>
-            <label className="label">{t('onboarding.letterLanguagesLabel')}</label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {LANGUAGE_OPTIONS.map((option) => {
-                const active = languages.includes(option.code);
-                return (
-                  <button
-                    key={option.code}
-                    type="button"
-                    className={`tag cursor-pointer ${active ? 'badge-green' : ''}`}
-                    onClick={() => toggleLanguage(option.code)}
-                    aria-pressed={active}
-                    data-testid={`button-onboarding-language-${option.code}`}
-                  >
-                    {active && <Check size={11} className="mr-1" />}
-                    {t(option.labelKey)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <SearchCriteriaFields
+          testIdPrefix="onboarding"
+          keywords={keywords}
+          newKeyword={newKeyword}
+          setNewKeyword={setNewKeyword}
+          onAddKeyword={addKeyword}
+          onRemoveKeyword={removeKeyword}
+          locations={locations}
+          newLocation={newLocation}
+          setNewLocation={setNewLocation}
+          onAddLocation={addLocation}
+          onRemoveLocation={removeLocation}
+          languages={languages}
+          onToggleLanguage={toggleLanguage}
+        />
       </section>
       <div className="flex justify-between mt-5">
         <button className="btn btn-ghost" onClick={onBack} data-testid="button-onboarding-criteria-back">

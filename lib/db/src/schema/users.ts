@@ -33,6 +33,14 @@ export const usersTable = pgTable("users", {
   // depends on the SMTP lot (docs/SAAS-ARCHITECTURE.md open question 3) and
   // is intentionally not implemented here.
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  // G2 lot: null until the 11-month inactivity warning email has been sent
+  // once (lib/queue/handlers.ts "users.inactivity"). Cleared back to null the
+  // next time the account signs back in (see touchUserLastSeen() in
+  // lib/auth/store.ts), so a warning is sent at most once per inactive
+  // stretch rather than once ever. Only ever set when the email transport is
+  // not "none" - see lib/email's fail-safe rule: no email means no warning
+  // and no purge, ever.
+  inactivityWarningSentAt: timestamp("inactivity_warning_sent_at", { withTimezone: true }),
   // G1 onboarding lot: null until the account has been through the onboarding
   // wizard (profile, search criteria, optional BYOK) and pressed "finish".
   // The explicit source of truth for "is this account onboarded" - see

@@ -18,7 +18,8 @@ export const GetAuthSessionResponse = zod.object({
   "id": zod.string(),
   "email": zod.string(),
   "displayName": zod.string().nullable()
-}),zod.null()])
+}),zod.null()]),
+  "emailEnabled": zod.boolean().describe('Whether the server can actually send email right now (saas mode, transport \"smtp\", fully configured). Always false in selfhosted. The frontend shows the \"forgot password\" link only when this is true - see docs\/SAAS-ARCHITECTURE.md section 2 and the G2 lot\'s email transport.\n')
 })
 
 
@@ -38,7 +39,8 @@ export const RegisterResponse = zod.object({
   "id": zod.string(),
   "email": zod.string(),
   "displayName": zod.string().nullable()
-}),zod.null()])
+}),zod.null()]),
+  "emailEnabled": zod.boolean().describe('Whether the server can actually send email right now (saas mode, transport \"smtp\", fully configured). Always false in selfhosted. The frontend shows the \"forgot password\" link only when this is true - see docs\/SAAS-ARCHITECTURE.md section 2 and the G2 lot\'s email transport.\n')
 })
 
 
@@ -56,7 +58,8 @@ export const LoginResponse = zod.object({
   "id": zod.string(),
   "email": zod.string(),
   "displayName": zod.string().nullable()
-}),zod.null()])
+}),zod.null()]),
+  "emailEnabled": zod.boolean().describe('Whether the server can actually send email right now (saas mode, transport \"smtp\", fully configured). Always false in selfhosted. The frontend shows the \"forgot password\" link only when this is true - see docs\/SAAS-ARCHITECTURE.md section 2 and the G2 lot\'s email transport.\n')
 })
 
 
@@ -64,6 +67,29 @@ export const LoginResponse = zod.object({
  * @summary End the current session
  */
 export const LogoutResponse = zod.void()
+
+
+/**
+ * Always responds 204, whether or not the address belongs to an account, so this endpoint never confirms which addresses are registered. When the email transport is not configured (or the address is unknown), nothing is sent and the response is identical. Rate limited by IP and by email (docs/SAAS-ARCHITECTURE.md section 2).
+ * @summary Request a password reset link (SaaS mode only)
+ */
+export const ForgotPasswordBody = zod.object({
+  "email": zod.string()
+})
+
+export const ForgotPasswordResponse = zod.void()
+
+
+/**
+ * The token is single-use, 30-minute TTL, hashed at rest. On success every session on the account is invalidated, so a reset also signs out anyone else holding a live session.
+ * @summary Set a new password from a reset token (SaaS mode only)
+ */
+export const ResetPasswordBody = zod.object({
+  "token": zod.string(),
+  "newPassword": zod.string()
+})
+
+export const ResetPasswordResponse = zod.void()
 
 
 /**
@@ -100,7 +126,14 @@ export const GetLegalInfoResponse = zod.object({
   "tailorPerDay": zod.number().nullable(),
   "fitPerDay": zod.number().nullable(),
   "briefPerDay": zod.number().nullable()
-})
+}),
+  "emailEnabled": zod.boolean().describe('Whether the server can actually send email right now (same value as AuthSession.emailEnabled).'),
+  "inactivityPurge": zod.object({
+  "enabled": zod.boolean(),
+  "warningAfterMonths": zod.number(),
+  "deleteAfterMonths": zod.number(),
+  "warningGraceDays": zod.number()
+}).describe('The 11-month-warning \/ 12-month-delete policy (lib\/queue\/inactivity-selection.ts). `enabled` mirrors `emailEnabled`: with no working email transport the pass never warns and never deletes, by design.\n')
 }).describe('The operator\'s identity comes entirely from JOBBLAST_LEGAL_\* env vars (docs\/SAAS-ARCHITECTURE.md section 8) - never hardcoded, since each self-hosted operator running their own beta fills in their own.\n')
 
 

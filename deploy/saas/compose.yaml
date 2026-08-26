@@ -23,6 +23,12 @@ name: jobblast-saas
 # docs/SAAS-ARCHITECTURE.md sections 6 and 5). Do not set `deploy.replicas`
 # or otherwise scale this service horizontally; the fairness/queue design
 # assumes exactly one instance.
+#
+# `mailpit` (G2 lot) is a local, zero-cost SMTP catcher for testing the email
+# transport (password reset, the inactivity warning) without a real relay.
+# It sits behind the "dev" Compose profile, so a plain `up -d` never starts
+# it - add `--profile dev` explicitly to include it. See docs/DOCKER.md
+# "Mailpit (local email testing)".
 
 services:
   db:
@@ -121,6 +127,27 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - jobblast-saas-caddy-data:/data
       - jobblast-saas-caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [jobblast-saas]
+
+  # Local SMTP catcher for testing the email transport (G2 lot) - never
+  # started by a plain `up -d` (see the `profiles` key). Bring it up with:
+  #   docker compose -f deploy/saas/compose.yaml --env-file deploy/saas/.env.docker --profile dev up -d
+  # then point JOBBLAST_SMTP_HOST=mailpit / JOBBLAST_SMTP_PORT=1025 (no user/
+  # pass - Mailpit accepts unauthenticated local SMTP) at it in
+  # .env.docker, and open http://localhost:8025 to read what "app" sent.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: jobblast-saas-mailpit
+    restart: unless-stopped
+    profiles: ["dev"]
+    ports:
+      - "8025:8025" # web UI + HTTP API
+      - "1025:1025" # SMTP
     logging:
       driver: json-file
       options:

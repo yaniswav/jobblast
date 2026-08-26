@@ -266,6 +266,11 @@ export const fr: Record<keyof typeof en, string> = {
   'settings.saveAutomations': 'Enregistrer les automatisations',
   'settings.savingAutomations': 'Enregistrement…',
 
+  // Section critères de recherche (les deux modes - mots-clés, lieux ciblés, langues des lettres)
+  'settings.searchCriteriaSectionTitle': 'Critères de recherche',
+  'settings.searchCriteriaSectionSubtitle': "Ce qui est récupéré, et comment c'est noté pour vous. Mêmes champs que l'onboarding.",
+  'settings.searchCriteriaSaveButton': 'Enregistrer les critères',
+
   // Section BYOK (mode SaaS uniquement) : clés API des fournisseurs d'IA
   'settings.byokSectionTitle': 'Vos clés API',
   'settings.byokSectionSubtitle': "Utilisez votre propre clé pour chaque fournisseur. Elle est chiffrée et n'est plus jamais affichée après l'enregistrement.",
@@ -326,6 +331,24 @@ export const fr: Record<keyof typeof en, string> = {
   'auth.switchToSignIn': 'Vous avez déjà un compte ? Connectez-vous',
   'auth.signInFailed': 'E-mail ou mot de passe incorrect.',
   'auth.registerFailed': "Échec. Vérifiez votre code d'invitation, votre e-mail et votre mot de passe.",
+  'auth.forgotPasswordLink': 'Mot de passe oublié ?',
+  'auth.backToSignIn': 'Retour à la connexion',
+
+  // Mot de passe oublié / réinitialisation (mode SaaS uniquement, et
+  // uniquement si le serveur a un transport e-mail fonctionnel - voir
+  // emailEnabled dans GetAuthSession)
+  'auth.forgotTitle': 'Réinitialisez votre mot de passe',
+  'auth.forgotSubtitle': "Indiquez votre e-mail, nous vous enverrons un lien s'il existe un compte associé.",
+  'auth.forgotSubmitButton': 'Envoyer le lien',
+  'auth.forgotSentNotice': "S'il existe un compte pour cette adresse, un lien de réinitialisation est en route. Il expire dans 30 minutes.",
+  'auth.forgotUnavailable': "La réinitialisation du mot de passe n'est pas encore configurée sur ce serveur. Demandez à l'opérateur un autre moyen de vous connecter.",
+  'auth.resetTitle': 'Choisissez un nouveau mot de passe',
+  'auth.resetSubtitle': "Ce lien fonctionne une seule fois et expire 30 minutes après son envoi.",
+  'auth.resetNewPasswordLabel': 'Nouveau mot de passe',
+  'auth.resetSubmitButton': 'Définir le nouveau mot de passe',
+  'auth.resetSuccessNotice': "Mot de passe modifié. Tous les appareils connectés à ce compte ont été déconnectés.",
+  'auth.resetMissingToken': "Ce lien n'a pas de jeton. Demandez-en un nouveau.",
+  'auth.resetFailed': 'Ce lien de réinitialisation est invalide, expiré ou déjà utilisé.',
 
   // Parcours d'onboarding (mode SaaS uniquement ; lot G1). Affiché à un
   // nouveau compte jusqu'à ce qu'il valide "Terminer" sur la dernière étape.
@@ -401,7 +424,8 @@ export const fr: Record<keyof typeof en, string> = {
   'privacy.cookiesHeading': 'Cookies',
   'privacy.cookiesBody': "Exactement un cookie, utilisé pour vous garder connecté. Strictement nécessaire, donc aucune bannière de consentement n'est affichée.",
   'privacy.inactivityHeading': 'Inactivité',
-  'privacy.inactivityBody': "La date de votre dernière visite est enregistrée, au plus une fois par jour, afin qu'un nettoyage automatique des comptes inactifs de longue date puisse être planifié. Ce nettoyage n'est pas encore actif ; cette page sera mise à jour avec la politique exacte et un délai de préavis avant son activation.",
+  'privacy.inactivityBodyActive': "La date de votre dernière visite est enregistrée, au plus une fois par jour. Après {warningMonths} mois d'inactivité, vous recevez un e-mail d'avertissement ; après {deleteMonths} mois, et au moins {graceDays} jours après cet avertissement, le compte et ses données sont supprimés automatiquement. Se connecter à tout moment réinitialise ce compteur.",
+  'privacy.inactivityBodyInactive': "La date de votre dernière visite est enregistrée, au plus une fois par jour, afin qu'un nettoyage automatique des comptes inactifs de longue date puisse être planifié. Ce nettoyage n'est pas actif sur ce serveur : il nécessite un transport e-mail fonctionnel, qui n'est pas encore configuré ici, et sans e-mail, JobBlast n'avertit ni ne supprime jamais pour inactivité.",
   'privacy.betaHeading': 'Statut bêta',
   'privacy.betaBody': "Cette bêta est gratuite, fournie au mieux, sans garantie de disponibilité. Vous serez prévenu par e-mail avant tout arrêt qui supprimerait vos données.",
 

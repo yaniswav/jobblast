@@ -30,6 +30,12 @@ import { usersTable } from "./users";
  *   postings.prune   - platform-wide, daily: deletes shared postings with no
  *                      `user_postings` referent, older than the retention
  *                      window (lib/queue/hygiene.ts).
+ *   users.inactivity - platform-wide, daily (G2 lot): warns an account
+ *                      inactive for 11 months, then deletes one inactive for
+ *                      12 months whose warning was sent at least 30 days ago
+ *                      (lib/queue/inactivity-selection.ts). A no-op whenever
+ *                      the email transport is "none" - no working email
+ *                      means no warning and no purge, ever.
  */
 export type JobKind =
   | "postings.refresh"
@@ -37,7 +43,8 @@ export type JobKind =
   | "user.fit"
   | "user.tailor"
   | "sessions.sweep"
-  | "postings.prune";
+  | "postings.prune"
+  | "users.inactivity";
 
 export type JobRunStatus = "pending" | "running" | "done" | "failed";
 

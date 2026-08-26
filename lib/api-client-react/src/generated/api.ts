@@ -34,6 +34,7 @@ import type {
   DocumentUploadPayload,
   DocumentUploadResult,
   Error,
+  ForgotPasswordRequest,
   HealthStatus,
   InterviewBrief,
   JobListing,
@@ -48,6 +49,7 @@ import type {
   Profile,
   ProfileUpdate,
   RegisterRequest,
+  ResetPasswordRequest,
   SaveAiCredentialRequest,
   SettingsState,
   SettingsUpdate,
@@ -370,6 +372,150 @@ export const useLogout = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLogoutMutationOptions(options));
+    }
+
+export const getForgotPasswordUrl = () => {
+
+
+
+
+  return `/api/auth/forgot`
+}
+
+/**
+ * Always responds 204, whether or not the address belongs to an account, so this endpoint never confirms which addresses are registered. When the email transport is not configured (or the address is unknown), nothing is sent and the response is identical. Rate limited by IP and by email (docs/SAAS-ARCHITECTURE.md section 2).
+ * @summary Request a password reset link (SaaS mode only)
+ */
+export const forgotPassword = async (forgotPasswordRequest: ForgotPasswordRequest, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getForgotPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forgotPasswordRequest)
+  }
+);}
+
+
+
+
+
+export const getForgotPasswordMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forgotPassword>>, TError,{data: BodyType<ForgotPasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof forgotPassword>>, TError,{data: BodyType<ForgotPasswordRequest>}, TContext> => {
+
+const mutationKey = ['forgotPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof forgotPassword>>, {data: BodyType<ForgotPasswordRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  forgotPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ForgotPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof forgotPassword>>>
+    export type ForgotPasswordMutationBody = BodyType<ForgotPasswordRequest>
+    export type ForgotPasswordMutationError = ErrorType<Error>
+
+    /**
+ * @summary Request a password reset link (SaaS mode only)
+ */
+export const useForgotPassword = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forgotPassword>>, TError,{data: BodyType<ForgotPasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof forgotPassword>>,
+        TError,
+        {data: BodyType<ForgotPasswordRequest>},
+        TContext
+      > => {
+      return useMutation(getForgotPasswordMutationOptions(options));
+    }
+
+export const getResetPasswordUrl = () => {
+
+
+
+
+  return `/api/auth/reset`
+}
+
+/**
+ * The token is single-use, 30-minute TTL, hashed at rest. On success every session on the account is invalidated, so a reset also signs out anyone else holding a live session.
+ * @summary Set a new password from a reset token (SaaS mode only)
+ */
+export const resetPassword = async (resetPasswordRequest: ResetPasswordRequest, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getResetPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resetPasswordRequest)
+  }
+);}
+
+
+
+
+
+export const getResetPasswordMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPassword>>, TError,{data: BodyType<ResetPasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetPassword>>, TError,{data: BodyType<ResetPasswordRequest>}, TContext> => {
+
+const mutationKey = ['resetPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetPassword>>, {data: BodyType<ResetPasswordRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resetPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetPassword>>>
+    export type ResetPasswordMutationBody = BodyType<ResetPasswordRequest>
+    export type ResetPasswordMutationError = ErrorType<Error>
+
+    /**
+ * @summary Set a new password from a reset token (SaaS mode only)
+ */
+export const useResetPassword = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPassword>>, TError,{data: BodyType<ResetPasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetPassword>>,
+        TError,
+        {data: BodyType<ResetPasswordRequest>},
+        TContext
+      > => {
+      return useMutation(getResetPasswordMutationOptions(options));
     }
 
 export const getGetOnboardingStatusUrl = () => {

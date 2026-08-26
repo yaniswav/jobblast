@@ -8,6 +8,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import Login from '@/pages/login';
+import ForgotPassword from '@/pages/forgot-password';
+import ResetPassword from '@/pages/reset-password';
 import Onboarding from '@/pages/onboarding';
 import Review from '@/pages/review';
 import Applications from '@/pages/applications';
@@ -50,7 +52,16 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   // A failed probe must not lock a self-hosted owner out of their own
   // install: fall through to the app, which surfaces the real error.
-  if (session.data && session.data.user === null) return <Login />;
+  if (session.data && session.data.user === null) {
+    // No wouter router is mounted yet at this point (it wraps AuthGate's
+    // children, further down) - a plain path check against the real browser
+    // location, same as the plain <a> links these three screens use to
+    // navigate between each other (see pages/login.tsx's privacy link).
+    const path = window.location.pathname.replace(import.meta.env.BASE_URL.replace(/\/$/, ''), '') || '/';
+    if (path === '/forgot') return <ForgotPassword emailEnabled={session.data.emailEnabled} />;
+    if (path === '/reset') return <ResetPassword emailEnabled={session.data.emailEnabled} />;
+    return <Login emailEnabled={session.data.emailEnabled} />;
+  }
 
   return <>{children}</>;
 }

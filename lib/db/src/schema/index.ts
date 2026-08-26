@@ -24,6 +24,7 @@ export * from "./interviewBriefs";
 export * from "./inviteCodes";
 export * from "./jobListings";
 export * from "./jobs";
+export * from "./passwordResetTokens";
 export * from "./postings";
 export * from "./profiles";
 export * from "./sessions";

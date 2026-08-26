@@ -5,6 +5,7 @@
  * JobBlast application assistant API
  * OpenAPI spec version: 0.1.0
  */
+import type { LegalInfoInactivityPurge } from './legalInfoInactivityPurge';
 import type { LegalInfoQuotas } from './legalInfoQuotas';
 
 /**
@@ -24,4 +25,8 @@ export interface LegalInfo {
   /** How long an unreferenced shared posting is kept before the daily prune job removes it. */
   postingsRetentionDays: number;
   quotas: LegalInfoQuotas;
+  /** Whether the server can actually send email right now (same value as AuthSession.emailEnabled). */
+  emailEnabled: boolean;
+  /** The 11-month-warning / 12-month-delete policy (lib/queue/inactivity-selection.ts). `enabled` mirrors `emailEnabled`: with no working email transport the pass never warns and never deletes, by design. */
+  inactivityPurge: LegalInfoInactivityPurge;
 }

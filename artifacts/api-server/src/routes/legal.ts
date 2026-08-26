@@ -11,6 +11,12 @@
 
 import { Router, type IRouter } from "express";
 import { GetLegalInfoResponse } from "@workspace/api-zod";
+import { isEmailEnabled } from "../lib/email";
+import {
+  INACTIVITY_DELETE_AFTER_DAYS,
+  INACTIVITY_WARNING_AFTER_DAYS,
+  INACTIVITY_WARNING_GRACE_DAYS,
+} from "../lib/queue/inactivity-selection";
 import { quotaCapFor } from "../lib/quota-config";
 import { IS_SAAS } from "../lib/mode";
 
@@ -38,6 +44,7 @@ router.get("/legal", (_req, res) => {
   const address = envValue("JOBBLAST_LEGAL_ADDRESS");
   const contact = envValue("JOBBLAST_LEGAL_CONTACT");
   const country = envValue("JOBBLAST_LEGAL_COUNTRY");
+  const emailEnabled = isEmailEnabled();
 
   res.json(
     GetLegalInfoResponse.parse({
@@ -54,6 +61,15 @@ router.get("/legal", (_req, res) => {
         tailorPerDay: quotaCapFor("tailor"),
         fitPerDay: quotaCapFor("fit"),
         briefPerDay: quotaCapFor("brief"),
+      },
+      emailEnabled,
+      inactivityPurge: {
+        // Mirrors the fail-safe in lib/queue/inactivity-selection.ts: with no
+        // working email transport, the pass never warns and never deletes.
+        enabled: emailEnabled,
+        warningAfterMonths: Math.round(INACTIVITY_WARNING_AFTER_DAYS / 30),
+        deleteAfterMonths: Math.round(INACTIVITY_DELETE_AFTER_DAYS / 30),
+        warningGraceDays: INACTIVITY_WARNING_GRACE_DAYS,
       },
     }),
   );
