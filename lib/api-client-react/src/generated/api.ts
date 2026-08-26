@@ -36,6 +36,7 @@ import type {
   InterviewBrief,
   JobListing,
   JobRefreshStatus,
+  JobTailoringStatus,
   ListApplicationsParams,
   ListJobsParams,
   LoginRequest,
@@ -829,6 +830,155 @@ export function useGetJobCoverLetterPdf<TData = Awaited<ReturnType<typeof getJob
 
 
 
+
+export const getGetJobTailoringStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/jobs/${id}/tailor`
+}
+
+/**
+ * @summary Where this posting's cover letter has got to
+ */
+export const getJobTailoringStatus = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<JobTailoringStatus> => {
+
+  return customFetch<JobTailoringStatus>(getGetJobTailoringStatusUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobTailoringStatusQueryKey = (id: number,) => {
+    return [
+    `/api/jobs/${id}/tailor`
+    ] as const;
+    }
+
+
+export const getGetJobTailoringStatusQueryOptions = <TData = Awaited<ReturnType<typeof getJobTailoringStatus>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobTailoringStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobTailoringStatusQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobTailoringStatus>>> = ({ signal }) => getJobTailoringStatus(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobTailoringStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobTailoringStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getJobTailoringStatus>>>
+export type GetJobTailoringStatusQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Where this posting's cover letter has got to
+ */
+
+export function useGetJobTailoringStatus<TData = Awaited<ReturnType<typeof getJobTailoringStatus>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobTailoringStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobTailoringStatusQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRequestJobTailoringUrl = (id: number,) => {
+
+
+
+
+  return `/api/jobs/${id}/tailor`
+}
+
+/**
+ * In SaaS mode letters are written strictly on demand, because they spend the account's own metered AI budget: this queues one and the status becomes `queued`. Self-hosted writes it inline, since the background pass would have written it anyway.
+ * @summary Ask for this posting's cover letter to be written
+ */
+export const requestJobTailoring = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<JobTailoringStatus> => {
+
+  return customFetch<JobTailoringStatus>(getRequestJobTailoringUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRequestJobTailoringMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestJobTailoring>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestJobTailoring>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['requestJobTailoring'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestJobTailoring>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  requestJobTailoring(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestJobTailoringMutationResult = NonNullable<Awaited<ReturnType<typeof requestJobTailoring>>>
+
+    export type RequestJobTailoringMutationError = ErrorType<Error>
+
+    /**
+ * @summary Ask for this posting's cover letter to be written
+ */
+export const useRequestJobTailoring = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestJobTailoring>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestJobTailoring>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRequestJobTailoringMutationOptions(options));
+    }
 
 export const getRefreshJobsUrl = () => {
 

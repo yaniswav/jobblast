@@ -42,6 +42,8 @@ export * from './jobListingWorkMode';
 export * from './jobRefreshStatus';
 export * from './jobStatus';
 export * from './jobStatusParameter';
+export * from './jobTailoringStatus';
+export * from './jobTailoringStatusState';
 export * from './listApplicationsParams';
 export * from './listJobsParams';
 export * from './loginRequest';

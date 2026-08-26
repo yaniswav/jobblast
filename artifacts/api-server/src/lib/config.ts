@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { BoundedCache } from "./lru";
 import { IS_SAAS } from "./mode";
 import { REPO_ROOT } from "./storage";
 import { currentUserId } from "./user-context";
@@ -527,7 +528,17 @@ let cached: JobBlastConfig | null = null;
 // account's settings.
 // ---------------------------------------------------------------------------
 
-const userConfigs = new Map<string, JobBlastConfig>();
+/**
+ * Bounded, so a long-lived process does not accumulate one entry per account
+ * that has ever been served. The capacity is deliberately above the beta
+ * account cap (JOBBLAST_MAX_ACCOUNTS, 150 by default), so in practice nothing
+ * is evicted between the middleware priming an entry and a handler reading
+ * it; past that size the worst case is a `loadConfig()` that throws and one
+ * failed request, never another account's settings.
+ */
+const USER_CONFIG_CAPACITY = 256;
+
+const userConfigs = new BoundedCache<string, JobBlastConfig>(USER_CONFIG_CAPACITY);
 
 /** Fills the per-account cache. Called by lib/config-store.ts, not by routes. */
 export function setUserConfig(userId: string, config: JobBlastConfig): void {
@@ -537,6 +548,30 @@ export function setUserConfig(userId: string, config: JobBlastConfig): void {
 export function clearUserConfig(userId?: string): void {
   if (userId === undefined) userConfigs.clear();
   else userConfigs.delete(userId);
+}
+
+/**
+ * One named account's configuration, without asking who is ambient.
+ *
+ * `loadConfig()` exists because a dozen deep call sites (source fetchers, PDF
+ * renderers) cannot reasonably be handed a userId, and the AsyncLocalStorage
+ * context is the deliberate compromise for them. Anything that already knows
+ * which account it is acting for should use this instead: it cannot read the
+ * wrong account's settings because it never consults the context at all.
+ *
+ * In `selfhosted` there is one account and one file, so the argument is
+ * ignored and this is exactly loadConfig().
+ */
+export function configFor(userId: string): JobBlastConfig {
+  if (!IS_SAAS) return loadConfig();
+  const config = userConfigs.get(userId);
+  if (!config) {
+    throw new Error(
+      `No configuration primed for user ${userId}. ` +
+        "primeUserConfig() must run before anything reads the config.",
+    );
+  }
+  return config;
 }
 
 /**
@@ -554,14 +589,7 @@ export function loadConfig(): JobBlastConfig {
           "Every config read must run inside runWithUser().",
       );
     }
-    const config = userConfigs.get(userId);
-    if (!config) {
-      throw new Error(
-        `No configuration primed for user ${userId}. ` +
-          "primeUserConfig() must run before anything reads the config.",
-      );
-    }
-    return config;
+    return configFor(userId);
   }
 
   if (cached) return cached;

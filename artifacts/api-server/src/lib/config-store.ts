@@ -37,7 +37,7 @@ import {
 } from "./config";
 import { IS_SAAS } from "./mode";
 import { currentUserId } from "./user-context";
-import { resetProviderCache } from "./ai/provider";
+import { forgetUserProvider } from "./ai/provider";
 
 const FORMATTING_OPTIONS = { tabSize: 2, insertSpaces: true, eol: "\n" };
 
@@ -116,7 +116,9 @@ async function writeUserConfig(
     });
 
   setUserConfig(userId, result.data);
-  resetProviderCache();
+  // This account's provider was built from the settings that just changed;
+  // no other account's was.
+  forgetUserProvider(userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +164,8 @@ function commit(text: string): void {
   fs.renameSync(tmpFile, file); // atomic on the same filesystem (POSIX rename / Windows MoveFileEx)
 
   resetConfigCache();
-  resetProviderCache();
+  // One implicit account here, so "forget everything" is "forget its one entry".
+  forgetUserProvider();
 }
 
 /** Runs the write against whichever backend this process is using. */

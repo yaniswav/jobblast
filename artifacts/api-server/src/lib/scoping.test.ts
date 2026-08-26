@@ -9,7 +9,15 @@
 //   1. No file in src/routes/ imports @workspace/db (or any *Table symbol).
 //      Routes go through src/lib/repo/, which is where scoping lives.
 //   2. Every exported async function in src/lib/repo/ names its first
-//      parameter `userId`.
+//      parameter `userId`, unless it is named in PLATFORM_SCOPED below.
+//
+// Rule 2's exception exists because one table genuinely belongs to nobody:
+// `postings` is a pool of public job adverts, shared by every account
+// (docs/SAAS-ARCHITECTURE.md section 3.2). Writing to it cannot take an
+// account, so the guard would be a lie either way - either it forces a
+// parameter the query does not use, or it is switched off for the file. An
+// explicit, tiny allowlist keeps it honest: everything not on it still has
+// to be scoped, and adding to it is a visible edit to this test.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -46,6 +54,9 @@ describe("route files never query the database directly", () => {
   );
 });
 
+/** `<file>:<function>` pairs that act on platform-wide data, never on one account. */
+const PLATFORM_SCOPED = new Set(["postings.ts:upsertPostings"]);
+
 describe("every repository function is scoped by account", () => {
   const files = sourceFiles(REPO_DIR);
 
@@ -55,7 +66,7 @@ describe("every repository function is scoped by account", () => {
 
   it.each(files.map((file) => [path.basename(file), file] as const))(
     "%s takes userId as the first parameter of every exported async function",
-    (_name, file) => {
+    (name, file) => {
       const source = fs.readFileSync(file, "utf8");
       // `export async function name(` followed by the first parameter, which
       // may sit on the same line or on the next one (prettier wraps long
@@ -63,9 +74,23 @@ describe("every repository function is scoped by account", () => {
       const pattern = /export\s+async\s+function\s+(\w+)\s*\(\s*([\w$]*)/g;
       const offenders: string[] = [];
       for (const match of source.matchAll(pattern)) {
-        if (match[2] !== "userId") offenders.push(match[1] ?? "<anonymous>");
+        const fn = match[1] ?? "<anonymous>";
+        if (match[2] === "userId" || PLATFORM_SCOPED.has(`${name}:${fn}`)) continue;
+        offenders.push(fn);
       }
       expect(offenders).toEqual([]);
     },
   );
+
+  it("does not allowlist functions that no longer exist", () => {
+    const missing = Array.from(PLATFORM_SCOPED).filter((entry) => {
+      const [name, fn] = entry.split(":");
+      const file = files.find((candidate) => path.basename(candidate) === name);
+      if (!file) return true;
+      return !new RegExp(`export\\s+async\\s+function\\s+${fn}\\b`).test(
+        fs.readFileSync(file, "utf8"),
+      );
+    });
+    expect(missing).toEqual([]);
+  });
 });

@@ -74,6 +74,24 @@ export function ensureLocalUser(): Promise<void> {
   return localUserReady;
 }
 
+/**
+ * Every account the background schedule should be doing work for. Ordered by
+ * id so a refresh cycle enumerates them the same way twice, which makes the
+ * signature grouping in lib/sources/signature.ts reproducible.
+ *
+ * Not in lib/repo/ for the same reason as everything else in this file: it
+ * spans accounts by definition, and the repo layer's contract is that
+ * nothing there does.
+ */
+export async function listActiveUserIds(): Promise<string[]> {
+  const rows = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.status, "active"))
+    .orderBy(usersTable.id);
+  return rows.map((row) => row.id);
+}
+
 export async function getUserById(userId: string): Promise<User | null> {
   const [row] = await db
     .select()

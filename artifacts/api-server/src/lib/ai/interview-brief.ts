@@ -277,18 +277,19 @@ async function generateBrief(
 // The pass
 // ---------------------------------------------------------------------------
 
-let passRunning = false;
+/** Accounts with a pass in flight: one per account, never one per process. */
+const passRunningFor = new Set<string>();
 /** applicationId -> failed attempts this process. See MAX_ATTEMPTS_PER_BRIEF. */
 const attemptsByApplication = new Map<number, number>();
-let noAgentNoticeLogged = false;
+const noAgentNoticeLoggedFor = new Set<string>();
 
-/** The agent provider if it can search the web, else null (logged once). */
-function briefAgent(): AgentProvider | null {
-  const provider = getAgentProvider();
+/** The agent provider if it can search the web, else null (logged once per account). */
+async function briefAgent(userId: string): Promise<AgentProvider | null> {
+  const provider = await getAgentProvider(userId);
   if (provider?.supportsTool("web")) return provider;
 
-  if (!noAgentNoticeLogged) {
-    noAgentNoticeLogged = true;
+  if (!noAgentNoticeLoggedFor.has(userId)) {
+    noAgentNoticeLoggedFor.add(userId);
     logger.info(
       `Interview briefs disabled: provider "${configuredProviderName()}" cannot run web-searching agents (use claude-cli, codex-cli or gemini-cli)`,
     );
@@ -333,15 +334,15 @@ export async function runInterviewBriefPass(
   userId: string,
   limit: number = DEFAULT_LIMIT,
 ): Promise<void> {
-  if (passRunning) {
+  if (passRunningFor.has(userId)) {
     logger.debug("Interview brief pass already running, skipping this trigger");
     return;
   }
 
-  const provider = briefAgent();
+  const provider = await briefAgent(userId);
   if (!provider) return;
 
-  passRunning = true;
+  passRunningFor.add(userId);
 
   try {
     // Crash recovery: the module guard above means no other pass is holding a
@@ -426,7 +427,7 @@ export async function runInterviewBriefPass(
   } catch (err) {
     logger.error({ err }, "Interview brief pass failed");
   } finally {
-    passRunning = false;
+    passRunningFor.delete(userId);
   }
 }
 

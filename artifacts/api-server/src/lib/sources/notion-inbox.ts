@@ -43,6 +43,7 @@ import { configuredProviderName, getAgentProvider, type AgentProvider } from "..
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { REPO_ROOT } from "../storage";
+import { resolveAmbientUserId } from "../user-context";
 import { isHttpUrl, isNonEmptyString, parseJsonArrayResponse } from "./cli-json";
 import { politeFetch } from "./http";
 import type { RawJob } from "./types";
@@ -68,8 +69,8 @@ const URL_CHECK_TIMEOUT_MS = 10_000;
 let disabledNoticeLogged = false;
 
 /** The agent provider if it can reach Notion, else null (logged once). */
-function notionAgent(): AgentProvider | null {
-  const provider = getAgentProvider();
+async function notionAgent(): Promise<AgentProvider | null> {
+  const provider = await getAgentProvider(resolveAmbientUserId());
   if (provider?.supportsTool("notion")) return provider;
 
   if (!disabledNoticeLogged) {
@@ -235,7 +236,7 @@ export function toRawJob(row: InboxRow): RawJob {
  * Never throws - returns [] on any failure, logging why.
  */
 export async function readInboxRows(): Promise<InboxRow[]> {
-  const provider = notionAgent();
+  const provider = await notionAgent();
   if (!provider) return [];
 
   let rawResult: string;
@@ -281,7 +282,7 @@ export async function readInboxRows(): Promise<InboxRow[]> {
 export async function fetchNotionInboxJobs(): Promise<RawJob[]> {
   // Checked before the throttle so an unsupported provider never burns the
   // once-per-3h slot on a run that cannot happen.
-  const provider = notionAgent();
+  const provider = await notionAgent();
   if (!provider) return [];
 
   const { pageUrl, dataSourceUrl } = loadConfig().sources.notionInbox;

@@ -6,7 +6,7 @@
 // here takes `userId` explicitly, first, and lib/scoping.test.ts fails the
 // build if one of them stops doing that.
 
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, notExists, sql } from "drizzle-orm";
 import {
   applicationsTable,
   db,
@@ -246,6 +246,111 @@ export async function addUserPostings(
       .returning({ postingId: userPostingsTable.postingId });
     return inserted.length;
   });
+}
+
+// ---------------------------------------------------------------------------
+// Shared refresh (saas): fetch once platform-wide, score per account
+//
+// The two halves of docs/SAAS-ARCHITECTURE.md section 3.2. The advert lands
+// in the shared pool once, whoever asked for it; every account then scores
+// what it has not seen yet against its own configuration.
+// ---------------------------------------------------------------------------
+
+/**
+ * Writes adverts into the shared pool, refreshing `lastSeenAt` on the ones
+ * already there. Platform-wide by nature: a posting belongs to no account,
+ * which is why this is the one function here without a `userId`. It is named
+ * in the PLATFORM_SCOPED allowlist of lib/scoping.test.ts, so adding another
+ * one is a deliberate edit to that test rather than an oversight.
+ */
+export async function upsertPostings(postings: InsertPosting[]): Promise<number> {
+  if (postings.length === 0) return 0;
+  // De-dupe within the batch: `on conflict do update` cannot touch the same
+  // row twice in one statement, and two boards mirroring one URL is normal.
+  const byUrl = new Map(postings.map((posting) => [posting.url, posting]));
+  const rows = await db
+    .insert(postingsTable)
+    .values(Array.from(byUrl.values()))
+    .onConflictDoUpdate({ target: postingsTable.url, set: { lastSeenAt: new Date() } })
+    .returning({ id: postingsTable.id });
+  return rows.length;
+}
+
+/** A shared advert this account has not scored yet, in RawJob-compatible shape. */
+export type PostingCandidate = {
+  id: number;
+  source: string;
+  title: string;
+  company: string;
+  location: string;
+  url: string;
+  description: string;
+  postedDate: string;
+  salaryRange: string | null;
+  titleCompanyKey: string;
+};
+
+/**
+ * Adverts seen since `since` that this account has no queue row for yet.
+ * The `not exists` is what makes the fan-out idempotent: re-running a
+ * `user.score` job after a crash rescores nothing it already stored.
+ */
+export async function listPostingsToScore(
+  userId: string,
+  since: Date,
+  limit: number,
+): Promise<PostingCandidate[]> {
+  const mine = db
+    .select({ one: sql<number>`1` })
+    .from(userPostingsTable)
+    .where(
+      and(
+        eq(userPostingsTable.userId, userId),
+        eq(userPostingsTable.postingId, postingsTable.id),
+      ),
+    );
+
+  const rows = await db
+    .select({
+      id: postingsTable.id,
+      source: postingsTable.source,
+      title: postingsTable.title,
+      company: postingsTable.company,
+      location: postingsTable.location,
+      url: postingsTable.url,
+      description: postingsTable.description,
+      postedDate: postingsTable.postedDate,
+      salaryRange: postingsTable.salaryRange,
+      titleCompanyKey: postingsTable.titleCompanyKey,
+    })
+    .from(postingsTable)
+    .where(and(gte(postingsTable.lastSeenAt, since), notExists(mine)))
+    .orderBy(desc(postingsTable.lastSeenAt))
+    .limit(limit);
+  return rows;
+}
+
+export type AttachedPosting = {
+  postingId: number;
+  relevanceScore: number;
+  matchReasons: string[];
+  highlightedSkills: string[];
+  tailoredBullets: string[];
+  coverLetter: string;
+};
+
+/** Attaches already-stored adverts to this account's queue. */
+export async function attachUserPostings(
+  userId: string,
+  entries: AttachedPosting[],
+): Promise<number> {
+  if (entries.length === 0) return 0;
+  const inserted = await db
+    .insert(userPostingsTable)
+    .values(entries.map((entry) => ({ userId, ...entry })))
+    .onConflictDoNothing()
+    .returning({ postingId: userPostingsTable.postingId });
+  return inserted.length;
 }
 
 // ---------------------------------------------------------------------------

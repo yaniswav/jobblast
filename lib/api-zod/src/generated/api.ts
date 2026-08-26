@@ -202,6 +202,33 @@ export const GetJobCoverLetterPdfResponse = zod.unknown()
 
 
 /**
+ * @summary Where this posting's cover letter has got to
+ */
+export const GetJobTailoringStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetJobTailoringStatusResponse = zod.object({
+  "state": zod.enum(['ready', 'queued', 'running', 'failed', 'template', 'unavailable']).describe('`ready` - an AI letter exists. `queued` \/ `running` - a job is working on it. `failed` - the last attempt gave up. `template` - no AI letter, and none has been asked for. `unavailable` - this account has no usable AI provider, so the template letter is final.\n'),
+  "error": zod.string().nullable()
+})
+
+
+/**
+ * In SaaS mode letters are written strictly on demand, because they spend the account's own metered AI budget: this queues one and the status becomes `queued`. Self-hosted writes it inline, since the background pass would have written it anyway.
+ * @summary Ask for this posting's cover letter to be written
+ */
+export const RequestJobTailoringParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RequestJobTailoringResponse = zod.object({
+  "state": zod.enum(['ready', 'queued', 'running', 'failed', 'template', 'unavailable']).describe('`ready` - an AI letter exists. `queued` \/ `running` - a job is working on it. `failed` - the last attempt gave up. `template` - no AI letter, and none has been asked for. `unavailable` - this account has no usable AI provider, so the template letter is final.\n'),
+  "error": zod.string().nullable()
+})
+
+
+/**
  * @summary Trigger a background job aggregation + AI tailoring refresh
  */
 export const RefreshJobsResponse = zod.object({

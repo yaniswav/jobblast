@@ -25,6 +25,7 @@ import { configuredProviderName, getAgentProvider } from "../ai/provider";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { REPO_ROOT } from "../storage";
+import { resolveAmbientUserId } from "../user-context";
 import { isHttpUrl, isNonEmptyString, parseJsonArrayResponse } from "./cli-json";
 import { politeFetch } from "./http";
 import type { RawJob } from "./types";
@@ -174,7 +175,7 @@ Output ONLY the raw JSON array, no markdown code fences, no commentary before or
 export async function fetchAiScoutJobs(): Promise<RawJob[]> {
   // Checked before the throttle so a text-only provider never burns the
   // once-per-24h slot on a run that cannot happen.
-  const provider = getAgentProvider();
+  const provider = await getAgentProvider(resolveAmbientUserId());
   if (!provider || !provider.supportsTool("web")) {
     if (!disabledNoticeLogged) {
       disabledNoticeLogged = true;

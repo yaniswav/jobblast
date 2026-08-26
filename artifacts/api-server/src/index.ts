@@ -8,6 +8,7 @@ import { ensureLocalUser } from "./lib/auth/store";
 import { runGmailSyncPass } from "./lib/gmail-sync";
 import { logger } from "./lib/logger";
 import { IS_SAAS, MODE, runStartupPreflight } from "./lib/mode";
+import { startQueueWorker } from "./lib/queue/worker";
 import { refreshJobListings } from "./lib/sources/refresh";
 import { runWithUser } from "./lib/user-context";
 
@@ -42,10 +43,11 @@ async function runAiPasses(userId: string): Promise<void> {
  * The self-hosted background schedule: two timers acting for the one
  * implicit account, exactly as before this became multi-tenant.
  *
- * In `saas` these do not run at all. Aggregation and the AI passes move onto
- * the per-user job queue in a later lot; until then a SaaS process serves
- * requests and nothing else, rather than silently doing one account's work
- * on a timer.
+ * In `saas` these do not run at all - the job queue does that work instead
+ * (lib/queue/worker.ts), fetching once per query signature and scoring per
+ * account. Self-hosted deliberately bypasses the queue: it has one account,
+ * one CLI call in flight at a time and a six-hour cadence that its owner is
+ * used to, and a queue would buy it nothing but a new way to break.
  */
 function startSelfHostedSchedule(): void {
   const run = (label: string, fn: () => Promise<unknown>): Promise<void> =>
@@ -99,13 +101,15 @@ app.listen(port, (err) => {
   logger.info({ port, mode: MODE }, "Server listening");
 
   if (IS_SAAS) {
-    logger.info(
-      "saas mode: background aggregation and AI passes are off (they move onto the per-user job queue in a later lot)",
-    );
+    // No per-account timers here: the queue is the only thing that acts for
+    // an account in saas, and it decides whose turn it is.
+    startQueueWorker();
     return;
   }
 
-  logAiProviderStatus();
+  void logAiProviderStatus(LOCAL_USER_ID).catch((err: unknown) => {
+    logger.warn({ err }, "Could not log the AI provider status");
+  });
 
   ensureLocalUser()
     .then(startSelfHostedSchedule)

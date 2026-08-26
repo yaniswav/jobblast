@@ -148,8 +148,8 @@ let disabledNoticeLogged = false;
  * enforced by the CLI rather than by the prompt. See the "gmail" entry in
  * lib/ai/provider.ts.
  */
-function gmailAgent(): AgentProvider | null {
-  const provider = getAgentProvider();
+async function gmailAgent(userId: string): Promise<AgentProvider | null> {
+  const provider = await getAgentProvider(userId);
   if (provider?.supportsTool("gmail")) return provider;
 
   if (!disabledNoticeLogged) {
@@ -752,7 +752,7 @@ export async function runGmailSyncPass(
 
   // Checked before the throttle so an unsupported provider never burns the
   // once-per-3h slot on a run that cannot happen.
-  const provider = gmailAgent();
+  const provider = await gmailAgent(userId);
   if (!provider) return null;
 
   if (!options.ignoreThrottle && shouldSkipDueToFrequency()) {

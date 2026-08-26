@@ -126,6 +126,28 @@ export interface JobRefreshStatus {
   started: boolean;
 }
 
+/**
+ * `ready` - an AI letter exists. `queued` / `running` - a job is working on it. `failed` - the last attempt gave up. `template` - no AI letter, and none has been asked for. `unavailable` - this account has no usable AI provider, so the template letter is final.
+ */
+export type JobTailoringStatusState = typeof JobTailoringStatusState[keyof typeof JobTailoringStatusState];
+
+
+export const JobTailoringStatusState = {
+  ready: 'ready',
+  queued: 'queued',
+  running: 'running',
+  failed: 'failed',
+  template: 'template',
+  unavailable: 'unavailable',
+} as const;
+
+export interface JobTailoringStatus {
+  /** `ready` - an AI letter exists. `queued` / `running` - a job is working on it. `failed` - the last attempt gave up. `template` - no AI letter, and none has been asked for. `unavailable` - this account has no usable AI provider, so the template letter is final. */
+  state: JobTailoringStatusState;
+  /** @nullable */
+  error: string | null;
+}
+
 export interface Application {
   id: number;
   jobId: number;

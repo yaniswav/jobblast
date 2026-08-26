@@ -15,6 +15,7 @@ import fs from "node:fs";
 import { coverLetterTemplatePath } from "../config";
 import { getDocument } from "../repo/documents";
 import { logger } from "../logger";
+import { BoundedCache } from "../lru";
 import { extractPdfTextFromBuffer } from "../pdf-text";
 
 const MIN_BULLETS = 3;
@@ -86,8 +87,11 @@ export function tailoredBulletsFor(highlightedSkills: string[], profile: BulletP
 
 // Memoized per account: the fallback is that account's own uploaded cover
 // letter, so one cache entry for the whole process would leak one user's
-// letter into another user's drafts.
-const cachedTemplates = new Map<string, string>();
+// letter into another user's drafts. Bounded, because "one entry per account
+// ever served" is a leak in a process meant to stay up for weeks; an evicted
+// entry costs one file read to rebuild.
+const TEMPLATE_CACHE_CAPACITY = 256;
+const cachedTemplates = new BoundedCache<string, string>(TEMPLATE_CACHE_CAPACITY);
 
 /** Forget the memoized template (call after a cover_letter document upload). */
 export function resetCoverLetterTemplateCache(userId?: string): void {

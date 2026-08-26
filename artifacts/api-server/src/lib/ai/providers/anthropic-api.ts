@@ -4,47 +4,42 @@
 // returns null for it and AI Scout / Notion Inbox stay off.
 //
 // Unlike every other setting, the key is NOT read from jobblast.config.json:
-// it comes from ANTHROPIC_API_KEY in .env, so a config file can be shared or
-// pasted into an issue without leaking a credential. Only the model and
-// max_tokens are configurable (`ai.anthropicApi`).
+// in `selfhosted` it comes from ANTHROPIC_API_KEY in .env, so a config file
+// can be shared or pasted into an issue without leaking a credential, and in
+// `saas` it comes from the acting account's own encrypted row. Which of the
+// two is none of this file's business: it takes an ApiKeyResolver and calls
+// it once per generation, so no key is ever held at module scope where it
+// could outlive the account it belongs to. Only the model and max_tokens are
+// configurable (`ai.anthropicApi`).
 //
 // This file deliberately contains no OpenAI-shaped code; providers/
 // openai-compatible.ts is the mirror image and contains no Anthropic SDK.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { loadConfig } from "../../config";
+import type { ApiKeyResolver } from "../api-key";
 import { ProviderUnavailableError } from "../errors";
 import type { TextProvider } from "../provider";
 import { stripCodeFence } from "./shared";
 
 const PROVIDER_NAME = "anthropic-api";
-const API_KEY_ENV = "ANTHROPIC_API_KEY";
 
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (client) return client;
-
-  const apiKey = process.env[API_KEY_ENV];
-  if (!apiKey || apiKey.trim().length === 0) {
-    throw new ProviderUnavailableError(
-      PROVIDER_NAME,
-      `${API_KEY_ENV} is not set (add it to .env - it does not belong in jobblast.config.json)`,
-    );
-  }
-
-  client = new Anthropic({ apiKey });
-  return client;
-}
-
-export function createAnthropicApiProvider(): TextProvider {
+export function createAnthropicApiProvider(resolveApiKey: ApiKeyResolver): TextProvider {
   return {
     name: PROVIDER_NAME,
 
     async generateText(prompt, opts = {}) {
       const { anthropicApi, timeoutMs } = loadConfig().ai;
 
-      const response = await getClient().messages.create(
+      const apiKey = await resolveApiKey();
+      if (!apiKey) {
+        throw new ProviderUnavailableError(PROVIDER_NAME, "No API key available for this account");
+      }
+      // Built per call rather than memoized: the client carries the key, and
+      // a key belongs to one account only.
+      const client = new Anthropic({ apiKey });
+
+      const response = await client.messages.create(
         {
           model: anthropicApi.model,
           max_tokens: opts.maxTokens ?? anthropicApi.maxTokens,

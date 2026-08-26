@@ -19,6 +19,7 @@
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import {
+  getUserPosting,
   listUntailoredPostings,
   saveTailoredContent,
   type UserPostingRow,
@@ -26,7 +27,13 @@ import {
 import { getProfile } from "../repo/profile";
 import { getCoverLetterTemplate } from "../sources/tailoring";
 import { letterLanguageRule } from "./language";
-import { configuredProviderName, disableAi, getTextProvider, isProviderUnavailable, type TextProvider } from "./provider";
+import {
+  configuredProviderName,
+  disableAiForUser,
+  getTextProvider,
+  isProviderUnavailable,
+  type TextProvider,
+} from "./provider";
 import { sanitizeAiText, sanitizeAiTexts } from "./sanitize";
 
 const DEFAULT_LIMIT = 10;
@@ -171,10 +178,27 @@ async function generateTailoredContent(
   return { bullets: sanitizeAiTexts(parsed.bullets), coverLetter: sanitizeAiText(parsed.coverLetter) };
 }
 
-let passRunning = false;
-/** jobId -> failed attempts so far, this process. See MAX_ATTEMPTS_PER_JOB. */
-const attemptsByJob = new Map<number, number>();
-let noAiNoticeLogged = false;
+// All three of these are keyed by account: postings are shared platform-wide,
+// so a bare posting id would let one account's retry budget be spent by
+// another, and a bare boolean would let one account's pass block everybody
+// else's. With one account (selfhosted) this is exactly the old behavior.
+const passRunningFor = new Set<string>();
+/** "<userId>:<postingId>" -> failed attempts so far, this process. See MAX_ATTEMPTS_PER_JOB. */
+const attemptsByJob = new Map<string, number>();
+const noAiNoticeLoggedFor = new Set<string>();
+
+function attemptKey(userId: string, postingId: number): string {
+  return `${userId}:${postingId}`;
+}
+
+function noteNoAiOnce(userId: string): void {
+  if (noAiNoticeLoggedFor.has(userId)) return;
+  noAiNoticeLoggedFor.add(userId);
+  logger.info(
+    { provider: configuredProviderName() },
+    "AI disabled: letters use the template + profile-derived bullets",
+  );
+}
 
 /**
  * Tailors up to `limit` queued, non-seed, not-yet-AI-tailored jobs (highest
@@ -191,24 +215,18 @@ export async function runTailoringPass(
   userId: string,
   limit: number = DEFAULT_LIMIT,
 ): Promise<void> {
-  if (passRunning) {
+  if (passRunningFor.has(userId)) {
     logger.debug("AI tailoring pass already running, skipping this trigger");
     return;
   }
 
-  const provider = getTextProvider();
+  const provider = await getTextProvider(userId);
   if (!provider) {
-    if (!noAiNoticeLogged) {
-      noAiNoticeLogged = true;
-      logger.info(
-        { provider: configuredProviderName() },
-        "AI disabled: letters use the template + profile-derived bullets",
-      );
-    }
+    noteNoAiOnce(userId);
     return;
   }
 
-  passRunning = true;
+  passRunningFor.add(userId);
 
   try {
     const profile = await getProfile(userId);
@@ -221,7 +239,9 @@ export async function runTailoringPass(
 
     // Jobs this process has already failed MAX_ATTEMPTS_PER_JOB times keep
     // their template content and are not tried again until a restart.
-    const eligible = jobs.filter((job) => (attemptsByJob.get(job.id) ?? 0) < MAX_ATTEMPTS_PER_JOB);
+    const eligible = jobs.filter(
+      (job) => (attemptsByJob.get(attemptKey(userId, job.id)) ?? 0) < MAX_ATTEMPTS_PER_JOB,
+    );
     const exhausted = jobs.length - eligible.length;
     if (exhausted > 0) {
       logger.debug({ exhausted }, "AI tailoring pass: skipping jobs that hit the per-job retry cap");
@@ -251,7 +271,7 @@ export async function runTailoringPass(
 
         if (!content) {
           failed++;
-          attemptsByJob.set(job.id, (attemptsByJob.get(job.id) ?? 0) + 1);
+          bumpAttempts(userId, job.id);
           logger.warn({ jobId: job.id, ms, ok: false }, "AI tailoring: invalid output, leaving placeholder");
           continue;
         }
@@ -259,29 +279,91 @@ export async function runTailoringPass(
         await saveTailoredContent(userId, job.id, content);
 
         succeeded++;
-        attemptsByJob.delete(job.id);
+        attemptsByJob.delete(attemptKey(userId, job.id));
         logger.info({ jobId: job.id, ms, ok: true }, "AI tailoring: job tailored");
       } catch (err) {
         const ms = Date.now() - startedAt;
         failed++;
 
-        // "This provider can never work here" (CLI not installed, API key
-        // unset, local server down): stop the pass and fall back to template
-        // letters for the rest of this process's life, rather than repeating
-        // the same error for every remaining job every 30 minutes.
+        // "This provider can never work for this account" (CLI not installed,
+        // API key unset or rejected, local server down): stop the pass and
+        // fall back to template letters for this account, rather than
+        // repeating the same error for every remaining job every 30 minutes.
+        // Another account's pass is unaffected.
         if (isProviderUnavailable(err)) {
-          disableAi(err.message);
+          disableAiForUser(userId, err.message);
           logger.error({ jobId: job.id, ms, ok: false, err }, "AI tailoring: provider unavailable, aborting pass");
           break;
         }
 
-        attemptsByJob.set(job.id, (attemptsByJob.get(job.id) ?? 0) + 1);
+        bumpAttempts(userId, job.id);
         logger.error({ jobId: job.id, ms, ok: false, err }, "AI tailoring: job failed");
       }
     }
 
     logger.info({ succeeded, failed, total: eligible.length }, "AI tailoring pass complete");
   } finally {
-    passRunning = false;
+    passRunningFor.delete(userId);
+  }
+}
+
+function bumpAttempts(userId: string, postingId: number): void {
+  const key = attemptKey(userId, postingId);
+  attemptsByJob.set(key, (attemptsByJob.get(key) ?? 0) + 1);
+}
+
+/**
+ * Tailors exactly one posting, now, for one account: the `user.tailor` job
+ * kind, which in `saas` is the ONLY way a letter gets written.
+ *
+ * Mass tailoring spends the user's own metered budget on 150 letters they
+ * will never open (docs/SAAS-ARCHITECTURE.md section 6, "the one behavior
+ * change worth calling out"), so in saas the pass above never runs and this
+ * is enqueued when the user asks for that specific letter. Self-hosted keeps
+ * the eager pass, because a CLI subscription costs nothing marginal.
+ *
+ * Returns whether a letter was actually written. Throws only for a provider
+ * failure, so the queue can retry it with backoff.
+ */
+export async function tailorOnePosting(userId: string, postingId: number): Promise<boolean> {
+  const provider = await getTextProvider(userId);
+  if (!provider) {
+    noteNoAiOnce(userId);
+    return false;
+  }
+
+  const job = await getUserPosting(userId, postingId);
+  if (!job) {
+    logger.warn({ postingId }, "On-demand tailoring: no such posting for this account");
+    return false;
+  }
+
+  const profile = await getProfile(userId);
+  if (!profile) {
+    logger.warn("On-demand tailoring: no profile row found, skipping");
+    return false;
+  }
+
+  const context: TailoringContext = {
+    masterResume: profile.masterResume,
+    headline: profile.headline,
+    coverLetterTemplate: await getCoverLetterTemplate(userId),
+  };
+
+  const startedAt = Date.now();
+  try {
+    const content = await generateTailoredContent(job, context, provider);
+    if (!content) {
+      logger.warn({ jobId: job.id }, "On-demand tailoring: invalid output, leaving placeholder");
+      return false;
+    }
+    await saveTailoredContent(userId, job.id, content);
+    logger.info({ jobId: job.id, ms: Date.now() - startedAt, ok: true }, "On-demand tailoring: letter written");
+    return true;
+  } catch (err) {
+    if (isProviderUnavailable(err)) {
+      disableAiForUser(userId, err.message);
+    }
+    throw err;
   }
 }

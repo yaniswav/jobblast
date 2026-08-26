@@ -22,7 +22,7 @@ import {
 } from "@workspace/api-zod";
 import { readAiSettings, readAutomations, writeAiSettings, writeAutomations } from "../lib/config-store";
 import { listAiProviderOptions } from "../lib/ai/provider-options";
-import { getTextProvider, resetProviderCache } from "../lib/ai/provider";
+import { forgetUserProvider, getTextProvider } from "../lib/ai/provider";
 import { testByokCredential } from "../lib/ai/byok-test";
 import { actingUserId } from "../lib/auth/middleware";
 import { BYOK_PROVIDERS } from "../lib/config";
@@ -94,16 +94,17 @@ router.put("/settings", async (req, res): Promise<void> => {
   res.json(UpdateSettingsResponse.parse(currentState()));
 });
 
-router.post("/settings/ai/test", async (_req, res) => {
+router.post("/settings/ai/test", async (req, res) => {
   const startedAt = Date.now();
+  const userId = actingUserId(req);
 
-  // Force a fresh build from the currently saved config: a prior failed
-  // pass may have switched the process to no-AI mode (see provider.ts
-  // `disableAi`), and the whole point of the Test button is a real, current
-  // attempt rather than a cached "AI is off" verdict.
-  resetProviderCache();
+  // Force a fresh build from the currently saved config, for this account
+  // only: a prior failed pass may have switched it to no-AI mode (see
+  // provider.ts `disableAiForUser`), and the whole point of the Test button
+  // is a real, current attempt rather than a cached "AI is off" verdict.
+  forgetUserProvider(userId);
 
-  const provider = getTextProvider();
+  const provider = await getTextProvider(userId);
   if (!provider) {
     res.json(
       TestAiProviderResponse.parse({
@@ -153,10 +154,12 @@ router.put("/settings/ai/credentials/:provider", async (req, res): Promise<void>
     return;
   }
 
-  const status = await storeCredential(actingUserId(req), params.data.provider, body.data.apiKey.trim());
-  // A newly saved key invalidates any process-wide no-AI fallback from a
-  // previous stale credential, same as writeAiSettings/writeAutomations.
-  resetProviderCache();
+  const userId = actingUserId(req);
+  const status = await storeCredential(userId, params.data.provider, body.data.apiKey.trim());
+  // A newly saved key clears this account's no-AI fallback from a previous
+  // stale credential, same as writeAiSettings/writeAutomations. No other
+  // account's provider is touched.
+  forgetUserProvider(userId);
   res.json(SaveAiCredentialResponse.parse(status));
 });
 
@@ -167,8 +170,9 @@ router.delete("/settings/ai/credentials/:provider", async (req, res): Promise<vo
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await deleteCredential(actingUserId(req), params.data.provider);
-  resetProviderCache();
+  const userId = actingUserId(req);
+  await deleteCredential(userId, params.data.provider);
+  forgetUserProvider(userId);
   res.sendStatus(204);
 });
 

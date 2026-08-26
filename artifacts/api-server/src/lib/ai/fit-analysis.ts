@@ -31,7 +31,13 @@ import {
 } from "../repo/postings";
 import { getProfile } from "../repo/profile";
 import { letterLanguageRule } from "./language";
-import { configuredProviderName, disableAi, getTextProvider, isProviderUnavailable, type TextProvider } from "./provider";
+import {
+  configuredProviderName,
+  disableAiForUser,
+  getTextProvider,
+  isProviderUnavailable,
+  type TextProvider,
+} from "./provider";
 import { sanitizeAiTexts } from "./sanitize";
 
 const DEFAULT_LIMIT = 10;
@@ -174,10 +180,22 @@ async function generateFitAnalysis(
   };
 }
 
-let passRunning = false;
-/** jobId -> failed attempts so far, this process. See MAX_ATTEMPTS_PER_JOB. */
-const attemptsByJob = new Map<number, number>();
-let noAiNoticeLogged = false;
+// Keyed by account for the same reason as lib/ai/tailor.ts: postings are
+// shared platform-wide, so one account must not spend another's retry budget
+// or block its pass. One account (selfhosted) behaves exactly as before.
+const passRunningFor = new Set<string>();
+/** "<userId>:<postingId>" -> failed attempts so far, this process. See MAX_ATTEMPTS_PER_JOB. */
+const attemptsByJob = new Map<string, number>();
+const noAiNoticeLoggedFor = new Set<string>();
+
+function attemptKey(userId: string, postingId: number): string {
+  return `${userId}:${postingId}`;
+}
+
+function bumpAttempts(userId: string, postingId: number): void {
+  const key = attemptKey(userId, postingId);
+  attemptsByJob.set(key, (attemptsByJob.get(key) ?? 0) + 1);
+}
 
 /**
  * Analyzes up to `limit` queued, non-seed, not-yet-analyzed jobs (highest
@@ -194,7 +212,7 @@ export async function runFitAnalysisPass(
   userId: string,
   limit: number = DEFAULT_LIMIT,
 ): Promise<void> {
-  if (passRunning) {
+  if (passRunningFor.has(userId)) {
     logger.debug("AI fit-analysis pass already running, skipping this trigger");
     return;
   }
@@ -204,10 +222,10 @@ export async function runFitAnalysisPass(
     return;
   }
 
-  const provider = getTextProvider();
+  const provider = await getTextProvider(userId);
   if (!provider) {
-    if (!noAiNoticeLogged) {
-      noAiNoticeLogged = true;
+    if (!noAiNoticeLoggedFor.has(userId)) {
+      noAiNoticeLoggedFor.add(userId);
       logger.info(
         { provider: configuredProviderName() },
         "AI disabled: fit analysis skipped, jobs show no red/green flags",
@@ -216,7 +234,7 @@ export async function runFitAnalysisPass(
     return;
   }
 
-  passRunning = true;
+  passRunningFor.add(userId);
 
   try {
     const profile = await getProfile(userId);
@@ -229,7 +247,9 @@ export async function runFitAnalysisPass(
 
     // Jobs this process has already failed MAX_ATTEMPTS_PER_JOB times stay
     // unanalyzed and are not tried again until a restart.
-    const eligible = jobs.filter((job) => (attemptsByJob.get(job.id) ?? 0) < MAX_ATTEMPTS_PER_JOB);
+    const eligible = jobs.filter(
+      (job) => (attemptsByJob.get(attemptKey(userId, job.id)) ?? 0) < MAX_ATTEMPTS_PER_JOB,
+    );
     const exhausted = jobs.length - eligible.length;
     if (exhausted > 0) {
       logger.debug({ exhausted }, "AI fit-analysis pass: skipping jobs that hit the per-job retry cap");
@@ -258,7 +278,7 @@ export async function runFitAnalysisPass(
 
         if (!analysis) {
           failed++;
-          attemptsByJob.set(job.id, (attemptsByJob.get(job.id) ?? 0) + 1);
+          bumpAttempts(userId, job.id);
           logger.warn({ jobId: job.id, ms, ok: false }, "AI fit analysis: invalid output, leaving unanalyzed");
           continue;
         }
@@ -266,29 +286,29 @@ export async function runFitAnalysisPass(
         await saveFitAnalysis(userId, job.id, analysis);
 
         succeeded++;
-        attemptsByJob.delete(job.id);
+        attemptsByJob.delete(attemptKey(userId, job.id));
         logger.info({ jobId: job.id, ms, ok: true, verdict: analysis.verdict }, "AI fit analysis: job analyzed");
       } catch (err) {
         const ms = Date.now() - startedAt;
         failed++;
 
-        // "This provider can never work here": stop the pass rather than
-        // repeating the same error for every remaining job every 30 minutes.
-        // Shared with tailor.ts - once disabled, both passes fall back to
-        // doing nothing for the rest of this process's life.
+        // "This provider can never work for this account": stop the pass
+        // rather than repeating the same error for every remaining job every
+        // 30 minutes. Shared with tailor.ts - once disabled, both passes fall
+        // back to doing nothing FOR THAT ACCOUNT, and only that one.
         if (isProviderUnavailable(err)) {
-          disableAi(err.message);
+          disableAiForUser(userId, err.message);
           logger.error({ jobId: job.id, ms, ok: false, err }, "AI fit analysis: provider unavailable, aborting pass");
           break;
         }
 
-        attemptsByJob.set(job.id, (attemptsByJob.get(job.id) ?? 0) + 1);
+        bumpAttempts(userId, job.id);
         logger.error({ jobId: job.id, ms, ok: false, err }, "AI fit analysis: job failed");
       }
     }
 
     logger.info({ succeeded, failed, total: eligible.length }, "AI fit-analysis pass complete");
   } finally {
-    passRunning = false;
+    passRunningFor.delete(userId);
   }
 }

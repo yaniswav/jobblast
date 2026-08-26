@@ -13,6 +13,8 @@
 // instead (layer 2), enforced by lib/scoping.test.ts (layer 3).
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { LOCAL_USER_ID } from "@workspace/db";
+import { IS_SAAS } from "./mode";
 
 export type UserContext = { userId: string };
 
@@ -26,4 +28,21 @@ export function runWithUser<T>(userId: string, fn: () => T): T {
 /** The ambient user id, or null outside any request/job context. */
 export function currentUserId(): string | null {
   return storage.getStore()?.userId ?? null;
+}
+
+/**
+ * The ambient user id for the few deep call sites that need one but were
+ * never handed it (the source fetchers that run agents). Same fail-closed
+ * rule as loadConfig(): in `saas` a missing context throws rather than
+ * guessing, and in `selfhosted` it resolves to the one implicit account.
+ */
+export function resolveAmbientUserId(): string {
+  const userId = currentUserId();
+  if (userId) return userId;
+  if (IS_SAAS) {
+    throw new Error(
+      "No ambient user in saas mode. Every request and every job must run inside runWithUser().",
+    );
+  }
+  return LOCAL_USER_ID;
 }

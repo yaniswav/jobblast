@@ -1,7 +1,14 @@
 import { ArrowRight, Check, ChevronRight, Flame, Target, TrendingUp, TriangleAlert, X as XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { useGetDashboard, useGetSettings, useListAiProviderOptions } from '@workspace/api-client-react';
+import {
+  getListAiCredentialsQueryKey,
+  useGetAuthSession,
+  useGetDashboard,
+  useGetSettings,
+  useListAiCredentials,
+  useListAiProviderOptions,
+} from '@workspace/api-client-react';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
 
@@ -59,6 +66,48 @@ function ClaudeCliNudge() {
   );
 }
 
+/**
+ * "Your AI key stopped working." Saas only, and deliberately a banner rather
+ * than an email: docs/SAAS-ARCHITECTURE.md open question 4 picks option (b),
+ * surfacing it in the app, because a daily "your key is still broken" mail is
+ * worse than useless.
+ *
+ * The condition is just `lastError` being set, because the server clears it
+ * on the first call that succeeds again (recordCredentialTestResult): a
+ * non-null error always means the most recent attempt failed.
+ */
+function ByokOutageBanner() {
+  const t = useT();
+  const session = useGetAuthSession();
+  const isSaas = session.data?.mode === 'saas';
+  // Selfhosted has no credential rows at all and the endpoint 404s there, so
+  // the query is not even started.
+  const credentials = useListAiCredentials({
+    query: { queryKey: getListAiCredentialsQueryKey(), enabled: isSaas },
+  });
+
+  const broken = credentials.data?.find((credential) => credential.configured && credential.lastError);
+  if (!isSaas || !broken) return null;
+
+  return (
+    <div className="nudge-banner" data-testid="banner-byok-outage">
+      <div className="flex items-start gap-3">
+        <TriangleAlert size={18} className="text-[hsl(38_92%_38%)] mt-0.5 flex-none" />
+        <div>
+          <div className="font-bold text-sm">{t('dashboard.byokOutageTitle')}</div>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('dashboard.byokOutageBody')}</p>
+          <p className="text-xs font-mono-app text-[hsl(var(--muted-foreground))] mt-2 break-words" data-testid="text-byok-outage-error">
+            {broken.lastError}
+          </p>
+          <Link href="/settings" className="text-xs font-bold text-[hsl(var(--primary))] mt-2 inline-flex items-center gap-1" data-testid="link-byok-outage-settings">
+            {t('dashboard.byokOutageCta')} <ArrowRight size={13} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const dashboard = useGetDashboard();
   const [locale] = useLocale();
@@ -71,6 +120,7 @@ export default function Dashboard() {
   return (
     <div className="content-wrap">
       <ClaudeCliNudge />
+      <ByokOutageBanner />
       <section className="mb-8">
         <div className="eyebrow">{t('dashboard.eyebrow')}</div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-5">

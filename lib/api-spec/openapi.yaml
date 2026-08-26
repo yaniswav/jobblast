@@ -207,6 +207,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /jobs/{id}/tailor:
+    get:
+      operationId: getJobTailoringStatus
+      tags: [jobs]
+      summary: Where this posting's cover letter has got to
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Current state of the letter for this posting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobTailoringStatus"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: requestJobTailoring
+      tags: [jobs]
+      summary: Ask for this posting's cover letter to be written
+      description: >
+        In SaaS mode letters are written strictly on demand, because they
+        spend the account's own metered AI budget: this queues one and the
+        status becomes `queued`. Self-hosted writes it inline, since the
+        background pass would have written it anyway.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "202":
+          description: Requested (or already in flight, or already written)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobTailoringStatus"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/refresh:
     post:
       operationId: refreshJobs
@@ -818,6 +862,23 @@ components:
           type: boolean
       required:
         - started
+    JobTailoringStatus:
+      type: object
+      properties:
+        state:
+          description: >
+            `ready` - an AI letter exists. `queued` / `running` - a job is
+            working on it. `failed` - the last attempt gave up. `template` -
+            no AI letter, and none has been asked for. `unavailable` - this
+            account has no usable AI provider, so the template letter is
+            final.
+          type: string
+          enum: [ready, queued, running, failed, template, unavailable]
+        error:
+          type: ["string", "null"]
+      required:
+        - state
+        - error
     Application:
       type: object
       properties:

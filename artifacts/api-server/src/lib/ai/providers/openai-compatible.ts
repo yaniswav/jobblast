@@ -10,6 +10,7 @@
 // AI Scout / Notion Inbox stay off on these providers.
 
 import { loadConfig, type AiProviderName } from "../../config";
+import type { ApiKeyResolver } from "../api-key";
 import { ProviderUnavailableError } from "../errors";
 import type { TextProvider } from "../provider";
 import { stripCodeFence } from "./shared";
@@ -66,22 +67,28 @@ function isConnectionRefused(err: unknown): boolean {
   return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "EAI_AGAIN";
 }
 
-export function createOpenAiCompatibleProvider(provider: AiProviderName): TextProvider {
+/**
+ * The key comes from `resolveApiKey`, called once per generation: the process
+ * environment in `selfhosted`, the acting account's encrypted row in `saas`
+ * (see lib/ai/api-key.ts). A resolver returning null means "this endpoint
+ * needs no key", which is what a local Ollama / LM Studio server wants.
+ */
+export function createOpenAiCompatibleProvider(
+  provider: AiProviderName,
+  resolveApiKey: ApiKeyResolver,
+): TextProvider {
   return {
     name: provider,
 
     async generateText(prompt, opts = {}) {
-      const { baseUrl, apiKeyEnv, model, temperature } = resolveProviderSettings(provider);
+      const { baseUrl, model, temperature } = resolveProviderSettings(provider);
       const timeoutMs = opts.timeoutMs ?? loadConfig().ai.timeoutMs;
 
       const headers: Record<string, string> = { "content-type": "application/json" };
-      if (apiKeyEnv.trim().length > 0) {
-        const apiKey = process.env[apiKeyEnv.trim()];
-        if (!apiKey || apiKey.trim().length === 0) {
-          throw new ProviderUnavailableError(
-            provider,
-            `${apiKeyEnv} is not set (add it to .env, or set ai.openaiCompatible.apiKeyEnv to "" for a local server that needs no key)`,
-          );
+      const apiKey = await resolveApiKey();
+      if (apiKey !== null) {
+        if (apiKey.trim().length === 0) {
+          throw new ProviderUnavailableError(provider, "The resolved API key was empty");
         }
         headers["authorization"] = `Bearer ${apiKey}`;
       }

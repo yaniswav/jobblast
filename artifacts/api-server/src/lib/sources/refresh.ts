@@ -24,12 +24,17 @@ import { fetchRemoteOkJobs } from "./remoteok";
 import { fetchRemotiveJobs } from "./remotive";
 import {
   addUserPostings,
+  attachUserPostings,
   findPostingsByUrl,
+  listPostingsToScore,
   listUserTitleCompanyKeys,
+  upsertPostings,
+  type AttachedPosting,
   type NewUserPosting,
 } from "../repo/postings";
 import { getProfile } from "../repo/profile";
 import { locationKeywordsFromProfile, scoreJob } from "./scoring";
+import { SOURCE_IDS, type SourceId } from "./signature";
 import { coverLetterFor, getCoverLetterTemplate, tailoredBulletsFor, type BulletProfile } from "./tailoring";
 import { fetchTokyoDevJobs } from "./tokyodev";
 import type { RawJob, ScoredJob } from "./types";
@@ -60,8 +65,9 @@ type TailoringContext = {
   coverLetterTemplate: string;
 };
 
-function toNewUserPosting(job: ScoredJob, ctx: TailoringContext): NewUserPosting {
-  const posting: InsertPosting = {
+/** The shared-pool half of a fetched listing: the advert, with nothing per account on it. */
+function toPosting(job: RawJob): InsertPosting {
+  return {
     source: job.source,
     title: job.title,
     company: job.company,
@@ -74,8 +80,11 @@ function toNewUserPosting(job: ScoredJob, ctx: TailoringContext): NewUserPosting
     salaryRange: job.salaryRange ?? NO_SALARY_TEXT,
     titleCompanyKey: titleCompanyKey(job.title, job.company),
   };
+}
+
+function toNewUserPosting(job: ScoredJob, ctx: TailoringContext): NewUserPosting {
   return {
-    posting,
+    posting: toPosting(job),
     relevanceScore: job.relevanceScore,
     matchReasons: job.matchReasons,
     highlightedSkills: job.highlightedSkills,
@@ -84,34 +93,67 @@ function toNewUserPosting(job: ScoredJob, ctx: TailoringContext): NewUserPosting
   };
 }
 
+/**
+ * Every source, keyed by the id lib/sources/signature.ts uses. Order is the
+ * order they are launched in, which matters only for the last two: both are
+ * headless agent passes with their own internal throttles, and AI Scout is by
+ * far the slowest fetcher.
+ *
+ *   Notion Inbox - headless agent against a Notion "inbox" database,
+ *                  self-throttled to at most once per 3h internally, so it is
+ *                  a no-op on most manually-triggered refreshes but always
+ *                  runs on the scheduled cycle.
+ *   AI Scout     - headless web-search agent, self-throttled to once per 24h.
+ */
+const SOURCE_FETCHERS: Record<SourceId, { name: string; fetch: () => Promise<RawJob[]> }> = {
+  franceTravail: { name: "France Travail", fetch: fetchFranceTravailJobs },
+  greenhouse: { name: "Greenhouse", fetch: fetchGreenhouseJobs },
+  lever: { name: "Lever", fetch: fetchLeverJobs },
+  adzuna: { name: "Adzuna", fetch: fetchAdzunaJobs },
+  yourator: { name: "Yourator", fetch: fetchYouratorJobs },
+  job104: { name: "104", fetch: fetch104Jobs },
+  tokyodev: { name: "TokyoDev", fetch: fetchTokyoDevJobs },
+  japandev: { name: "JapanDev", fetch: fetchJapanDevJobs },
+  himalayas: { name: "Himalayas", fetch: fetchHimalayasJobs },
+  remoteok: { name: "RemoteOK", fetch: fetchRemoteOkJobs },
+  remotive: { name: "Remotive", fetch: fetchRemotiveJobs },
+  arbeitnow: { name: "Arbeitnow", fetch: fetchArbeitnowJobs },
+  notionInbox: { name: "Notion Inbox", fetch: fetchNotionInboxJobs },
+  aiScout: { name: "AI Scout", fetch: fetchAiScoutJobs },
+};
+
+/** Runs one source under the ambient account's configuration. */
+export function fetchOneSource(source: SourceId): Promise<RawJob[]> {
+  return SOURCE_FETCHERS[source].fetch();
+}
+
+/** The human-readable name a source is logged under. */
+export function sourceDisplayName(source: SourceId): string {
+  return SOURCE_FETCHERS[source].name;
+}
+
 async function fetchAllSources(): Promise<RawJob[]> {
   // Which sources run is entirely config-driven (`sources.*.enabled` in
   // jobblast.config.json); their query parameters live there too and are
   // read by each fetcher.
   const { sources } = loadConfig();
-  const sourceFetchers = [
-    { name: "France Travail", enabled: sources.franceTravail.enabled, fetch: fetchFranceTravailJobs },
-    { name: "Greenhouse", enabled: sources.greenhouse.enabled, fetch: fetchGreenhouseJobs },
-    { name: "Lever", enabled: sources.lever.enabled, fetch: fetchLeverJobs },
-    { name: "Adzuna", enabled: sources.adzuna.enabled, fetch: fetchAdzunaJobs },
-    { name: "Yourator", enabled: sources.yourator.enabled, fetch: fetchYouratorJobs },
-    { name: "104", enabled: sources.job104.enabled, fetch: fetch104Jobs },
-    { name: "TokyoDev", enabled: sources.tokyodev.enabled, fetch: fetchTokyoDevJobs },
-    { name: "JapanDev", enabled: sources.japandev.enabled, fetch: fetchJapanDevJobs },
-    { name: "Himalayas", enabled: sources.himalayas.enabled, fetch: fetchHimalayasJobs },
-    { name: "RemoteOK", enabled: sources.remoteok.enabled, fetch: fetchRemoteOkJobs },
-    { name: "Remotive", enabled: sources.remotive.enabled, fetch: fetchRemotiveJobs },
-    { name: "Arbeitnow", enabled: sources.arbeitnow.enabled, fetch: fetchArbeitnowJobs },
-    // Headless Claude agent against a Notion "inbox" database -
-    // self-throttles to at most once per 3h internally (see
-    // notion-inbox.ts), so it's a no-op on most manually-triggered refreshes
-    // but always runs on the scheduled 6h cycle.
-    { name: "Notion Inbox", enabled: sources.notionInbox.enabled, fetch: fetchNotionInboxJobs },
-    // Headless Claude agent, web-search-backed - self-throttles to at most
-    // once per 24h internally (see aiscout.ts), so it's a no-op on most
-    // refresh cycles. Listed last since it's by far the slowest fetcher.
-    { name: "AI Scout", enabled: sources.aiScout.enabled, fetch: fetchAiScoutJobs },
-  ].filter((source) => source.enabled);
+  const enabled: Record<SourceId, boolean> = {
+    franceTravail: sources.franceTravail.enabled,
+    greenhouse: sources.greenhouse.enabled,
+    lever: sources.lever.enabled,
+    adzuna: sources.adzuna.enabled,
+    yourator: sources.yourator.enabled,
+    job104: sources.job104.enabled,
+    tokyodev: sources.tokyodev.enabled,
+    japandev: sources.japandev.enabled,
+    himalayas: sources.himalayas.enabled,
+    remoteok: sources.remoteok.enabled,
+    remotive: sources.remotive.enabled,
+    arbeitnow: sources.arbeitnow.enabled,
+    notionInbox: sources.notionInbox.enabled,
+    aiScout: sources.aiScout.enabled,
+  };
+  const sourceFetchers = SOURCE_IDS.filter((id) => enabled[id]).map((id) => SOURCE_FETCHERS[id]);
 
   logger.info(
     { sources: sourceFetchers.map((source) => source.name) },
@@ -152,12 +194,17 @@ function titleCompanyKey(title: string, company: string): string {
   return `${normalize(title)}|${normalize(company)}`;
 }
 
-let refreshRunning = false;
+// Keyed by account, like the guards in lib/ai/tailor.ts: with one implicit
+// account (selfhosted) this is exactly the old single boolean, and with many
+// it stops one account's refresh from making every other account's manual
+// refresh a silent no-op.
+const refreshRunningFor = new Set<string>();
 
-/** True while a refreshJobListings() call is in flight. Lets callers (e.g. the
- * POST /api/jobs/refresh route) avoid piling up overlapping refreshes. */
-export function isRefreshRunning(): boolean {
-  return refreshRunning;
+/** True while a refreshJobListings() call is in flight for this account. Lets
+ * callers (e.g. the POST /api/jobs/refresh route) avoid piling up overlapping
+ * refreshes. */
+export function isRefreshRunning(userId: string): boolean {
+  return refreshRunningFor.has(userId);
 }
 
 /**
@@ -167,11 +214,11 @@ export function isRefreshRunning(): boolean {
  * zeroed-out summary instead of running a second fetch concurrently.
  */
 export async function refreshJobListings(userId: string): Promise<RefreshSummary> {
-  if (refreshRunning) {
+  if (refreshRunningFor.has(userId)) {
     logger.debug("Job refresh already running, skipping this trigger");
     return { fetched: 0, scored: 0, belowThreshold: 0, duplicates: 0, softDuplicates: 0, inserted: 0 };
   }
-  refreshRunning = true;
+  refreshRunningFor.add(userId);
 
   try {
     const profileRow = await getProfile(userId);
@@ -260,6 +307,113 @@ export async function refreshJobListings(userId: string): Promise<RefreshSummary
     logger.info(summary, "Job refresh complete");
     return summary;
   } finally {
-    refreshRunning = false;
+    refreshRunningFor.delete(userId);
   }
+}
+
+// ---------------------------------------------------------------------------
+// The shared refresh (saas)
+//
+// Same pipeline, cut in two along the line docs/SAAS-ARCHITECTURE.md section
+// 3.2 draws: the network half runs once per query signature and writes only
+// the shared advert pool; the scoring half runs once per account, against
+// that account's own configuration. Self-hosted keeps calling
+// refreshJobListings() above, which does both in one pass for its one
+// account, so nothing about it changes.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches one source once and writes what comes back to the shared pool.
+ * Runs under whatever account context the caller established: every
+ * subscriber to this signature has identical parameters for this source,
+ * which is what the signature means.
+ */
+export async function fetchSignatureIntoPool(source: SourceId): Promise<{
+  fetched: number;
+  stored: number;
+}> {
+  const rawJobs = await fetchOneSource(source);
+  if (rawJobs.length === 0) return { fetched: 0, stored: 0 };
+  const stored = await upsertPostings(rawJobs.map(toPosting));
+  return { fetched: rawJobs.length, stored };
+}
+
+export type ScoreSummary = {
+  candidates: number;
+  belowThreshold: number;
+  softDuplicates: number;
+  inserted: number;
+};
+
+/** How many fresh adverts one `user.score` job looks at. */
+const SCORE_BATCH = 500;
+
+/**
+ * Scores the adverts this account has not seen yet against its own scoring
+ * config and attaches the ones worth reviewing. Idempotent: the candidate
+ * query excludes anything already in the account's queue, so re-running
+ * after a crash is free.
+ */
+export async function scorePostingsForUser(userId: string, since: Date): Promise<ScoreSummary> {
+  const empty: ScoreSummary = { candidates: 0, belowThreshold: 0, softDuplicates: 0, inserted: 0 };
+
+  const candidates = await listPostingsToScore(userId, since, SCORE_BATCH);
+  if (candidates.length === 0) return empty;
+
+  const profileRow = await getProfile(userId);
+  const profile: BulletProfile = {
+    headline: profileRow?.headline ?? "",
+    masterResume: profileRow?.masterResume ?? "",
+  };
+  const profileLocationKeywords = locationKeywordsFromProfile(profileRow?.targetLocations ?? []);
+  const coverLetterTemplate = await getCoverLetterTemplate(userId);
+  const minRelevanceScore = loadConfig().scoring.minRelevanceScore;
+
+  const seenTitleCompanyKeys = new Set(await listUserTitleCompanyKeys(userId));
+
+  const toAttach: AttachedPosting[] = [];
+  let belowThreshold = 0;
+  let softDuplicates = 0;
+
+  for (const candidate of candidates) {
+    const raw: RawJob = {
+      source: candidate.source as RawJob["source"],
+      title: candidate.title,
+      company: candidate.company,
+      location: candidate.location,
+      url: candidate.url,
+      description: candidate.description,
+      postedDate: candidate.postedDate,
+      salaryRange: candidate.salaryRange,
+    };
+    const scored = scoreJob(raw, profileLocationKeywords);
+    if (scored.relevanceScore < minRelevanceScore) {
+      belowThreshold++;
+      continue;
+    }
+    if (seenTitleCompanyKeys.has(candidate.titleCompanyKey)) {
+      softDuplicates++;
+      continue;
+    }
+    seenTitleCompanyKeys.add(candidate.titleCompanyKey);
+
+    toAttach.push({
+      postingId: candidate.id,
+      relevanceScore: scored.relevanceScore,
+      matchReasons: scored.matchReasons,
+      highlightedSkills: scored.highlightedSkills,
+      tailoredBullets: tailoredBulletsFor(scored.highlightedSkills, profile),
+      coverLetter: coverLetterFor(scored.title, scored.company, coverLetterTemplate),
+    });
+  }
+
+  const inserted = await attachUserPostings(userId, toAttach);
+  const summary: ScoreSummary = {
+    candidates: candidates.length,
+    belowThreshold,
+    softDuplicates,
+    inserted,
+  };
+  logger.info(summary, "Shared refresh: account scored its new postings");
+  return summary;
 }
