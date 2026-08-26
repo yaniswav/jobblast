@@ -82,6 +82,29 @@ export const ATS_IDS = [
 export type AtsId = (typeof ATS_IDS)[number];
 
 /**
+ * Contract types `sources.franceTravail.contractTypes` (and the matching
+ * `searchCriteria.contractTypes` / Settings checkboxes) accept. This app's
+ * own vocabulary, not France Travail's raw codes, so the same list drives
+ * both the UI and the fetcher (lib/sources/francetravail.ts):
+ *
+ *   cdi/cdd/interim -> the `typeContrat` facet (CDI/CDD/MIS)
+ *   alternance      -> the `natureContrat` facet (E2 apprentissage, FS
+ *                       contrat de professionnalisation) - alternance has no
+ *                       `typeContrat` code of its own, confirmed against
+ *                       France Travail's own /referentiel/typesContrats.
+ *   stage           -> NOT representable. Confirmed against both
+ *                       /referentiel/typesContrats and
+ *                       /referentiel/naturesContrats (12 and 19 codes
+ *                       respectively, live-queried): neither lists anything
+ *                       for internships. Kept in this list for UI parity
+ *                       (the checkbox exists so the gap is visible rather
+ *                       than silently missing) but the fetcher sends no
+ *                       request for it - see francetravail.ts.
+ */
+export const FRANCE_TRAVAIL_CONTRACT_TYPES = ["cdi", "cdd", "interim", "alternance", "stage"] as const;
+export type FranceTravailContractType = (typeof FRANCE_TRAVAIL_CONTRACT_TYPES)[number];
+
+/**
  * One company an account has asked to watch, added by pasting its career
  * page URL (lib/sources/ats/detect.ts identifies `ats` + `board` from it).
  * `board` is the ATS-specific identifier the adapter's endpoint needs - a
@@ -290,6 +313,22 @@ const SourcesSchema = z
         keywords: z.array(z.string()).default(["C++", "embarqué", "développeur logiciel C++", "computer vision"]),
         /** French département codes, e.g. ["75", "92"]. */
         departements: z.array(z.string()).default(["75", "92", "78", "91", "94"]),
+        /**
+         * Contract types to filter for - see FRANCE_TRAVAIL_CONTRACT_TYPES
+         * above. Empty = no filter, every contract type (today's default,
+         * unchanged).
+         */
+        contractTypes: z.array(z.enum(FRANCE_TRAVAIL_CONTRACT_TYPES)).default([]),
+        /**
+         * Optional hard experience filter - France Travail's own
+         * `experience` facet ("1" moins d'un an, "2" 1 à 3 ans, "3" plus de
+         * 3 ans; confirmed against the live API). This EXCLUDES results
+         * outright, unlike scoring's soft seniorYears/seniorTitle penalties
+         * (which only dock points) - so it is deliberately not a UI
+         * checkbox, stays opt-in via this config file, and defaults to
+         * unset so behavior is unchanged unless a user asks for it.
+         */
+        experienceLevel: z.enum(["1", "2", "3"]).nullable().default(null),
       })
       .default({}),
     adzuna: z
@@ -300,6 +339,26 @@ const SourcesSchema = z
         queries: z.array(z.string()).default(["développeur C++", "ingénieur logiciel embarqué", "computer vision"]),
         where: z.string().default("Paris"),
         resultsPerPage: z.number().int().positive().default(50),
+      })
+      .default({}),
+    // Jooble (lot H3): free-key aggregator, same "enabled but skipped
+    // without a key" pattern as Adzuna above. One POST per keyword.
+    jooble: z
+      .object({
+        enabled: z.boolean().default(true),
+        queries: z.array(z.string()).default(["développeur C++", "ingénieur logiciel embarqué", "computer vision"]),
+        location: z.string().default("Paris"),
+        resultsPerPage: z.number().int().positive().default(20),
+      })
+      .default({}),
+    // Careerjet (lot H3): free-affid affiliate API, same pattern. One GET
+    // per keyword.
+    careerjet: z
+      .object({
+        enabled: z.boolean().default(true),
+        queries: z.array(z.string()).default(["développeur C++", "ingénieur logiciel embarqué", "computer vision"]),
+        location: z.string().default("Paris"),
+        pageSize: z.number().int().positive().default(20),
       })
       .default({}),
     greenhouse: z

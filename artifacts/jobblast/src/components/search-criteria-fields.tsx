@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import type { FranceTravailContractType } from '@workspace/api-client-react';
 import { TagEditor } from '@/pages/profile';
 import { useT, type TranslationKey } from '@/i18n';
 
@@ -17,6 +18,19 @@ export const LANGUAGE_OPTIONS: { code: string; labelKey: TranslationKey }[] = [
   { code: 'zh', labelKey: 'onboarding.langChinese' },
 ];
 
+// French contract types (lot H3) - only France Travail's fetcher filters on
+// these (lib/sources/francetravail.ts). "stage" has no code in that API at
+// all (see FRANCE_TRAVAIL_CONTRACT_TYPES in api-server/lib/config.ts), so it
+// is shown with a note instead of hidden - the gap should be visible, not
+// silent.
+export const CONTRACT_TYPE_OPTIONS: { code: FranceTravailContractType; labelKey: TranslationKey }[] = [
+  { code: 'cdi', labelKey: 'onboarding.contractTypeCdi' },
+  { code: 'cdd', labelKey: 'onboarding.contractTypeCdd' },
+  { code: 'interim', labelKey: 'onboarding.contractTypeInterim' },
+  { code: 'alternance', labelKey: 'onboarding.contractTypeAlternance' },
+  { code: 'stage', labelKey: 'onboarding.contractTypeStage' },
+];
+
 export function SearchCriteriaFields({
   testIdPrefix,
   keywords,
@@ -31,6 +45,8 @@ export function SearchCriteriaFields({
   onRemoveLocation,
   languages,
   onToggleLanguage,
+  contractTypes,
+  onToggleContractType,
 }: {
   /** Keeps each page's data-testid values distinct (and the onboarding wizard's unchanged from before this was extracted). */
   testIdPrefix: string;
@@ -46,6 +62,8 @@ export function SearchCriteriaFields({
   onRemoveLocation: (value: string) => void;
   languages: string[];
   onToggleLanguage: (code: string) => void;
+  contractTypes: FranceTravailContractType[];
+  onToggleContractType: (code: FranceTravailContractType) => void;
 }) {
   const t = useT();
   return (
@@ -90,6 +108,32 @@ export function SearchCriteriaFields({
             );
           })}
         </div>
+      </div>
+      <div>
+        <label className="label">{t('onboarding.contractTypesLabel')}</label>
+        <div className="flex flex-wrap gap-2 mt-1">
+          {CONTRACT_TYPE_OPTIONS.map((option) => {
+            const active = contractTypes.includes(option.code);
+            return (
+              <button
+                key={option.code}
+                type="button"
+                className={`tag cursor-pointer ${active ? 'badge-green' : ''}`}
+                onClick={() => onToggleContractType(option.code)}
+                aria-pressed={active}
+                data-testid={`button-${testIdPrefix}-contract-type-${option.code}`}
+              >
+                {active && <Check size={11} className="mr-1" />}
+                {t(option.labelKey)}
+              </button>
+            );
+          })}
+        </div>
+        {contractTypes.includes('stage') && (
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+            {t('onboarding.contractTypeStageNote')}
+          </p>
+        )}
       </div>
     </div>
   );

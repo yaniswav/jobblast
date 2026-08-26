@@ -16,6 +16,7 @@ import {
   useUpdateSettings,
   useUploadDocument,
   type AiProviderId,
+  type FranceTravailContractType,
   type OnboardingStep,
 } from '@workspace/api-client-react';
 import { useT } from '@/i18n';
@@ -262,6 +263,7 @@ function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   const [locations, setLocations] = useState<string[]>([]);
   const [newLocation, setNewLocation] = useState('');
   const [languages, setLanguages] = useState<string[]>(['en']);
+  const [contractTypes, setContractTypes] = useState<FranceTravailContractType[]>([]);
 
   useEffect(() => {
     if (!settings.data) return;
@@ -270,6 +272,7 @@ function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
     if (settings.data.searchCriteria.letterLanguages.length > 0) {
       setLanguages(settings.data.searchCriteria.letterLanguages);
     }
+    setContractTypes(settings.data.searchCriteria.contractTypes);
   }, [settings.data]);
 
   const addKeyword = () => {
@@ -286,6 +289,8 @@ function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   const removeLocation = (value: string) => setLocations((current) => current.filter((item) => item !== value));
   const toggleLanguage = (code: string) =>
     setLanguages((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
+  const toggleContractType = (code: FranceTravailContractType) =>
+    setContractTypes((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
 
   const save = () => {
     update.mutate(
@@ -295,6 +300,7 @@ function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
             keywords,
             targetLocationKeywords: locations,
             letterLanguages: languages.length > 0 ? languages : ['en'],
+            contractTypes,
           },
         },
       },
@@ -332,6 +338,8 @@ function CriteriaStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
           onRemoveLocation={removeLocation}
           languages={languages}
           onToggleLanguage={toggleLanguage}
+          contractTypes={contractTypes}
+          onToggleContractType={toggleContractType}
         />
       </section>
       <div className="flex justify-between mt-5">

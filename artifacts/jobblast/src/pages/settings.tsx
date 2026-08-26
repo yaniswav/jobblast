@@ -24,6 +24,7 @@ import {
   type AiCredentialStatus,
   type AiProviderId,
   type AiTestResult,
+  type FranceTravailContractType,
   type WatchedCompany,
 } from '@workspace/api-client-react';
 import { ErrorState, LoadingState } from '@/components/app-shell';
@@ -356,6 +357,7 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
   const [locations, setLocations] = useState<string[]>([]);
   const [newLocation, setNewLocation] = useState('');
   const [languages, setLanguages] = useState<string[]>(['en']);
+  const [contractTypes, setContractTypes] = useState<FranceTravailContractType[]>([]);
 
   useEffect(() => {
     if (!settings.data) return;
@@ -364,6 +366,7 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
     if (settings.data.searchCriteria.letterLanguages.length > 0) {
       setLanguages(settings.data.searchCriteria.letterLanguages);
     }
+    setContractTypes(settings.data.searchCriteria.contractTypes);
   }, [settings.data]);
 
   const addKeyword = () => {
@@ -380,6 +383,8 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
   const removeLocation = (value: string) => setLocations((current) => current.filter((item) => item !== value));
   const toggleLanguage = (code: string) =>
     setLanguages((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
+  const toggleContractType = (code: FranceTravailContractType) =>
+    setContractTypes((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
 
   const save = () => {
     update.mutate(
@@ -389,6 +394,7 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
             keywords,
             targetLocationKeywords: locations,
             letterLanguages: languages.length > 0 ? languages : ['en'],
+            contractTypes,
           },
         },
       },
@@ -441,6 +447,8 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
           onRemoveLocation={removeLocation}
           languages={languages}
           onToggleLanguage={toggleLanguage}
+          contractTypes={contractTypes}
+          onToggleContractType={toggleContractType}
         />
       </div>
 

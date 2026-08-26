@@ -39,6 +39,7 @@ export * from './documentUploadPayload';
 export * from './documentUploadResult';
 export * from './error';
 export * from './forgotPasswordRequest';
+export * from './franceTravailContractType';
 export * from './gmailSyncSettings';
 export * from './gmailSyncSettingsUpdate';
 export * from './healthStatus';

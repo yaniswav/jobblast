@@ -19,11 +19,13 @@ import { fetchRecruiteeJobs } from "./ats/recruitee";
 import { fetchSmartRecruitersJobs } from "./ats/smartrecruiters";
 import { fetchWorkableJobs } from "./ats/workable";
 import { fetchWorkdayJobs } from "./ats/workday";
+import { fetchCareerjetJobs } from "./careerjet";
 import { fetchFranceTravailJobs } from "./francetravail";
 import { fetchGreenhouseJobs } from "./greenhouse";
 import { fetchHimalayasJobs } from "./himalayas";
 import { fetchJapanDevJobs } from "./japandev";
 import { fetch104Jobs } from "./job104";
+import { fetchJoobleJobs } from "./jooble";
 import { fetchLeverJobs } from "./lever";
 import { fetchNotionInboxJobs } from "./notion-inbox";
 import { fetchRemoteOkJobs } from "./remoteok";
@@ -116,6 +118,8 @@ const SOURCE_FETCHERS = {
   greenhouse: { name: "Greenhouse", fetch: fetchGreenhouseJobs },
   lever: { name: "Lever", fetch: fetchLeverJobs },
   adzuna: { name: "Adzuna", fetch: fetchAdzunaJobs },
+  jooble: { name: "Jooble", fetch: fetchJoobleJobs },
+  careerjet: { name: "Careerjet", fetch: fetchCareerjetJobs },
   yourator: { name: "Yourator", fetch: fetchYouratorJobs },
   job104: { name: "104", fetch: fetch104Jobs },
   tokyodev: { name: "TokyoDev", fetch: fetchTokyoDevJobs },
@@ -161,6 +165,8 @@ async function fetchAllSources(): Promise<RawJob[]> {
     greenhouse: sources.greenhouse.enabled || hasWatched("greenhouse"),
     lever: sources.lever.enabled || hasWatched("lever"),
     adzuna: sources.adzuna.enabled,
+    jooble: sources.jooble.enabled,
+    careerjet: sources.careerjet.enabled,
     yourator: sources.yourator.enabled,
     job104: sources.job104.enabled,
     tokyodev: sources.tokyodev.enabled,

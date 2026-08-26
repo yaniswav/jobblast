@@ -5,9 +5,11 @@
  * JobBlast application assistant API
  * OpenAPI spec version: 0.1.0
  */
+import type { FranceTravailContractType } from './franceTravailContractType';
 
 export interface SearchCriteriaSettingsUpdate {
   keywords?: string[];
   targetLocationKeywords?: string[];
   letterLanguages?: string[];
+  contractTypes?: FranceTravailContractType[];
 }

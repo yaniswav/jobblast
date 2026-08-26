@@ -34,6 +34,8 @@ export const SOURCE_IDS = [
   "greenhouse",
   "lever",
   "adzuna",
+  "jooble",
+  "careerjet",
   "yourator",
   "job104",
   "tokyodev",
@@ -131,6 +133,8 @@ export function sourceQueries(config: JobBlastConfig): SourceQuery[] {
       params: {
         keywords: sources.franceTravail.keywords,
         departements: sources.franceTravail.departements,
+        contractTypes: sources.franceTravail.contractTypes,
+        experienceLevel: sources.franceTravail.experienceLevel,
       },
     },
     {
@@ -162,6 +166,24 @@ export function sourceQueries(config: JobBlastConfig): SourceQuery[] {
         queries: sources.adzuna.queries,
         where: sources.adzuna.where,
         resultsPerPage: sources.adzuna.resultsPerPage,
+      },
+    },
+    {
+      source: "jooble",
+      enabled: sources.jooble.enabled,
+      params: {
+        queries: sources.jooble.queries,
+        location: sources.jooble.location,
+        resultsPerPage: sources.jooble.resultsPerPage,
+      },
+    },
+    {
+      source: "careerjet",
+      enabled: sources.careerjet.enabled,
+      params: {
+        queries: sources.careerjet.queries,
+        location: sources.careerjet.location,
+        pageSize: sources.careerjet.pageSize,
       },
     },
     {

@@ -375,6 +375,20 @@ export interface NotionInboxSettings {
 }
 
 /**
+ * Matches `sources.franceTravail.contractTypes` (lib/config.ts FRANCE_TRAVAIL_CONTRACT_TYPES). Only France Travail's fetcher filters on this; "stage" has no French job-board API equivalent there (confirmed against France Travail's own reference data) and contributes zero results on its own - see docs/CONFIG.md.
+ */
+export type FranceTravailContractType = typeof FranceTravailContractType[keyof typeof FranceTravailContractType];
+
+
+export const FranceTravailContractType = {
+  cdi: 'cdi',
+  cdd: 'cdd',
+  interim: 'interim',
+  alternance: 'alternance',
+  stage: 'stage',
+} as const;
+
+/**
  * The subset of `sources.*` / `scoring` / `candidate` that pilots the shared refresh and scoring pass (docs/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.
  */
 export interface SearchCriteriaSettings {
@@ -384,12 +398,15 @@ export interface SearchCriteriaSettings {
   targetLocationKeywords: string[];
   /** Languages the candidate can credibly write an application in (ISO 639-1). */
   letterLanguages: string[];
+  /** Contract types to filter France Travail results for. Empty = every contract type. */
+  contractTypes: FranceTravailContractType[];
 }
 
 export interface SearchCriteriaSettingsUpdate {
   keywords?: string[];
   targetLocationKeywords?: string[];
   letterLanguages?: string[];
+  contractTypes?: FranceTravailContractType[];
 }
 
 export interface SettingsState {

@@ -5,6 +5,7 @@
  * JobBlast application assistant API
  * OpenAPI spec version: 0.1.0
  */
+import type { FranceTravailContractType } from './franceTravailContractType';
 
 /**
  * The subset of `sources.*` / `scoring` / `candidate` that pilots the shared refresh and scoring pass (docs/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.
@@ -16,4 +17,6 @@ export interface SearchCriteriaSettings {
   targetLocationKeywords: string[];
   /** Languages the candidate can credibly write an application in (ISO 639-1). */
   letterLanguages: string[];
+  /** Contract types to filter France Travail results for. Empty = every contract type. */
+  contractTypes: FranceTravailContractType[];
 }

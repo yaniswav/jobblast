@@ -9,6 +9,8 @@ export type JobSourceName =
   | "Greenhouse"
   | "Lever"
   | "Adzuna"
+  | "Jooble"
+  | "Careerjet"
   | "Yourator"
   | "104"
   | "TokyoDev"

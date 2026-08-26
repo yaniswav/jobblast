@@ -215,7 +215,8 @@ export const GetAccountExportResponse = zod.object({
   "searchCriteria": zod.object({
   "keywords": zod.array(zod.string()).describe('Free-text search keywords, fanned out to every keyword-driven source.'),
   "targetLocationKeywords": zod.array(zod.string()).describe('Overrides the scoring pass\'s location bonus\/penalty for every source.'),
-  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).')
+  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).'),
+  "contractTypes": zod.array(zod.enum(['cdi', 'cdd', 'interim', 'alternance', 'stage']).describe('Matches `sources.franceTravail.contractTypes` (lib\/config.ts FRANCE_TRAVAIL_CONTRACT_TYPES). Only France Travail\'s fetcher filters on this; \"stage\" has no French job-board API equivalent there (confirmed against France Travail\'s own reference data) and contributes zero results on its own - see docs\/CONFIG.md.\n')).describe('Contract types to filter France Travail results for. Empty = every contract type.')
 }).describe('The subset of `sources.\*` \/ `scoring` \/ `candidate` that pilots the shared refresh and scoring pass (docs\/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.\n')
 }),
   "profile": zod.union([zod.object({
@@ -715,7 +716,8 @@ export const GetSettingsResponse = zod.object({
   "searchCriteria": zod.object({
   "keywords": zod.array(zod.string()).describe('Free-text search keywords, fanned out to every keyword-driven source.'),
   "targetLocationKeywords": zod.array(zod.string()).describe('Overrides the scoring pass\'s location bonus\/penalty for every source.'),
-  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).')
+  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).'),
+  "contractTypes": zod.array(zod.enum(['cdi', 'cdd', 'interim', 'alternance', 'stage']).describe('Matches `sources.franceTravail.contractTypes` (lib\/config.ts FRANCE_TRAVAIL_CONTRACT_TYPES). Only France Travail\'s fetcher filters on this; \"stage\" has no French job-board API equivalent there (confirmed against France Travail\'s own reference data) and contributes zero results on its own - see docs\/CONFIG.md.\n')).describe('Contract types to filter France Travail results for. Empty = every contract type.')
 }).describe('The subset of `sources.\*` \/ `scoring` \/ `candidate` that pilots the shared refresh and scoring pass (docs\/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.\n')
 })
 
@@ -743,7 +745,8 @@ export const UpdateSettingsBody = zod.object({
   "searchCriteria": zod.object({
   "keywords": zod.array(zod.string()).optional(),
   "targetLocationKeywords": zod.array(zod.string()).optional(),
-  "letterLanguages": zod.array(zod.string()).optional()
+  "letterLanguages": zod.array(zod.string()).optional(),
+  "contractTypes": zod.array(zod.enum(['cdi', 'cdd', 'interim', 'alternance', 'stage']).describe('Matches `sources.franceTravail.contractTypes` (lib\/config.ts FRANCE_TRAVAIL_CONTRACT_TYPES). Only France Travail\'s fetcher filters on this; \"stage\" has no French job-board API equivalent there (confirmed against France Travail\'s own reference data) and contributes zero results on its own - see docs\/CONFIG.md.\n')).optional()
 }).optional()
 })
 
@@ -767,7 +770,8 @@ export const UpdateSettingsResponse = zod.object({
   "searchCriteria": zod.object({
   "keywords": zod.array(zod.string()).describe('Free-text search keywords, fanned out to every keyword-driven source.'),
   "targetLocationKeywords": zod.array(zod.string()).describe('Overrides the scoring pass\'s location bonus\/penalty for every source.'),
-  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).')
+  "letterLanguages": zod.array(zod.string()).describe('Languages the candidate can credibly write an application in (ISO 639-1).'),
+  "contractTypes": zod.array(zod.enum(['cdi', 'cdd', 'interim', 'alternance', 'stage']).describe('Matches `sources.franceTravail.contractTypes` (lib\/config.ts FRANCE_TRAVAIL_CONTRACT_TYPES). Only France Travail\'s fetcher filters on this; \"stage\" has no French job-board API equivalent there (confirmed against France Travail\'s own reference data) and contributes zero results on its own - see docs\/CONFIG.md.\n')).describe('Contract types to filter France Travail results for. Empty = every contract type.')
 }).describe('The subset of `sources.\*` \/ `scoring` \/ `candidate` that pilots the shared refresh and scoring pass (docs\/SAAS-ARCHITECTURE.md sections 3.3 and 6) - exposed as one small surface for the onboarding wizard, not the whole config.\n')
 })
 

@@ -24,6 +24,8 @@ const ONLY = (enabled: Record<string, unknown>) => ({
   greenhouse: { enabled: false },
   lever: { enabled: false },
   adzuna: { enabled: false },
+  jooble: { enabled: false },
+  careerjet: { enabled: false },
   yourator: { enabled: false },
   job104: { enabled: false },
   tokyodev: { enabled: false },

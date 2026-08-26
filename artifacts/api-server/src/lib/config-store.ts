@@ -33,6 +33,7 @@ import {
   resetConfigCache,
   setUserConfig,
   type AiProviderName,
+  type FranceTravailContractType,
   type JobBlastConfig,
   type WatchedCompanyConfig,
 } from "./config";
@@ -210,20 +211,24 @@ export async function writeAiSettings(patch: AiSettingsPatch): Promise<AiSetting
 // as one small, named surface instead of the whole config.
 //
 // `keywords` fans out to every enabled source whose query is a free-text
-// keyword list (France Travail, Adzuna, Himalayas): they are three different
-// config paths today, but one thing from this account's point of view - "what
-// am I searching for". `targetLocationKeywords` overrides the scoring pass's
-// location bonus/penalty platform-wide (docs/CONFIG.md); it deliberately does
-// NOT touch source-side location narrowing (Adzuna's `where`, France
-// Travail's `departements`), which stay France-scoped defaults - a fresh
-// account targeting elsewhere gets correctly-scored results, just from a
-// still France-leaning fetch. Worth widening in a later lot.
+// keyword list (France Travail, Adzuna, Himalayas, and - lot H3 - Jooble,
+// Careerjet): six different config paths today, but one thing from this
+// account's point of view - "what am I searching for".
+// `targetLocationKeywords` overrides the scoring pass's location
+// bonus/penalty platform-wide (docs/CONFIG.md); it deliberately does NOT
+// touch source-side location narrowing (Adzuna's `where`, France Travail's
+// `departements`, Jooble's/Careerjet's `location`), which stay France-scoped
+// defaults - a fresh account targeting elsewhere gets correctly-scored
+// results, just from a still France-leaning fetch. Worth widening in a later
+// lot. `contractTypes` (lot H3) only reaches France Travail today - see
+// FRANCE_TRAVAIL_CONTRACT_TYPES in config.ts for why "stage" is a no-op there.
 // ---------------------------------------------------------------------------
 
 export type SearchCriteriaSettings = {
   keywords: string[];
   targetLocationKeywords: string[];
   letterLanguages: string[];
+  contractTypes: FranceTravailContractType[];
 };
 export type SearchCriteriaPatch = Partial<SearchCriteriaSettings>;
 
@@ -233,6 +238,7 @@ export function readSearchCriteria(): SearchCriteriaSettings {
     keywords: cfg.sources.franceTravail.keywords,
     targetLocationKeywords: cfg.scoring.targetLocationKeywords,
     letterLanguages: cfg.candidate.letterLanguages,
+    contractTypes: cfg.sources.franceTravail.contractTypes,
   };
 }
 
@@ -242,6 +248,8 @@ export async function writeSearchCriteria(patch: SearchCriteriaPatch): Promise<S
     patches.push({ path: ["sources", "franceTravail", "keywords"], value: patch.keywords });
     patches.push({ path: ["sources", "adzuna", "queries"], value: patch.keywords });
     patches.push({ path: ["sources", "himalayas", "queries"], value: patch.keywords });
+    patches.push({ path: ["sources", "jooble", "queries"], value: patch.keywords });
+    patches.push({ path: ["sources", "careerjet", "queries"], value: patch.keywords });
   }
   if (patch.targetLocationKeywords !== undefined) {
     patches.push({ path: ["scoring", "targetLocationKeywords"], value: patch.targetLocationKeywords });
@@ -250,6 +258,9 @@ export async function writeSearchCriteria(patch: SearchCriteriaPatch): Promise<S
     patches.push({ path: ["candidate", "letterLanguages"], value: patch.letterLanguages });
     const [first] = patch.letterLanguages;
     if (first) patches.push({ path: ["candidate", "fallbackLetterLanguage"], value: first });
+  }
+  if (patch.contractTypes !== undefined) {
+    patches.push({ path: ["sources", "franceTravail", "contractTypes"], value: patch.contractTypes });
   }
   await writeSettings(patches);
   return readSearchCriteria();

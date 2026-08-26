@@ -384,8 +384,10 @@ rather than failing the refresh.
 
 | Source | Keys | Notes |
 |---|---|---|
-| `franceTravail` | `enabled`, `keywords[]`, `departements[]` | Needs `FRANCETRAVAIL_CLIENT_ID` / `_SECRET`. Each keyword is a separate search request - keep the list short |
+| `franceTravail` | `enabled`, `keywords[]`, `departements[]`, `contractTypes[]`, `experienceLevel` | Needs `FRANCETRAVAIL_CLIENT_ID` / `_SECRET`. Each keyword is a separate search request (up to two, if `contractTypes` includes `alternance` alongside another type - see below) - keep the list short |
 | `adzuna` | `enabled`, `country`, `queries[]`, `where`, `resultsPerPage` | Needs `ADZUNA_APP_ID` / `_KEY`. Trial-plan rate limits are tight |
+| `jooble` | `enabled`, `queries[]`, `location`, `resultsPerPage` | Needs `JOOBLE_API_KEY` (free, self-service: <https://jooble.org/api/about>). One POST per keyword |
+| `careerjet` | `enabled`, `queries[]`, `location`, `pageSize` | Needs `CAREERJET_API_KEY` (a free affiliate id/"affid": <https://www.careerjet.com/partners/api/>). One GET per keyword. Best-effort: Careerjet's contract expects a real visitor's IP/User-Agent, which a scheduled background refresh doesn't have - see the comment at the top of `lib/sources/careerjet.ts` |
 | `greenhouse` | `enabled`, `boards[{slug,name}]` | Public API, no key. Verify a slug first: `curl -s -o /dev/null -w '%{http_code}' https://boards-api.greenhouse.io/v1/boards/<slug>/jobs` |
 | `lever` | `enabled`, `boards[{slug,name}]` | Public API, no key. Verify: `curl -s -o /dev/null -w '%{http_code}' 'https://api.lever.co/v0/postings/<slug>?mode=json'` |
 | `remoteok` | `enabled`, `tags[]` | Public API |
@@ -398,6 +400,67 @@ rather than failing the refresh.
 | `job104` | `enabled`, `queries[]`, `areaCodes[]` | **Off by default**: 104.com.tw's search endpoint is behind Cloudflare bot protection and currently returns zero jobs. Area codes: `6001001000` Taipei, `6001002000` New Taipei, `6001016000` Kaohsiung |
 | `aiScout` | see below | Off by default |
 | `notionInbox` | see below | Off by default |
+
+### `sources.franceTravail.contractTypes` and `.experienceLevel`
+
+`contractTypes` is a list of `cdi` / `cdd` / `interim` / `alternance` / `stage`
+(same vocabulary the Settings/onboarding checkboxes use - Settings writes it
+via `searchCriteria.contractTypes`, which only ever touches this key). Empty
+(the default) means no filter, every contract type, exactly today's
+behavior. Selecting `cdi`/`cdd`/`interim` maps to France Travail's own
+`typeContrat` facet; `alternance` maps to its `natureContrat` facet instead
+(apprentissage + professionnalisation - alternance has no `typeContrat` code
+of its own). Because the API ANDs whatever's in one request, "CDI +
+Alternance" together means two requests merged afterwards, not one, so the
+keyword fan-out doubles when both axes are selected at once.
+
+`stage` (internship) has no equivalent anywhere in this API - confirmed
+against its own `/referentiel/typesContrats` (12 codes) and
+`/referentiel/naturesContrats` (19 codes), neither lists anything for
+internships. It stays in the list for UI parity - so the gap is visible
+rather than a checkbox that's quietly missing - but contributes zero France
+Travail results on its own.
+
+`experienceLevel` (`"1"` moins d'un an, `"2"` 1 à 3 ans, `"3"` plus de 3 ans,
+`null` = off by default) is a hard filter on France Travail's `experience`
+facet. It is deliberately not exposed as a UI checkbox: unlike scoring's
+`seniorYears`/`seniorTitle` penalties (which just dock points, see
+[`scoring`](#scoring)), this excludes non-matching results outright, so it
+stays an opt-in, hand-edited setting.
+
+### La Bonne Boîte (spontaneous-application leads) - not implemented
+
+France Travail also publishes "La Bonne Boîte"
+(<https://francetravail.io/produits-partages/catalogue/bonne-boite-v2>,
+mirrored at <https://labonneboite.francetravail.fr/>): companies with a high
+hiring potential for a given trade/area, meant for spontaneous applications.
+It looked like a natural fifth source for this lot, but it needs its own
+subscription, confirmed against the live API with the credentials already in
+`.env`:
+
+- An OAuth token request against the existing `FRANCETRAVAIL_CLIENT_ID`/
+  `_SECRET` app, asking for a La Bonne Boîte scope, is rejected outright by
+  the identity provider (`400 invalid_scope`, `"Unknown/invalid scope(s)"`) -
+  this app has never been granted that scope.
+- A direct request to the plausible La Bonne Boîte endpoints, using a valid
+  Offres d'emploi v2 access token, returns `403`.
+
+To enable it: sign in at <https://francetravail.io>, open your application
+under "Mes démarches" / "Mes applications", and subscribe it to the "La
+Bonne Boîte" product in the catalogue - the same way Offres d'emploi v2 was
+subscribed when this project's `FRANCETRAVAIL_CLIENT_ID` was created. That
+step should surface the exact scope string and endpoint path (francetravail.io's
+catalogue pages are a client-rendered SPA, so they aren't fetchable as plain
+text from outside a logged-in session - this is why the scope name couldn't
+be confirmed ahead of time here). Once subscribed, a fetcher plugs in the
+same way every other source does: a new `lib/sources/labonneboite.ts`
+following `francetravail.ts`'s OAuth pattern (same token endpoint, new
+scope), a `sources.laBonneBoite` config block (keywords/départements, like
+`franceTravail`), registered in `lib/sources/signature.ts`'s `SOURCE_IDS`
+and `lib/sources/refresh.ts`'s `SOURCE_FETCHERS`. Each result should map to
+a `RawJob` with `source: "La Bonne Boîte"`, `title` prefixed something like
+"Candidature spontanée - <métier>", and `url` pointing at the company's La
+Bonne Boîte page, clearly distinguishing it from an actual job posting.
 
 ### `sources.aiScout`
 
