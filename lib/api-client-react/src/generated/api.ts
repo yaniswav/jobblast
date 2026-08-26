@@ -24,6 +24,7 @@ import type {
   AiCredentialStatus,
   AiProviderOption,
   AiTestResult,
+  AnonymousMatchResult,
   Application,
   ApplicationInput,
   ApplicationUpdate,
@@ -44,6 +45,7 @@ import type {
   ListApplicationsParams,
   ListJobsParams,
   LoginRequest,
+  MatchTrialCvFromPdfPayload,
   OnboardingCompleteResult,
   OnboardingStatus,
   Profile,
@@ -53,7 +55,8 @@ import type {
   SaveAiCredentialRequest,
   SettingsState,
   SettingsUpdate,
-  TestAiCredentialRequest
+  TestAiCredentialRequest,
+  TrialCvTextRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -745,6 +748,152 @@ export function useGetLegalInfo<TData = Awaited<ReturnType<typeof getLegalInfo>>
 
 
 
+
+export const getMatchTrialCvUrl = () => {
+
+
+
+
+  return `/api/trial/match`
+}
+
+/**
+ * Public - no session needed, and the whole point of this endpoint is that none is required yet. Deterministic keyword matching only (lib/anonymous-match.ts); never an AI call. The CV text is processed entirely in memory for this one request - never written to the database, to disk, or to a log line. Rate limited by IP (5 per day, shared with POST /trial/match/pdf). Returns the 2 best-matching postings from the shared pool, without their application URL (that stays a reason to create an account), plus how many postings above the relevance threshold exist in the scanned slice of the pool.
+ * @summary Anonymous CV-to-postings trial match from pasted text (SaaS mode only)
+ */
+export const matchTrialCv = async (trialCvTextRequest: TrialCvTextRequest, options?: Parameters<typeof customFetch>[1]): Promise<AnonymousMatchResult> => {
+
+  return customFetch<AnonymousMatchResult>(getMatchTrialCvUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trialCvTextRequest)
+  }
+);}
+
+
+
+
+
+export const getMatchTrialCvMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof matchTrialCv>>, TError,{data: BodyType<TrialCvTextRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof matchTrialCv>>, TError,{data: BodyType<TrialCvTextRequest>}, TContext> => {
+
+const mutationKey = ['matchTrialCv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof matchTrialCv>>, {data: BodyType<TrialCvTextRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  matchTrialCv(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MatchTrialCvMutationResult = NonNullable<Awaited<ReturnType<typeof matchTrialCv>>>
+    export type MatchTrialCvMutationBody = BodyType<TrialCvTextRequest>
+    export type MatchTrialCvMutationError = ErrorType<Error>
+
+    /**
+ * @summary Anonymous CV-to-postings trial match from pasted text (SaaS mode only)
+ */
+export const useMatchTrialCv = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof matchTrialCv>>, TError,{data: BodyType<TrialCvTextRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof matchTrialCv>>,
+        TError,
+        {data: BodyType<TrialCvTextRequest>},
+        TContext
+      > => {
+      return useMutation(getMatchTrialCvMutationOptions(options));
+    }
+
+export const getMatchTrialCvFromPdfUrl = () => {
+
+
+
+
+  return `/api/trial/match/pdf`
+}
+
+/**
+ * Same as POST /trial/match, but the CV is a PDF (up to 5MB), extracted to text in memory under a bounded timeout and never saved anywhere - see lib/pdf-text.ts's extractPdfTextFromBufferWithTimeout. Shares the same per-IP daily rate-limit budget as the text endpoint.
+ * @summary Anonymous CV-to-postings trial match from an uploaded PDF (SaaS mode only)
+ */
+export const matchTrialCvFromPdf = async (matchTrialCvFromPdfPayload: MatchTrialCvFromPdfPayload, options?: Parameters<typeof customFetch>[1]): Promise<AnonymousMatchResult> => {
+    const formData = new FormData();
+formData.append(`file`, matchTrialCvFromPdfPayload.file);
+
+  return customFetch<AnonymousMatchResult>(getMatchTrialCvFromPdfUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getMatchTrialCvFromPdfMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof matchTrialCvFromPdf>>, TError,{data: BodyType<MatchTrialCvFromPdfPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof matchTrialCvFromPdf>>, TError,{data: BodyType<MatchTrialCvFromPdfPayload>}, TContext> => {
+
+const mutationKey = ['matchTrialCvFromPdf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof matchTrialCvFromPdf>>, {data: BodyType<MatchTrialCvFromPdfPayload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  matchTrialCvFromPdf(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MatchTrialCvFromPdfMutationResult = NonNullable<Awaited<ReturnType<typeof matchTrialCvFromPdf>>>
+    export type MatchTrialCvFromPdfMutationBody = BodyType<MatchTrialCvFromPdfPayload>
+    export type MatchTrialCvFromPdfMutationError = ErrorType<Error>
+
+    /**
+ * @summary Anonymous CV-to-postings trial match from an uploaded PDF (SaaS mode only)
+ */
+export const useMatchTrialCvFromPdf = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof matchTrialCvFromPdf>>, TError,{data: BodyType<MatchTrialCvFromPdfPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof matchTrialCvFromPdf>>,
+        TError,
+        {data: BodyType<MatchTrialCvFromPdfPayload>},
+        TContext
+      > => {
+      return useMutation(getMatchTrialCvFromPdfMutationOptions(options));
+    }
 
 export const getGetAccountExportUrl = () => {
 

@@ -44,6 +44,12 @@ const PUBLIC_PATHS = new Set([
   // The operator's identity and data policy (routes/legal.ts): has to be
   // reachable from the login screen, before anyone has signed in.
   "/legal",
+  // The anonymous CV-to-postings trial (lot H1, routes/trial.ts): the whole
+  // point is a taste of the product before signing up, so no session can be
+  // required here. The CSRF origin check above still applies to both, since
+  // it runs ahead of this allowlist for every unsafe method.
+  "/trial/match",
+  "/trial/match/pdf",
 ]);
 
 function isPublic(path: string): boolean {

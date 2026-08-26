@@ -11,6 +11,7 @@ import documentsRouter from "./documents";
 import settingsRouter from "./settings";
 import accountRouter from "./account";
 import legalRouter from "./legal";
+import trialRouter from "./trial";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(documentsRouter);
 router.use(settingsRouter);
 router.use(accountRouter);
 router.use(legalRouter);
+router.use(trialRouter);
 
 export default router;

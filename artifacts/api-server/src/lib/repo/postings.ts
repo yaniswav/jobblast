@@ -279,6 +279,40 @@ export async function addUserPostings(
  * in the PLATFORM_SCOPED allowlist of lib/scoping.test.ts, so adding another
  * one is a deliberate edit to that test rather than an oversight.
  */
+/**
+ * A bounded, most-recent slice of the shared pool for the anonymous trial
+ * matcher (routes/trial.ts, lib/anonymous-match.ts). Platform-wide by
+ * nature, exactly like `upsertPostings` above: an anonymous visitor has no
+ * account to scope this by, and showing a taste of the pool before signup
+ * exists is the entire point of that endpoint. Read-only and bounded by
+ * `limit` so a public, rate-limited-per-IP-but-not-per-account request can
+ * never trigger an unbounded table scan. Named in lib/scoping.test.ts's
+ * PLATFORM_SCOPED allowlist alongside `upsertPostings`.
+ */
+export async function listPostingsForAnonymousMatch(limit: number): Promise<AnonymousPostingCandidate[]> {
+  return db
+    .select({
+      id: postingsTable.id,
+      title: postingsTable.title,
+      company: postingsTable.company,
+      location: postingsTable.location,
+      workMode: postingsTable.workMode,
+      description: postingsTable.description,
+    })
+    .from(postingsTable)
+    .orderBy(desc(postingsTable.lastSeenAt))
+    .limit(limit);
+}
+
+export type AnonymousPostingCandidate = {
+  id: number;
+  title: string;
+  company: string;
+  location: string;
+  workMode: string;
+  description: string;
+};
+
 export async function upsertPostings(postings: InsertPosting[]): Promise<number> {
   if (postings.length === 0) return 0;
   // De-dupe within the batch: `on conflict do update` cannot touch the same

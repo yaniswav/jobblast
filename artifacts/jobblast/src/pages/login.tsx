@@ -132,9 +132,19 @@ export default function Login({ emailEnabled }: { emailEnabled: boolean }) {
               {mode === 'signIn' ? t('auth.switchToRegister') : t('auth.switchToSignIn')}
             </button>
 
-            {/* A plain anchor, not a wouter <Link>: this screen renders
-                outside the router (see App.tsx's AuthGate), since nobody is
-                signed in yet. */}
+            {/* Plain anchors, not wouter <Link>s: this screen renders outside
+                the router (see App.tsx's AuthGate), since nobody is signed in
+                yet. The trial link (lot H1) leads to pages/try.tsx, which
+                AuthGate special-cases the same way it does /forgot and
+                /reset. */}
+            <a
+              href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/try`}
+              className="text-center text-sm text-gray-600 underline underline-offset-4"
+              data-testid="link-try-anonymous"
+            >
+              {t('auth.tryLinkLabel')}
+            </a>
+
             <a
               href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/privacy`}
               className="text-center text-xs text-gray-400 underline underline-offset-4"

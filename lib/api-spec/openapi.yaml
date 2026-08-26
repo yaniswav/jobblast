@@ -30,6 +30,8 @@ tags:
     description: Operator identity and data policy (SaaS mode only)
   - name: account
     description: GDPR account rights - data export and deletion (SaaS mode only)
+  - name: trial
+    description: Anonymous CV-to-postings trial funnel, no account needed (SaaS mode only)
 paths:
   /auth/session:
     get:
@@ -240,6 +242,93 @@ paths:
                 $ref: "#/components/schemas/LegalInfo"
         "404":
           description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /trial/match:
+    post:
+      operationId: matchTrialCv
+      tags: [trial]
+      summary: Anonymous CV-to-postings trial match from pasted text (SaaS mode only)
+      description: >
+        Public - no session needed, and the whole point of this endpoint is
+        that none is required yet. Deterministic keyword matching only
+        (lib/anonymous-match.ts); never an AI call. The CV text is processed
+        entirely in memory for this one request - never written to the
+        database, to disk, or to a log line. Rate limited by IP (5 per day,
+        shared with POST /trial/match/pdf). Returns the 2 best-matching
+        postings from the shared pool, without their application URL (that
+        stays a reason to create an account), plus how many postings above
+        the relevance threshold exist in the scanned slice of the pool.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrialCvTextRequest"
+      responses:
+        "200":
+          description: Best matches from the shared pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnonymousMatchResult"
+        "400":
+          description: Missing, empty or oversized CV text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Too many trial attempts from this IP today
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /trial/match/pdf:
+    post:
+      operationId: matchTrialCvFromPdf
+      tags: [trial]
+      summary: Anonymous CV-to-postings trial match from an uploaded PDF (SaaS mode only)
+      description: >
+        Same as POST /trial/match, but the CV is a PDF (up to 5MB), extracted
+        to text in memory under a bounded timeout and never saved anywhere -
+        see lib/pdf-text.ts's extractPdfTextFromBufferWithTimeout. Shares the
+        same per-IP daily rate-limit budget as the text endpoint.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MatchTrialCvFromPdfPayload"
+      responses:
+        "200":
+          description: Best matches from the shared pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnonymousMatchResult"
+        "400":
+          description: Missing/invalid PDF, or extraction failed or timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not available on a self-hosted install
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Too many trial attempts from this IP today
           content:
             application/json:
               schema:
@@ -1369,6 +1458,70 @@ components:
         - filename
         - sizeBytes
         - uploadedAt
+    TrialCvTextRequest:
+      type: object
+      properties:
+        cvText:
+          type: string
+          description: Pasted CV text, up to ~50KB. Never stored - see POST /trial/match.
+      required:
+        - cvText
+    MatchTrialCvFromPdfPayload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+        - file
+    AnonymousMatchCard:
+      type: object
+      description: >
+        A shared posting stripped down to what is safe to show a visitor with
+        no account: no application URL (that stays a reason to sign up), no
+        posting id.
+      properties:
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        workMode:
+          type: string
+        relevanceScore:
+          type: number
+        descriptionExcerpt:
+          type: string
+      required:
+        - title
+        - company
+        - location
+        - workMode
+        - relevanceScore
+        - descriptionExcerpt
+    AnonymousMatchResult:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnonymousMatchCard"
+        totalMatches:
+          description: >
+            How many postings in the scanned slice of the pool cleared the
+            relevance threshold, including the ones in `matches`.
+          type: number
+        poolTooSmall:
+          description: >
+            True when there were not enough good matches to show honestly -
+            the frontend should show "the pool is still starting" rather than
+            force weak results onto the card. `matches` is empty in that case.
+          type: boolean
+      required:
+        - matches
+        - totalMatches
+        - poolTooSmall
     AiProviderId:
       type: string
       description: Matches `ai.provider` in jobblast.config.json (lib/config.ts AI_PROVIDERS).

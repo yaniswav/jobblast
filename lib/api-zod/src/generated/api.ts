@@ -138,6 +138,50 @@ export const GetLegalInfoResponse = zod.object({
 
 
 /**
+ * Public - no session needed, and the whole point of this endpoint is that none is required yet. Deterministic keyword matching only (lib/anonymous-match.ts); never an AI call. The CV text is processed entirely in memory for this one request - never written to the database, to disk, or to a log line. Rate limited by IP (5 per day, shared with POST /trial/match/pdf). Returns the 2 best-matching postings from the shared pool, without their application URL (that stays a reason to create an account), plus how many postings above the relevance threshold exist in the scanned slice of the pool.
+ * @summary Anonymous CV-to-postings trial match from pasted text (SaaS mode only)
+ */
+export const MatchTrialCvBody = zod.object({
+  "cvText": zod.string().describe('Pasted CV text, up to ~50KB. Never stored - see POST \/trial\/match.')
+})
+
+export const MatchTrialCvResponse = zod.object({
+  "matches": zod.array(zod.object({
+  "title": zod.string(),
+  "company": zod.string(),
+  "location": zod.string(),
+  "workMode": zod.string(),
+  "relevanceScore": zod.number(),
+  "descriptionExcerpt": zod.string()
+}).describe('A shared posting stripped down to what is safe to show a visitor with no account: no application URL (that stays a reason to sign up), no posting id.\n')),
+  "totalMatches": zod.number().describe('How many postings in the scanned slice of the pool cleared the relevance threshold, including the ones in `matches`.\n'),
+  "poolTooSmall": zod.boolean().describe('True when there were not enough good matches to show honestly - the frontend should show \"the pool is still starting\" rather than force weak results onto the card. `matches` is empty in that case.\n')
+})
+
+
+/**
+ * Same as POST /trial/match, but the CV is a PDF (up to 5MB), extracted to text in memory under a bounded timeout and never saved anywhere - see lib/pdf-text.ts's extractPdfTextFromBufferWithTimeout. Shares the same per-IP daily rate-limit budget as the text endpoint.
+ * @summary Anonymous CV-to-postings trial match from an uploaded PDF (SaaS mode only)
+ */
+export const MatchTrialCvFromPdfBody = zod.object({
+  "file": zod.instanceof(File)
+})
+
+export const MatchTrialCvFromPdfResponse = zod.object({
+  "matches": zod.array(zod.object({
+  "title": zod.string(),
+  "company": zod.string(),
+  "location": zod.string(),
+  "workMode": zod.string(),
+  "relevanceScore": zod.number(),
+  "descriptionExcerpt": zod.string()
+}).describe('A shared posting stripped down to what is safe to show a visitor with no account: no application URL (that stays a reason to sign up), no posting id.\n')),
+  "totalMatches": zod.number().describe('How many postings in the scanned slice of the pool cleared the relevance threshold, including the ones in `matches`.\n'),
+  "poolTooSmall": zod.boolean().describe('True when there were not enough good matches to show honestly - the frontend should show \"the pool is still starting\" rather than force weak results onto the card. `matches` is empty in that case.\n')
+})
+
+
+/**
  * GDPR portability: profile, settings (no AI keys), applications, postings, interview briefs and document metadata. Document bytes are excluded - each entry links to the existing per-document endpoint instead, so nothing here duplicates the file store.
  * @summary Full data export for the signed-in account (SaaS mode only)
  */

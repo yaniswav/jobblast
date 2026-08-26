@@ -346,6 +346,28 @@ export const en = {
   'auth.resetSuccessNotice': 'Password changed. Every device signed in to this account has been signed out.',
   'auth.resetMissingToken': 'This link is missing its token. Request a new one.',
   'auth.resetFailed': 'This reset link is invalid, expired or has already been used.',
+  'auth.tryLinkLabel': 'Try it with your CV, no account needed',
+
+  // Anonymous trial (SaaS mode only; H1 lot). Reached from the login screen,
+  // before anyone has signed in - see App.tsx's AuthGate and pages/try.tsx.
+  'try.title': 'See your matches first',
+  'try.subtitle': 'Paste your CV or upload a PDF. No account, no commitment.',
+  'try.privacyNotice': 'Your CV is not stored and is not sent to any AI. It is only compared, in memory, against this instance’s current job postings for this one request.',
+  'try.textareaPlaceholder': 'Paste your CV text here…',
+  'try.uploadPdfLabel': 'Or upload a PDF instead',
+  'try.clearFile': 'Remove',
+  'try.submitButton': 'See my matches',
+  'try.working': 'Matching…',
+  'try.errorPdfOnly': 'Only PDF files are accepted.',
+  'try.errorInvalidCv': 'Could not read that CV. Try pasting more text, or a different PDF.',
+  'try.errorRateLimited': 'You have used today’s free tries on this connection. Come back tomorrow, or create an account.',
+  'try.errorGeneric': 'Something went wrong. Try again.',
+  'try.matchScore': '{score}% match',
+  'try.moreMatches': '+{count} more relevant postings waiting for you',
+  'try.poolTooSmall': 'This instance’s job pool is still starting, or nothing here matches this CV closely yet. Create an account to run a full, ongoing search.',
+  'try.signupPitch': 'JobBlast keeps searching, scoring and preparing your applications in the background. Registration is invite only for now - ask whoever shared this instance with you for a code.',
+  'try.createAccountButton': 'Create an account',
+  'try.tryAnother': 'Try another CV',
 
   // Onboarding wizard (SaaS mode only; G1 lot). Shown to a new account until
   // it presses "Finish" on the last step.

@@ -21,3 +21,34 @@ export async function extractPdfTextFromBuffer(buffer: Buffer): Promise<string> 
   const { text } = await extractText(pdf, { mergePages: true });
   return text;
 }
+
+export class PdfExtractionTimeoutError extends Error {
+  constructor() {
+    super("PDF text extraction timed out");
+    this.name = "PdfExtractionTimeoutError";
+  }
+}
+
+/**
+ * Same extraction, bounded by a wall-clock timeout. Used by the anonymous
+ * trial endpoint (routes/trial.ts), which runs against a completely
+ * unauthenticated, unrate-limited-by-account upload: a pathological PDF must
+ * not be able to tie up a worker on that public path. The authenticated
+ * `/documents/:type` upload (routes/documents.ts) keeps calling the plain
+ * function above unchanged - that caller is a signed-in account uploading
+ * its own file, not the surface this hardening is for.
+ */
+export async function extractPdfTextFromBufferWithTimeout(
+  buffer: Buffer,
+  timeoutMs: number,
+): Promise<string> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new PdfExtractionTimeoutError()), timeoutMs);
+  });
+  try {
+    return await Promise.race([extractPdfTextFromBuffer(buffer), timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}

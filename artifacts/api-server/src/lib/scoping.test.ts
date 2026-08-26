@@ -55,7 +55,13 @@ describe("route files never query the database directly", () => {
 });
 
 /** `<file>:<function>` pairs that act on platform-wide data, never on one account. */
-const PLATFORM_SCOPED = new Set(["postings.ts:upsertPostings"]);
+const PLATFORM_SCOPED = new Set([
+  "postings.ts:upsertPostings",
+  // The anonymous trial matcher (routes/trial.ts) reads a bounded slice of
+  // the pool before anyone has an account to scope by - see the doc comment
+  // on listPostingsForAnonymousMatch in repo/postings.ts.
+  "postings.ts:listPostingsForAnonymousMatch",
+]);
 
 describe("every repository function is scoped by account", () => {
   const files = sourceFiles(REPO_DIR);

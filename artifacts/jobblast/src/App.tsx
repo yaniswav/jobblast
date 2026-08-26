@@ -10,6 +10,7 @@ import Dashboard from '@/pages/dashboard';
 import Login from '@/pages/login';
 import ForgotPassword from '@/pages/forgot-password';
 import ResetPassword from '@/pages/reset-password';
+import Try from '@/pages/try';
 import Onboarding from '@/pages/onboarding';
 import Review from '@/pages/review';
 import Applications from '@/pages/applications';
@@ -60,6 +61,11 @@ function AuthGate({ children }: { children: ReactNode }) {
     const path = window.location.pathname.replace(import.meta.env.BASE_URL.replace(/\/$/, ''), '') || '/';
     if (path === '/forgot') return <ForgotPassword emailEnabled={session.data.emailEnabled} />;
     if (path === '/reset') return <ResetPassword emailEnabled={session.data.emailEnabled} />;
+    // The anonymous trial (lot H1, pages/try.tsx): reachable from the login
+    // screen's "try it with your CV" link without ever needing a session -
+    // GET /auth/session still reports mode: 'saas' with no user, exactly
+    // like every other screen in this branch.
+    if (path === '/try') return <Try />;
     return <Login emailEnabled={session.data.emailEnabled} />;
   }
 

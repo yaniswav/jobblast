@@ -349,6 +349,29 @@ export const fr: Record<keyof typeof en, string> = {
   'auth.resetSuccessNotice': "Mot de passe modifié. Tous les appareils connectés à ce compte ont été déconnectés.",
   'auth.resetMissingToken': "Ce lien n'a pas de jeton. Demandez-en un nouveau.",
   'auth.resetFailed': 'Ce lien de réinitialisation est invalide, expiré ou déjà utilisé.',
+  'auth.tryLinkLabel': 'Essaie avec ton CV, sans compte',
+
+  // Essai anonyme (mode SaaS uniquement ; lot H1). Accessible depuis l'écran
+  // de connexion, avant toute inscription - voir App.tsx (AuthGate) et
+  // pages/try.tsx.
+  'try.title': 'Découvre tes offres avant de créer un compte',
+  'try.subtitle': 'Colle ton CV ou envoie un PDF. Sans compte, sans engagement.',
+  'try.privacyNotice': "Ton CV n'est ni stocké ni transmis à une IA. Il est uniquement comparé, en mémoire, aux offres actuelles de cette instance pour cette seule requête.",
+  'try.textareaPlaceholder': 'Colle le texte de ton CV ici…',
+  'try.uploadPdfLabel': 'Ou envoie un PDF à la place',
+  'try.clearFile': 'Retirer',
+  'try.submitButton': 'Voir mes offres',
+  'try.working': 'Recherche en cours…',
+  'try.errorPdfOnly': 'Seuls les fichiers PDF sont acceptés.',
+  'try.errorInvalidCv': "Impossible de lire ce CV. Colle plus de texte, ou essaie un autre PDF.",
+  'try.errorRateLimited': "Tu as utilisé tous tes essais gratuits du jour depuis cette connexion. Reviens demain, ou crée un compte.",
+  'try.errorGeneric': 'Une erreur est survenue. Réessaie.',
+  'try.matchScore': '{score} % de correspondance',
+  'try.moreMatches': "+{count} autres offres pertinentes t'attendent",
+  'try.poolTooSmall': "Le pool d'offres de cette instance démarre encore, ou rien ne correspond de près à ce CV pour le moment. Crée un compte pour lancer une recherche complète et continue.",
+  'try.signupPitch': "JobBlast continue de chercher, noter et préparer tes candidatures en arrière-plan. L'inscription se fait sur invitation pour le moment - demande un code à la personne qui t'a partagé cette instance.",
+  'try.createAccountButton': 'Créer un compte',
+  'try.tryAnother': 'Essayer un autre CV',
 
   // Parcours d'onboarding (mode SaaS uniquement ; lot G1). Affiché à un
   // nouveau compte jusqu'à ce qu'il valide "Terminer" sur la dernière étape.

@@ -292,6 +292,35 @@ export interface DocumentUploadResult {
   resumeUpdated?: boolean;
 }
 
+export interface TrialCvTextRequest {
+  /** Pasted CV text, up to ~50KB. Never stored - see POST /trial/match. */
+  cvText: string;
+}
+
+export interface MatchTrialCvFromPdfPayload {
+  file: Blob;
+}
+
+/**
+ * A shared posting stripped down to what is safe to show a visitor with no account: no application URL (that stays a reason to sign up), no posting id.
+ */
+export interface AnonymousMatchCard {
+  title: string;
+  company: string;
+  location: string;
+  workMode: string;
+  relevanceScore: number;
+  descriptionExcerpt: string;
+}
+
+export interface AnonymousMatchResult {
+  matches: AnonymousMatchCard[];
+  /** How many postings in the scanned slice of the pool cleared the relevance threshold, including the ones in `matches`. */
+  totalMatches: number;
+  /** True when there were not enough good matches to show honestly - the frontend should show "the pool is still starting" rather than force weak results onto the card. `matches` is empty in that case. */
+  poolTooSmall: boolean;
+}
+
 /**
  * Matches `ai.provider` in jobblast.config.json (lib/config.ts AI_PROVIDERS).
  */
