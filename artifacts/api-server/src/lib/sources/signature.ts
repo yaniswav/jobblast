@@ -21,8 +21,14 @@
 
 import { createHash } from "node:crypto";
 import type { JobBlastConfig } from "../config";
+import { mergeCompanyBoards } from "./companies";
 
-/** Source ids, matching the `sources.*` keys in the config. */
+/**
+ * Source ids. Most match a `sources.*` key in the config; the six Company
+ * Watch ATSs beyond Greenhouse/Lever (lot H2) have no `sources.*` entry of
+ * their own - "enabled" for them just means "this account watches at least
+ * one company on that ATS" (see sourceQueries() below).
+ */
 export const SOURCE_IDS = [
   "franceTravail",
   "greenhouse",
@@ -38,6 +44,12 @@ export const SOURCE_IDS = [
   "arbeitnow",
   "notionInbox",
   "aiScout",
+  "smartrecruiters",
+  "ashby",
+  "workable",
+  "recruitee",
+  "personio",
+  "workday",
 ] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -88,6 +100,20 @@ export function signatureOf(source: string, params: Record<string, unknown>): st
   return createHash("sha256").update(`${source}|${canonicalize(params)}`).digest("hex").slice(0, 32);
 }
 
+/** The six Company Watch ATSs beyond Greenhouse/Lever - see sourceQueries() below. */
+const COMPANY_WATCH_ATS_IDS = ["smartrecruiters", "ashby", "workable", "recruitee", "personio", "workday"] as const;
+
+function companyWatchQueries(config: JobBlastConfig): Array<{
+  source: SourceId;
+  enabled: boolean;
+  params: Record<string, unknown>;
+}> {
+  return COMPANY_WATCH_ATS_IDS.map((ats) => {
+    const boards = config.watchedCompanies.filter((c) => c.ats === ats).map((c) => c.board);
+    return { source: ats, enabled: boards.length > 0, params: { boards } };
+  });
+}
+
 /**
  * The fetch-affecting parameters of every source this config has enabled.
  *
@@ -109,14 +135,24 @@ export function sourceQueries(config: JobBlastConfig): SourceQuery[] {
     },
     {
       source: "greenhouse",
-      enabled: sources.greenhouse.enabled,
+      // Also enabled by a watched company on Greenhouse, even when the
+      // hand-curated board list itself is switched off (lot H2).
+      enabled: sources.greenhouse.enabled || config.watchedCompanies.some((c) => c.ats === "greenhouse"),
       // Only the board slugs reach the network; `name` is a display label.
-      params: { boards: sources.greenhouse.boards.map((board) => board.slug) },
+      // Includes watched companies - two accounts sharing the exact same
+      // hand-curated list plus watchlist still share one fetch.
+      params: {
+        boards: mergeCompanyBoards(sources.greenhouse.boards, "greenhouse", config.watchedCompanies).map(
+          (board) => board.slug,
+        ),
+      },
     },
     {
       source: "lever",
-      enabled: sources.lever.enabled,
-      params: { boards: sources.lever.boards.map((board) => board.slug) },
+      enabled: sources.lever.enabled || config.watchedCompanies.some((c) => c.ats === "lever"),
+      params: {
+        boards: mergeCompanyBoards(sources.lever.boards, "lever", config.watchedCompanies).map((board) => board.slug),
+      },
     },
     {
       source: "adzuna",
@@ -173,6 +209,14 @@ export function sourceQueries(config: JobBlastConfig): SourceQuery[] {
         effortLevel: sources.aiScout.effortLevel,
       },
     },
+    // The six Company Watch ATSs beyond Greenhouse/Lever (lot H2): no
+    // `sources.*` boolean of their own, "enabled" is simply "this account
+    // watches at least one company on that ATS". Params are that ATS's
+    // watched board ids, so two accounts watching the exact same set of
+    // companies on one ATS share a fetch, same tradeoff as Greenhouse/Lever's
+    // hand-curated lists above (an account watching a different combination
+    // still gets its own fetch, rather than fetching per company).
+    ...companyWatchQueries(config),
   ];
 
   return queries

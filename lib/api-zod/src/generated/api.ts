@@ -826,6 +826,47 @@ export const DeleteAiCredentialResponse = zod.void()
 
 
 /**
+ * @summary List the companies this account watches for new postings (Company Watch)
+ */
+export const ListWatchedCompaniesResponseItem = zod.object({
+  "id": zod.string(),
+  "url": zod.string().describe('The career page URL that was pasted in.'),
+  "ats": zod.enum(['greenhouse', 'lever', 'smartrecruiters', 'ashby', 'workable', 'recruitee', 'personio', 'workday']).describe('Applicant tracking systems Company Watch knows how to poll (lib\/sources\/ats\/).'),
+  "board": zod.string().describe('ATS-specific board\/account identifier the adapter\'s endpoint uses.'),
+  "label": zod.string().describe('Display name, derived from the URL when added.'),
+  "addedAt": zod.coerce.date()
+}).describe('One company an account watches for new postings (Company Watch, lot H2).')
+export const ListWatchedCompaniesResponse = zod.array(ListWatchedCompaniesResponseItem)
+
+
+/**
+ * @summary Add a company to watch by its career page URL - detects the ATS and board
+ */
+export const AddWatchedCompanyBody = zod.object({
+  "url": zod.string().describe('The company\'s career page URL.')
+})
+
+export const AddWatchedCompanyResponse = zod.object({
+  "id": zod.string(),
+  "url": zod.string().describe('The career page URL that was pasted in.'),
+  "ats": zod.enum(['greenhouse', 'lever', 'smartrecruiters', 'ashby', 'workable', 'recruitee', 'personio', 'workday']).describe('Applicant tracking systems Company Watch knows how to poll (lib\/sources\/ats\/).'),
+  "board": zod.string().describe('ATS-specific board\/account identifier the adapter\'s endpoint uses.'),
+  "label": zod.string().describe('Display name, derived from the URL when added.'),
+  "addedAt": zod.coerce.date()
+}).describe('One company an account watches for new postings (Company Watch, lot H2).')
+
+
+/**
+ * @summary Stop watching a company
+ */
+export const RemoveWatchedCompanyParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RemoveWatchedCompanyResponse = zod.void()
+
+
+/**
  * Pass `apiKey` to test a candidate value before saving it - never persisted by this endpoint, saving is always the separate PUT. Omit it to test the already-saved key, which also records last_ok_at / last_error on it.
  * @summary Make one small real call to a BYOK provider with the given or stored key (SaaS mode only)
  */

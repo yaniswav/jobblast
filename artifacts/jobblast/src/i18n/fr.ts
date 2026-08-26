@@ -272,6 +272,21 @@ export const fr = {
   'settings.searchCriteriaSectionSubtitle': "Ce qui est récupéré, et comment c'est noté pour vous. Mêmes champs que l'onboarding.",
   'settings.searchCriteriaSaveButton': 'Enregistrer les critères',
 
+  // Section entreprises suivies (les deux modes - lot H2)
+  'settings.companyWatchSectionTitle': 'Entreprises suivies',
+  'settings.companyWatchSectionSubtitle':
+    "Collez l'URL de la page carrière d'une entreprise. Nous détectons l'ATS et l'ajoutons à votre veille.",
+  'settings.companyWatchUrlLabel': 'URL de la page carrière',
+  'settings.companyWatchUrlPlaceholder': 'https://boards.greenhouse.io/acme',
+  'settings.companyWatchAddButton': 'Suivre cette entreprise',
+  'settings.companyWatchAdding': 'Ajout...',
+  'settings.companyWatchEmpty': 'Aucune entreprise suivie pour le moment.',
+  'settings.companyWatchRemoveButton': 'Retirer',
+  'settings.companyWatchToastAdded': 'Vous suivez maintenant {label}.',
+  'settings.companyWatchToastAddFailed': "Impossible d'ajouter cette entreprise.",
+  'settings.companyWatchToastRemoved': 'Vous ne suivez plus {label}.',
+  'settings.companyWatchToastRemoveFailed': 'Impossible de retirer cette entreprise.',
+
   // Section BYOK (mode SaaS uniquement) : clés API des fournisseurs d'IA
   'settings.byokSectionTitle': 'Vos clés API',
   'settings.byokSectionSubtitle': "Utilisez votre propre clé pour chaque fournisseur. Elle est chiffrée et n'est plus jamais affichée après l'enregistrement.",

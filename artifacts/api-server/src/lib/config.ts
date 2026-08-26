@@ -63,6 +63,42 @@ const CompanyBoardSchema = z.object({
 });
 export type CompanyBoardConfig = z.infer<typeof CompanyBoardSchema>;
 
+/**
+ * ATS platforms the Company Watch feature (lib/sources/ats/) knows how to
+ * poll. Greenhouse and Lever reuse the existing board fetchers (see
+ * lib/sources/companies.ts's mergeCompanyBoards); the other six are new
+ * adapters, one file each under lib/sources/ats/.
+ */
+export const ATS_IDS = [
+  "greenhouse",
+  "lever",
+  "smartrecruiters",
+  "ashby",
+  "workable",
+  "recruitee",
+  "personio",
+  "workday",
+] as const;
+export type AtsId = (typeof ATS_IDS)[number];
+
+/**
+ * One company an account has asked to watch, added by pasting its career
+ * page URL (lib/sources/ats/detect.ts identifies `ats` + `board` from it).
+ * `board` is the ATS-specific identifier the adapter's endpoint needs - a
+ * plain slug for most ATSs, `"<tenant>/<wdNumber>/<site>"` for Workday and
+ * `"<subdomain>.<tld>"` for Personio (both encode more than one piece of the
+ * URL into this one field rather than growing the schema per-ATS).
+ */
+const WatchedCompanySchema = z.object({
+  id: z.string().min(1),
+  url: z.string().min(1),
+  ats: z.enum(ATS_IDS),
+  board: z.string().min(1),
+  label: z.string().min(1),
+  addedAt: z.string().default(() => new Date().toISOString()),
+});
+export type WatchedCompanyConfig = z.infer<typeof WatchedCompanySchema>;
+
 // ---------------------------------------------------------------------------
 // Defaults
 //
@@ -487,6 +523,13 @@ export const JobBlastConfigSchema = z
     candidate: CandidateSchema,
     scoring: ScoringSchema,
     sources: SourcesSchema,
+    /**
+     * Company Watch (docs/SAAS-ARCHITECTURE.md-style shared refresh, lot H2):
+     * companies this account asked to be watched by career-page URL, one
+     * entry per company. Populated via POST /settings/companies, never
+     * hand-edited. See lib/sources/ats/.
+     */
+    watchedCompanies: z.array(WatchedCompanySchema).default([]),
     ai: AiSchema,
     gmailSync: GmailSyncSchema,
     /**

@@ -18,7 +18,15 @@ export type JobSourceName =
   | "Remotive"
   | "Arbeitnow"
   | "AI Scout"
-  | "Notion Inbox";
+  | "Notion Inbox"
+  // Company Watch (lot H2, lib/sources/ats/): six ATSs beyond Greenhouse/
+  // Lever, which reuse the two names above instead of getting their own.
+  | "ats:smartrecruiters"
+  | "ats:ashby"
+  | "ats:workable"
+  | "ats:recruitee"
+  | "ats:personio"
+  | "ats:workday";
 
 /** A job listing as fetched from a source, before scoring/normalization. */
 export type RawJob = {

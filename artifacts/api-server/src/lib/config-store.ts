@@ -34,6 +34,7 @@ import {
   setUserConfig,
   type AiProviderName,
   type JobBlastConfig,
+  type WatchedCompanyConfig,
 } from "./config";
 import { IS_SAAS } from "./mode";
 import { currentUserId } from "./user-context";
@@ -307,4 +308,33 @@ export async function writeAutomations(patch: AutomationsPatch): Promise<Automat
 /** Drops an account's primed config, e.g. after its row changed elsewhere. */
 export function forgetUserConfig(userId: string): void {
   clearUserConfig(userId);
+}
+
+// ---------------------------------------------------------------------------
+// Company Watch (lot H2): companies added via POST /settings/companies.
+// lib/sources/ats/detect.ts identifies `ats` + `board` from the pasted URL;
+// this module only stores/removes the result. The shared refresh reads it
+// back through lib/sources/companies.ts (watchedCompaniesFor / mergeCompanyBoards).
+// ---------------------------------------------------------------------------
+
+export function readWatchedCompanies(): WatchedCompanyConfig[] {
+  return loadConfig().watchedCompanies;
+}
+
+/** Adding the same URL twice is a no-op, not a duplicate row. */
+export async function addWatchedCompany(entry: WatchedCompanyConfig): Promise<WatchedCompanyConfig> {
+  const current = loadConfig().watchedCompanies;
+  const existing = current.find((c) => c.url === entry.url);
+  if (existing) return existing;
+  await writeSettings([{ path: ["watchedCompanies"], value: [...current, entry] }]);
+  return entry;
+}
+
+/** Returns false when no watched company had this id (nothing to delete). */
+export async function removeWatchedCompany(id: string): Promise<boolean> {
+  const current = loadConfig().watchedCompanies;
+  const next = current.filter((c) => c.id !== id);
+  if (next.length === current.length) return false;
+  await writeSettings([{ path: ["watchedCompanies"], value: next }]);
+  return true;
 }

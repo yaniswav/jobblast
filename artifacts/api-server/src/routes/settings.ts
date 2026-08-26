@@ -4,12 +4,17 @@
 // - this file only validates the wire shape, decides whether a requested
 // provider is actually usable on this machine, and calls the store.
 
+import { randomUUID } from "node:crypto";
 import { Router, type IRouter, type Response } from "express";
 import {
+  AddWatchedCompanyBody,
+  AddWatchedCompanyResponse,
   DeleteAiCredentialParams,
   GetSettingsResponse,
   ListAiCredentialsResponse,
   ListAiProviderOptionsResponse,
+  ListWatchedCompaniesResponse,
+  RemoveWatchedCompanyParams,
   SaveAiCredentialBody,
   SaveAiCredentialParams,
   SaveAiCredentialResponse,
@@ -21,9 +26,12 @@ import {
   UpdateSettingsResponse,
 } from "@workspace/api-zod";
 import {
+  addWatchedCompany,
   readAiSettings,
   readAutomations,
   readSearchCriteria,
+  readWatchedCompanies,
+  removeWatchedCompany,
   writeAiSettings,
   writeAutomations,
   writeSearchCriteria,
@@ -31,6 +39,7 @@ import {
 import { listAiProviderOptions } from "../lib/ai/provider-options";
 import { forgetUserProvider, getTextProvider } from "../lib/ai/provider";
 import { testByokCredential } from "../lib/ai/byok-test";
+import { detectAts } from "../lib/sources/ats/detect";
 import { actingUserId } from "../lib/auth/middleware";
 import { BYOK_PROVIDERS } from "../lib/config";
 import { IS_SAAS } from "../lib/mode";
@@ -100,6 +109,55 @@ router.put("/settings", async (req, res): Promise<void> => {
   }
 
   res.json(UpdateSettingsResponse.parse(currentState()));
+});
+
+// ---------------------------------------------------------------------------
+// Company Watch (lot H2): companies followed by career-page URL, one fetch
+// per watched ATS board shared across every account watching it (see
+// lib/sources/signature.ts / lib/sources/companies.ts).
+// ---------------------------------------------------------------------------
+
+router.get("/settings/companies", (_req, res) => {
+  res.json(ListWatchedCompaniesResponse.parse(readWatchedCompanies()));
+});
+
+router.post("/settings/companies", async (req, res): Promise<void> => {
+  const body = AddWatchedCompanyBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const url = body.data.url.trim();
+  const detection = detectAts(url);
+  if (!detection.supported) {
+    res.status(400).json({ error: detection.reason });
+    return;
+  }
+
+  const saved = await addWatchedCompany({
+    id: randomUUID(),
+    url,
+    ats: detection.ats,
+    board: detection.board,
+    label: detection.label,
+    addedAt: new Date().toISOString(),
+  });
+  res.status(201).json(AddWatchedCompanyResponse.parse(saved));
+});
+
+router.delete("/settings/companies/:id", async (req, res): Promise<void> => {
+  const params = RemoveWatchedCompanyParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const removed = await removeWatchedCompany(params.data.id);
+  if (!removed) {
+    res.status(404).json({ error: "No watched company with this id" });
+    return;
+  }
+  res.sendStatus(204);
 });
 
 router.post("/settings/ai/test", async (req, res) => {

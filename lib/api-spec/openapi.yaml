@@ -899,6 +899,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /settings/companies:
+    get:
+      operationId: listWatchedCompanies
+      tags: [settings]
+      summary: List the companies this account watches for new postings (Company Watch)
+      responses:
+        "200":
+          description: Watched companies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WatchedCompany"
+    post:
+      operationId: addWatchedCompany
+      tags: [settings]
+      summary: Add a company to watch by its career page URL - detects the ATS and board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddWatchedCompanyRequest"
+      responses:
+        "201":
+          description: Watched, with the detected ATS and a default label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchedCompany"
+        "400":
+          description: Not a recognized career page URL for any supported ATS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /settings/companies/{id}:
+    delete:
+      operationId: removeWatchedCompany
+      tags: [settings]
+      summary: Stop watching a company
+      parameters:
+        - $ref: "#/components/parameters/WatchedCompanyId"
+      responses:
+        "204":
+          description: Removed
+        "404":
+          description: No watched company with this id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /settings/ai/credentials/{provider}/test:
     post:
       operationId: testAiCredential
@@ -976,6 +1029,12 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/DocumentType"
+    WatchedCompanyId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -1703,6 +1762,45 @@ components:
           $ref: "#/components/schemas/NotionInboxSettingsUpdate"
         searchCriteria:
           $ref: "#/components/schemas/SearchCriteriaSettingsUpdate"
+    AtsId:
+      type: string
+      description: Applicant tracking systems Company Watch knows how to poll (lib/sources/ats/).
+      enum: [greenhouse, lever, smartrecruiters, ashby, workable, recruitee, personio, workday]
+    WatchedCompany:
+      type: object
+      description: One company an account watches for new postings (Company Watch, lot H2).
+      properties:
+        id:
+          type: string
+        url:
+          description: The career page URL that was pasted in.
+          type: string
+        ats:
+          $ref: "#/components/schemas/AtsId"
+        board:
+          description: ATS-specific board/account identifier the adapter's endpoint uses.
+          type: string
+        label:
+          description: Display name, derived from the URL when added.
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - ats
+        - board
+        - label
+        - addedAt
+    AddWatchedCompanyRequest:
+      type: object
+      properties:
+        url:
+          description: The company's career page URL.
+          type: string
+      required:
+        - url
     AiTestResult:
       type: object
       properties:

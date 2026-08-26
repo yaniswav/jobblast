@@ -13,6 +13,12 @@ import { logger } from "../logger";
 import { fetchAdzunaJobs } from "./adzuna";
 import { fetchAiScoutJobs } from "./aiscout";
 import { fetchArbeitnowJobs } from "./arbeitnow";
+import { fetchAshbyJobs } from "./ats/ashby";
+import { fetchPersonioJobs } from "./ats/personio";
+import { fetchRecruiteeJobs } from "./ats/recruitee";
+import { fetchSmartRecruitersJobs } from "./ats/smartrecruiters";
+import { fetchWorkableJobs } from "./ats/workable";
+import { fetchWorkdayJobs } from "./ats/workday";
 import { fetchFranceTravailJobs } from "./francetravail";
 import { fetchGreenhouseJobs } from "./greenhouse";
 import { fetchHimalayasJobs } from "./himalayas";
@@ -120,6 +126,15 @@ const SOURCE_FETCHERS = {
   arbeitnow: { name: "Arbeitnow", fetch: fetchArbeitnowJobs },
   notionInbox: { name: "Notion Inbox", fetch: fetchNotionInboxJobs },
   aiScout: { name: "AI Scout", fetch: fetchAiScoutJobs },
+  // Company Watch (lot H2): Greenhouse and Lever above already include
+  // watched companies via lib/sources/companies.ts; these six are the new
+  // ATSs, each fetching only the companies this account asked to watch.
+  smartrecruiters: { name: "SmartRecruiters", fetch: fetchSmartRecruitersJobs },
+  ashby: { name: "Ashby", fetch: fetchAshbyJobs },
+  workable: { name: "Workable", fetch: fetchWorkableJobs },
+  recruitee: { name: "Recruitee", fetch: fetchRecruiteeJobs },
+  personio: { name: "Personio", fetch: fetchPersonioJobs },
+  workday: { name: "Workday", fetch: fetchWorkdayJobs },
 } satisfies Record<SourceId, { name: string; fetch: () => Promise<RawJob[]> }>;
 
 /** Runs one source under the ambient account's configuration. */
@@ -135,12 +150,16 @@ export function sourceDisplayName(source: SourceId): string {
 async function fetchAllSources(): Promise<RawJob[]> {
   // Which sources run is entirely config-driven (`sources.*.enabled` in
   // jobblast.config.json); their query parameters live there too and are
-  // read by each fetcher.
-  const { sources } = loadConfig();
+  // read by each fetcher. The six Company Watch ATSs beyond Greenhouse/Lever
+  // (lot H2) have no such toggle - they run whenever this account watches at
+  // least one company on that ATS.
+  const cfg = loadConfig();
+  const { sources, watchedCompanies } = cfg;
+  const hasWatched = (ats: (typeof watchedCompanies)[number]["ats"]) => watchedCompanies.some((c) => c.ats === ats);
   const enabled = {
     franceTravail: sources.franceTravail.enabled,
-    greenhouse: sources.greenhouse.enabled,
-    lever: sources.lever.enabled,
+    greenhouse: sources.greenhouse.enabled || hasWatched("greenhouse"),
+    lever: sources.lever.enabled || hasWatched("lever"),
     adzuna: sources.adzuna.enabled,
     yourator: sources.yourator.enabled,
     job104: sources.job104.enabled,
@@ -152,6 +171,12 @@ async function fetchAllSources(): Promise<RawJob[]> {
     arbeitnow: sources.arbeitnow.enabled,
     notionInbox: sources.notionInbox.enabled,
     aiScout: sources.aiScout.enabled,
+    smartrecruiters: hasWatched("smartrecruiters"),
+    ashby: hasWatched("ashby"),
+    workable: hasWatched("workable"),
+    recruitee: hasWatched("recruitee"),
+    personio: hasWatched("personio"),
+    workday: hasWatched("workday"),
   } satisfies Record<SourceId, boolean>;
   const sourceFetchers = SOURCE_IDS.filter((id) => enabled[id]).map((id) => SOURCE_FETCHERS[id]);
 

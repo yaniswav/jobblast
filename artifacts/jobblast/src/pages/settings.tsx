@@ -1,4 +1,4 @@
-import { Download, FlaskConical, KeyRound, Save, Trash2 } from 'lucide-react';
+import { Building2, Download, FlaskConical, KeyRound, Save, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -7,12 +7,16 @@ import {
   getGetAccountExportUrl,
   getGetSettingsQueryKey,
   getListAiCredentialsQueryKey,
+  getListWatchedCompaniesQueryKey,
+  useAddWatchedCompany,
   useDeleteAccount,
   useDeleteAiCredential,
   useGetAuthSession,
   useGetSettings,
   useListAiCredentials,
   useListAiProviderOptions,
+  useListWatchedCompanies,
+  useRemoveWatchedCompany,
   useSaveAiCredential,
   useTestAiCredential,
   useTestAiProvider,
@@ -20,6 +24,7 @@ import {
   type AiCredentialStatus,
   type AiProviderId,
   type AiTestResult,
+  type WatchedCompany,
 } from '@workspace/api-client-react';
 import { ErrorState, LoadingState } from '@/components/app-shell';
 import { SearchCriteriaFields } from '@/components/search-criteria-fields';
@@ -39,6 +44,21 @@ export const PROVIDER_LABELS: Record<string, string> = {
   'openai-compatible': 'OpenAI-compatible',
   ollama: 'Ollama (local)',
   lmstudio: 'LM Studio (local)',
+};
+
+// Cosmetic only, same reasoning as PROVIDER_LABELS above: an `ats` id the
+// backend returns that isn't in this map still renders fine (falls back to
+// the raw id).
+// eslint-disable-next-line anti-slop/no-known-value-widening
+export const ATS_LABELS: Record<string, string> = {
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+  smartrecruiters: 'SmartRecruiters',
+  ashby: 'Ashby',
+  workable: 'Workable',
+  recruitee: 'Recruitee',
+  personio: 'Personio',
+  workday: 'Workday',
 };
 
 export default function Settings() {
@@ -234,6 +254,8 @@ export default function Settings() {
       </section>
 
       <SearchCriteriaSection t={t} />
+
+      <CompanyWatchSection t={t} />
 
       {isSaas && <ByokSection t={t} />}
       {isSaas && <AccountSection t={t} />}
@@ -432,6 +454,136 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
           <Save size={15} /> {update.isPending ? t('settings.savingProvider') : t('settings.searchCriteriaSaveButton')}
         </button>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Company Watch (lot H2): paste a company's career page URL, the backend
+ * detects which ATS it runs on and adds it to the shared refresh. Universal
+ * like SearchCriteriaSection above it - not saas-gated - since watching a
+ * company is meaningful in both modes.
+ */
+function CompanyWatchSection({ t }: { t: ReturnType<typeof useT> }) {
+  const companies = useListWatchedCompanies();
+  const queryClient = useQueryClient();
+  const add = useAddWatchedCompany();
+  const remove = useRemoveWatchedCompany();
+  const [url, setUrl] = useState('');
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListWatchedCompaniesQueryKey() });
+
+  const handleAdd = () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    add.mutate(
+      { data: { url: trimmed } },
+      {
+        onSuccess: (company: WatchedCompany) => {
+          invalidate();
+          setUrl('');
+          toast(t('settings.companyWatchToastAdded', { label: company.label }));
+        },
+        onError: (err) =>
+          toast(err instanceof Error && err.message ? err.message : t('settings.companyWatchToastAddFailed')),
+      },
+    );
+  };
+
+  const handleRemove = (company: WatchedCompany) => {
+    remove.mutate(
+      { id: company.id },
+      {
+        onSuccess: () => {
+          invalidate();
+          toast(t('settings.companyWatchToastRemoved', { label: company.label }));
+        },
+        onError: () => toast(t('settings.companyWatchToastRemoveFailed')),
+      },
+    );
+  };
+
+  return (
+    <section className="surface p-6 mt-5">
+      <div className="section-heading">
+        <div>
+          <h2>{t('settings.companyWatchSectionTitle')}</h2>
+          <p>{t('settings.companyWatchSectionSubtitle')}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end mt-4">
+        <div>
+          <label className="label" htmlFor="company-watch-url">
+            {t('settings.companyWatchUrlLabel')}
+          </label>
+          <input
+            id="company-watch-url"
+            className="input"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                handleAdd();
+              }
+            }}
+            placeholder={t('settings.companyWatchUrlPlaceholder')}
+            data-testid="input-company-url"
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleAdd}
+          disabled={add.isPending || !url.trim()}
+          data-testid="button-add-company"
+        >
+          <Building2 size={15} /> {add.isPending ? t('settings.companyWatchAdding') : t('settings.companyWatchAddButton')}
+        </button>
+      </div>
+
+      {companies.isLoading && <p className="text-sm text-[hsl(var(--muted-foreground))] mt-4">{t('loading.settings')}</p>}
+      {companies.isError && (
+        <div className="mt-4">
+          <ErrorState onRetry={() => companies.refetch()} />
+        </div>
+      )}
+
+      {companies.data && companies.data.length === 0 && (
+        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-4">{t('settings.companyWatchEmpty')}</p>
+      )}
+
+      {companies.data && companies.data.length > 0 && (
+        <ul className="grid gap-2 mt-4" data-testid="list-watched-companies">
+          {companies.data.map((company) => (
+            <li
+              key={company.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-[hsl(var(--border))] px-4 py-3"
+              data-testid={`card-watched-company-${company.id}`}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="badge badge-muted" data-testid={`badge-ats-${company.id}`}>
+                    {ATS_LABELS[company.ats] ?? company.ats}
+                  </span>
+                  <span className="text-sm font-bold truncate">{company.label}</span>
+                </div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1 truncate">{company.url}</p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost flex-none"
+                onClick={() => handleRemove(company)}
+                disabled={remove.isPending}
+                data-testid={`button-remove-company-${company.id}`}
+              >
+                <Trash2 size={14} /> {t('settings.companyWatchRemoveButton')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

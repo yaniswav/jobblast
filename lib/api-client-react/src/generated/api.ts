@@ -21,6 +21,7 @@ import type {
 
 import type {
   AccountExport,
+  AddWatchedCompanyRequest,
   AiCredentialStatus,
   AiProviderOption,
   AiTestResult,
@@ -56,7 +57,8 @@ import type {
   SettingsState,
   SettingsUpdate,
   TestAiCredentialRequest,
-  TrialCvTextRequest
+  TrialCvTextRequest,
+  WatchedCompany
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -3071,6 +3073,225 @@ export const useDeleteAiCredential = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getDeleteAiCredentialMutationOptions(options));
+    }
+
+export const getListWatchedCompaniesUrl = () => {
+
+
+
+
+  return `/api/settings/companies`
+}
+
+/**
+ * @summary List the companies this account watches for new postings (Company Watch)
+ */
+export const listWatchedCompanies = async ( options?: Parameters<typeof customFetch>[1]): Promise<WatchedCompany[]> => {
+
+  return customFetch<WatchedCompany[]>(getListWatchedCompaniesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWatchedCompaniesQueryKey = () => {
+    return [
+    `/api/settings/companies`
+    ] as const;
+    }
+
+
+export const getListWatchedCompaniesQueryOptions = <TData = Awaited<ReturnType<typeof listWatchedCompanies>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWatchedCompanies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWatchedCompaniesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWatchedCompanies>>> = ({ signal }) => listWatchedCompanies({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWatchedCompanies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWatchedCompaniesQueryResult = NonNullable<Awaited<ReturnType<typeof listWatchedCompanies>>>
+export type ListWatchedCompaniesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the companies this account watches for new postings (Company Watch)
+ */
+
+export function useListWatchedCompanies<TData = Awaited<ReturnType<typeof listWatchedCompanies>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWatchedCompanies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWatchedCompaniesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddWatchedCompanyUrl = () => {
+
+
+
+
+  return `/api/settings/companies`
+}
+
+/**
+ * @summary Add a company to watch by its career page URL - detects the ATS and board
+ */
+export const addWatchedCompany = async (addWatchedCompanyRequest: AddWatchedCompanyRequest, options?: Parameters<typeof customFetch>[1]): Promise<WatchedCompany> => {
+
+  return customFetch<WatchedCompany>(getAddWatchedCompanyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(addWatchedCompanyRequest)
+  }
+);}
+
+
+
+
+
+export const getAddWatchedCompanyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWatchedCompany>>, TError,{data: BodyType<AddWatchedCompanyRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addWatchedCompany>>, TError,{data: BodyType<AddWatchedCompanyRequest>}, TContext> => {
+
+const mutationKey = ['addWatchedCompany'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addWatchedCompany>>, {data: BodyType<AddWatchedCompanyRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addWatchedCompany(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddWatchedCompanyMutationResult = NonNullable<Awaited<ReturnType<typeof addWatchedCompany>>>
+    export type AddWatchedCompanyMutationBody = BodyType<AddWatchedCompanyRequest>
+    export type AddWatchedCompanyMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add a company to watch by its career page URL - detects the ATS and board
+ */
+export const useAddWatchedCompany = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWatchedCompany>>, TError,{data: BodyType<AddWatchedCompanyRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addWatchedCompany>>,
+        TError,
+        {data: BodyType<AddWatchedCompanyRequest>},
+        TContext
+      > => {
+      return useMutation(getAddWatchedCompanyMutationOptions(options));
+    }
+
+export const getRemoveWatchedCompanyUrl = (id: string,) => {
+
+
+
+
+  return `/api/settings/companies/${id}`
+}
+
+/**
+ * @summary Stop watching a company
+ */
+export const removeWatchedCompany = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRemoveWatchedCompanyUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveWatchedCompanyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeWatchedCompany>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeWatchedCompany>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['removeWatchedCompany'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeWatchedCompany>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  removeWatchedCompany(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveWatchedCompanyMutationResult = NonNullable<Awaited<ReturnType<typeof removeWatchedCompany>>>
+
+    export type RemoveWatchedCompanyMutationError = ErrorType<Error>
+
+    /**
+ * @summary Stop watching a company
+ */
+export const useRemoveWatchedCompany = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeWatchedCompany>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeWatchedCompany>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRemoveWatchedCompanyMutationOptions(options));
     }
 
 export const getTestAiCredentialUrl = (provider: 'anthropic-api' | 'openai-compatible',) => {

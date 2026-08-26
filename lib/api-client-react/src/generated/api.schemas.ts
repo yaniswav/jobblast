@@ -428,6 +428,43 @@ export interface SettingsUpdate {
   searchCriteria?: SearchCriteriaSettingsUpdate;
 }
 
+/**
+ * Applicant tracking systems Company Watch knows how to poll (lib/sources/ats/).
+ */
+export type AtsId = typeof AtsId[keyof typeof AtsId];
+
+
+export const AtsId = {
+  greenhouse: 'greenhouse',
+  lever: 'lever',
+  smartrecruiters: 'smartrecruiters',
+  ashby: 'ashby',
+  workable: 'workable',
+  recruitee: 'recruitee',
+  personio: 'personio',
+  workday: 'workday',
+} as const;
+
+/**
+ * One company an account watches for new postings (Company Watch, lot H2).
+ */
+export interface WatchedCompany {
+  id: string;
+  /** The career page URL that was pasted in. */
+  url: string;
+  ats: AtsId;
+  /** ATS-specific board/account identifier the adapter's endpoint uses. */
+  board: string;
+  /** Display name, derived from the URL when added. */
+  label: string;
+  addedAt: string;
+}
+
+export interface AddWatchedCompanyRequest {
+  /** The company's career page URL. */
+  url: string;
+}
+
 export interface AiTestResult {
   ok: boolean;
   latencyMs: number;

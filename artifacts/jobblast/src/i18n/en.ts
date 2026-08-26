@@ -270,6 +270,20 @@ export const en = {
   'settings.searchCriteriaSectionSubtitle': 'What gets fetched, and how it is scored for you. Same fields as onboarding.',
   'settings.searchCriteriaSaveButton': 'Save search criteria',
 
+  // Company Watch section (both modes - lot H2)
+  'settings.companyWatchSectionTitle': 'Watched companies',
+  'settings.companyWatchSectionSubtitle': 'Paste a company career page URL. We detect the ATS and add it to your refresh.',
+  'settings.companyWatchUrlLabel': 'Career page URL',
+  'settings.companyWatchUrlPlaceholder': 'https://boards.greenhouse.io/acme',
+  'settings.companyWatchAddButton': 'Watch company',
+  'settings.companyWatchAdding': 'Adding...',
+  'settings.companyWatchEmpty': 'No companies watched yet.',
+  'settings.companyWatchRemoveButton': 'Remove',
+  'settings.companyWatchToastAdded': 'Now watching {label}.',
+  'settings.companyWatchToastAddFailed': 'Could not add this company.',
+  'settings.companyWatchToastRemoved': 'Stopped watching {label}.',
+  'settings.companyWatchToastRemoveFailed': 'Could not remove this company.',
+
   // BYOK section (SaaS mode only): bring-your-own-key AI provider credentials
   'settings.byokSectionTitle': 'Your API keys',
   'settings.byokSectionSubtitle': 'Bring your own key for each provider. It is encrypted and never shown again after you save it.',
