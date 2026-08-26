@@ -21,7 +21,7 @@
 // which is exactly what makes it fair.
 
 import { and, asc, desc, eq, inArray, isNull, lt, lte, sql } from "drizzle-orm";
-import { db, jobsTable, type Job, type JobKind } from "@workspace/db";
+import { db, jobsTable, type InsertJob, type Job, type JobKind } from "@workspace/db";
 import { logger } from "../logger";
 import {
   ownerOf,
@@ -68,14 +68,16 @@ export type EnqueueInput = {
  * Returns the row id, or null when it was deduplicated away.
  */
 export async function enqueueJob(input: EnqueueInput): Promise<number | null> {
-  const values = {
+  const values: InsertJob = {
     kind: input.kind,
     userId: input.userId ?? null,
     payload: input.payload ?? {},
     dedupeKey: input.dedupeKey ?? null,
     runAt: input.runAt ?? new Date(),
-    ...(input.maxAttempts === undefined ? {} : { maxAttempts: input.maxAttempts }),
   };
+  if (input.maxAttempts !== undefined) {
+    values.maxAttempts = input.maxAttempts;
+  }
 
   // The unique index is partial (`where status = 'pending'`), so the conflict
   // target has to name the same predicate or Postgres cannot match it.

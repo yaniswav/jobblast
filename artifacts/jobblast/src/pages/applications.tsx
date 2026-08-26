@@ -1,4 +1,4 @@
-import { CalendarClock, Check, ChevronDown, CircleAlert, Edit3, ExternalLink, FileDown, Filter, MessageSquareText, RefreshCw, Search, Sparkles, X } from 'lucide-react';
+import { CalendarClock, Check, CircleAlert, Edit3, ExternalLink, FileDown, Filter, RefreshCw, Search, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';

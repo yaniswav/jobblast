@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronRight, Flame, Sparkles, Target, TrendingUp, TriangleAlert, X as XIcon } from 'lucide-react';
+import { ArrowRight, ChevronRight, Flame, Sparkles, Target, TrendingUp, TriangleAlert, X as XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'wouter';
 import {

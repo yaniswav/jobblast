@@ -29,6 +29,7 @@ import { useLocale, useT, type Locale } from '@/i18n';
 // the backend returns that isn't in this map still renders fine (falls back
 // to the raw id): the wizard is capability-driven, it never assumes which
 // providers exist, it only dresses up the ones it happens to recognize.
+// eslint-disable-next-line anti-slop/no-known-value-widening
 export const PROVIDER_LABELS: Record<string, string> = {
   none: 'No AI',
   'claude-cli': 'Claude Code CLI',

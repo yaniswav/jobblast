@@ -34,7 +34,7 @@ const JOB_BASE_URL = "https://www.104.com.tw/job/";
 
 // Keywords and area codes come from `sources.job104` in
 // jobblast.config.json. Keep both lists short - see the etiquette note above.
-function settings(): { queries: string[]; areaCodes: string[] } {
+function settings() {
   const { queries, areaCodes } = loadConfig().sources.job104;
   return { queries, areaCodes };
 }

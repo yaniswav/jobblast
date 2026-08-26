@@ -15,7 +15,7 @@ const SCOPE = "api_offresdemploiv2 o2dsoffre";
 // Départements and keywords come from `sources.franceTravail` in
 // jobblast.config.json. Keep the keyword list short - each one is a full
 // search request.
-function settings(): { departements: string; queries: string[] } {
+function settings() {
   const { departements, keywords } = loadConfig().sources.franceTravail;
   return { departements: departements.join(","), queries: keywords };
 }

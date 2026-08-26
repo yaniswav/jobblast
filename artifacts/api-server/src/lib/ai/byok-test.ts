@@ -57,6 +57,9 @@ type ChatCompletion = {
 async function testOpenAiCompatibleKey(apiKey: string): Promise<void> {
   const { baseUrl, model, temperature } = resolveProviderSettings("openai-compatible");
 
+  // body gains an optional `temperature` key below; `satisfies` would freeze
+  // it to the three keys present in the initializer.
+  // eslint-disable-next-line anti-slop/no-known-value-widening
   const body: Record<string, unknown> = {
     model,
     messages: [{ role: "user", content: TEST_PROMPT }],

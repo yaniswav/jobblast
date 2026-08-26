@@ -105,7 +105,7 @@ function toNewUserPosting(job: ScoredJob, ctx: TailoringContext): NewUserPosting
  *                  runs on the scheduled cycle.
  *   AI Scout     - headless web-search agent, self-throttled to once per 24h.
  */
-const SOURCE_FETCHERS: Record<SourceId, { name: string; fetch: () => Promise<RawJob[]> }> = {
+const SOURCE_FETCHERS = {
   franceTravail: { name: "France Travail", fetch: fetchFranceTravailJobs },
   greenhouse: { name: "Greenhouse", fetch: fetchGreenhouseJobs },
   lever: { name: "Lever", fetch: fetchLeverJobs },
@@ -120,7 +120,7 @@ const SOURCE_FETCHERS: Record<SourceId, { name: string; fetch: () => Promise<Raw
   arbeitnow: { name: "Arbeitnow", fetch: fetchArbeitnowJobs },
   notionInbox: { name: "Notion Inbox", fetch: fetchNotionInboxJobs },
   aiScout: { name: "AI Scout", fetch: fetchAiScoutJobs },
-};
+} satisfies Record<SourceId, { name: string; fetch: () => Promise<RawJob[]> }>;
 
 /** Runs one source under the ambient account's configuration. */
 export function fetchOneSource(source: SourceId): Promise<RawJob[]> {
@@ -137,7 +137,7 @@ async function fetchAllSources(): Promise<RawJob[]> {
   // jobblast.config.json); their query parameters live there too and are
   // read by each fetcher.
   const { sources } = loadConfig();
-  const enabled: Record<SourceId, boolean> = {
+  const enabled = {
     franceTravail: sources.franceTravail.enabled,
     greenhouse: sources.greenhouse.enabled,
     lever: sources.lever.enabled,
@@ -152,7 +152,7 @@ async function fetchAllSources(): Promise<RawJob[]> {
     arbeitnow: sources.arbeitnow.enabled,
     notionInbox: sources.notionInbox.enabled,
     aiScout: sources.aiScout.enabled,
-  };
+  } satisfies Record<SourceId, boolean>;
   const sourceFetchers = SOURCE_IDS.filter((id) => enabled[id]).map((id) => SOURCE_FETCHERS[id]);
 
   logger.info(

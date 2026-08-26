@@ -47,8 +47,8 @@ function DocumentsCard() {
   const queryClient = useQueryClient();
   const cvInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const inputRefs: Record<DocumentType, React.RefObject<HTMLInputElement | null>> = { cv: cvInputRef, cover_letter: coverInputRef };
-  const documentLabels: Record<DocumentType, string> = { cv: t('profile.documentCv'), cover_letter: t('profile.documentCoverLetter') };
+  const inputRefs = { cv: cvInputRef, cover_letter: coverInputRef } satisfies Record<DocumentType, React.RefObject<HTMLInputElement | null>>;
+  const documentLabels = { cv: t('profile.documentCv'), cover_letter: t('profile.documentCoverLetter') } satisfies Record<DocumentType, string>;
   const byType = (type: DocumentType) => documents.data?.find((doc) => doc.type === type);
   const formatDate = (iso: string): string => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
   const handleFileChange = (type: DocumentType) => (event: React.ChangeEvent<HTMLInputElement>) => {

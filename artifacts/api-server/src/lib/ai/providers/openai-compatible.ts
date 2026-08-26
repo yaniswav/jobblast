@@ -22,7 +22,7 @@ type Preset = { baseUrl: string; apiKeyEnv: string; model: string };
  * pointed at a local server with no API key, which is the "free, fully local,
  * nothing leaves your machine" option.
  */
-const PRESETS: Record<"openai-compatible" | "ollama" | "lmstudio", Preset> = {
+const PRESETS = {
   "openai-compatible": {
     baseUrl: "https://api.openai.com/v1",
     apiKeyEnv: "OPENAI_API_KEY",
@@ -38,7 +38,7 @@ const PRESETS: Record<"openai-compatible" | "ollama" | "lmstudio", Preset> = {
     apiKeyEnv: "",
     model: "local-model",
   },
-};
+} satisfies Record<"openai-compatible" | "ollama" | "lmstudio", Preset>;
 
 type Resolved = Preset & { temperature: number | null };
 
@@ -84,6 +84,9 @@ export function createOpenAiCompatibleProvider(
       const { baseUrl, model, temperature } = resolveProviderSettings(provider);
       const timeoutMs = opts.timeoutMs ?? loadConfig().ai.timeoutMs;
 
+      // headers gains an optional `authorization` key below; `satisfies`
+      // would freeze it to the one key present in the initializer.
+      // eslint-disable-next-line anti-slop/no-known-value-widening
       const headers: Record<string, string> = { "content-type": "application/json" };
       const apiKey = await resolveApiKey();
       if (apiKey !== null) {
@@ -93,6 +96,9 @@ export function createOpenAiCompatibleProvider(
         headers["authorization"] = `Bearer ${apiKey}`;
       }
 
+      // body gains optional keys below (max_tokens, temperature);
+      // `satisfies` would freeze it to the two keys present in the initializer.
+      // eslint-disable-next-line anti-slop/no-known-value-widening
       const body: Record<string, unknown> = {
         model,
         messages: [{ role: "user", content: prompt }],

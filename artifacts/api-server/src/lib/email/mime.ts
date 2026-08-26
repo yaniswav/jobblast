@@ -19,6 +19,9 @@ export function sanitizeHeaderValue(value: string): string {
  * unchanged rather than paying for base64 it does not need. */
 export function encodeHeaderValue(value: string): string {
   const clean = sanitizeHeaderValue(value);
+  // Intentional: this is the full 7-bit ASCII range, the set that never
+  // needs base64 encoding.
+  // eslint-disable-next-line no-control-regex
   if (/^[\x00-\x7f]*$/.test(clean)) return clean;
   return `=?UTF-8?B?${Buffer.from(clean, "utf8").toString("base64")}?=`;
 }

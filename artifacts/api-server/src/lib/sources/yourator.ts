@@ -30,7 +30,7 @@ const JOB_BASE_URL = "https://www.yourator.co";
 // `sources.yourator` in jobblast.config.json. The filter is deliberately
 // broader than scoring.ts - it only decides whether a listing is worth
 // keeping at all; scoring.ts still does the real relevance scoring.
-function settings(): { pages: number[]; relevanceFilter: RegExp } {
+function settings() {
   const { pages, relevanceFilter } = loadConfig().sources.yourator;
   return { pages, relevanceFilter: toRegExp(relevanceFilter, "sources.yourator.relevanceFilter") };
 }

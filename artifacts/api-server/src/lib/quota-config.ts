@@ -9,17 +9,17 @@
 import { IS_SAAS } from "./mode";
 import type { UsageKind } from "./quotas";
 
-const DEFAULTS: Record<UsageKind, number> = {
+const DEFAULTS = {
   tailor: 40,
   fit: 60,
   brief: 5,
-};
+} satisfies Record<UsageKind, number>;
 
-const ENV_NAMES: Record<UsageKind, string> = {
+const ENV_NAMES = {
   tailor: "JOBBLAST_QUOTA_TAILOR_PER_DAY",
   fit: "JOBBLAST_QUOTA_FIT_PER_DAY",
   brief: "JOBBLAST_QUOTA_BRIEF_PER_DAY",
-};
+} satisfies Record<UsageKind, string>;
 
 /**
  * The daily cap for one usage kind, or null for unlimited.

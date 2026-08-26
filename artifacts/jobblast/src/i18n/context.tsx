@@ -6,7 +6,7 @@ export type Locale = 'en' | 'fr';
 
 const STORAGE_KEY = 'jobblast.locale';
 
-const dictionaries: Record<Locale, Record<TranslationKey, string>> = { en, fr };
+const dictionaries = { en, fr } satisfies Record<Locale, Record<TranslationKey, string>>;
 
 type Vars = Record<string, string | number>;
 

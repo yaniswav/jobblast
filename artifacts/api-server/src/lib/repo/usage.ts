@@ -64,7 +64,7 @@ export async function getUsageToday(
     .from(usageCountersTable)
     .where(and(eq(usageCountersTable.userId, userId), eq(usageCountersTable.day, day)));
 
-  const result: Record<UsageKind, number> = { tailor: 0, fit: 0, brief: 0 };
+  const result = { tailor: 0, fit: 0, brief: 0 } satisfies Record<UsageKind, number>;
   for (const row of rows) {
     if (row.kind === "tailor" || row.kind === "fit" || row.kind === "brief") {
       result[row.kind] = row.count;

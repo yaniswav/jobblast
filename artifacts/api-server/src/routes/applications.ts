@@ -89,11 +89,10 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: body.error.message });
     return;
   }
-  const update: {
-    status?: string;
-    notes?: string;
-    followUpDate?: string | null;
-  } = {};
+  // update gains its keys conditionally below; `satisfies` would freeze it to `{}`.
+  type ApplicationUpdate = { status?: string; notes?: string; followUpDate?: string | null };
+  // eslint-disable-next-line anti-slop/no-known-value-widening
+  const update: ApplicationUpdate = {};
   if (body.data.status !== undefined) update.status = body.data.status;
   if (body.data.notes !== undefined) update.notes = body.data.notes;
   if (body.data.followUpDate !== undefined) {

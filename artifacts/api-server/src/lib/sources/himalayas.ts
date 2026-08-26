@@ -14,7 +14,7 @@ const BASE_URL = "https://himalayas.app/jobs/api/search";
 // Queries and limit come from `sources.himalayas` in jobblast.config.json.
 // Keep the query list short - low request volume, same spirit as the other
 // keyword-query sources (adzuna.ts, francetravail.ts).
-function settings(): { queries: string[]; limit: number } {
+function settings() {
   const { queries, limit } = loadConfig().sources.himalayas;
   return { queries, limit };
 }

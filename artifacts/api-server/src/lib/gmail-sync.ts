@@ -106,7 +106,7 @@ export type TrackedApplication = {
 const ELIGIBLE_STATUSES: readonly string[] = ["applied", "responded"];
 
 /** What each kind of e-mail means for the row's status. null = note only. */
-const TARGET_STATUS_BY_KIND: Record<GmailEmailKind, string | null> = {
+const TARGET_STATUS_BY_KIND = {
   // An ATS acknowledgement only proves the application arrived, which the
   // user already told us when they marked it "applied". It earns a note, not
   // a status move.
@@ -114,7 +114,7 @@ const TARGET_STATUS_BY_KIND: Record<GmailEmailKind, string | null> = {
   reply: "responded",
   interview: "interview",
   rejection: "rejected",
-};
+} satisfies Record<GmailEmailKind, string | null>;
 
 /**
  * The complete set of moves this pass may make. Anything not listed here -
@@ -122,17 +122,20 @@ const TARGET_STATUS_BY_KIND: Record<GmailEmailKind, string | null> = {
  * "offer", every move backwards, and any move *to* "offer" - is impossible
  * by construction rather than by an `if` somewhere.
  */
+// Looked up by application.status (a plain string) below, so the `string`
+// index signature is load-bearing.
+// eslint-disable-next-line anti-slop/no-known-value-widening
 const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
   applied: ["responded", "interview", "rejected"],
   responded: ["interview", "rejected"],
 };
 
-const NOTE_LABEL_BY_KIND: Record<GmailEmailKind, string> = {
+const NOTE_LABEL_BY_KIND = {
   confirmation: "Application confirmation",
   reply: "Recruiter reply",
   interview: "Interview invitation",
   rejection: "Rejection",
-};
+} satisfies Record<GmailEmailKind, string>;
 
 // ---------------------------------------------------------------------------
 // Provider gate
@@ -810,23 +813,22 @@ export async function runGmailSyncPass(
       const evaluation = evaluateEmail(email, applications);
       if (evaluation.outcome === "skip") {
         skipped++;
-        journal({
+        const skipEntry: Omit<JournalEntry, "ts" | "mode"> = {
           key,
           decision: "skipped",
           reason: evaluation.reason,
           email,
-          ...(evaluation.application
-            ? {
-                application: {
-                  id: evaluation.application.id,
-                  company: evaluation.application.company,
-                  title: evaluation.application.title,
-                  fromStatus: evaluation.application.status,
-                  toStatus: evaluation.application.status,
-                },
-              }
-            : {}),
-        });
+        };
+        if (evaluation.application) {
+          skipEntry.application = {
+            id: evaluation.application.id,
+            company: evaluation.application.company,
+            title: evaluation.application.title,
+            fromStatus: evaluation.application.status,
+            toStatus: evaluation.application.status,
+          };
+        }
+        journal(skipEntry);
         continue;
       }
 

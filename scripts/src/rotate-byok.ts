@@ -92,7 +92,7 @@ function encrypt(
   provider: string,
   keyVersion: number,
   plaintext: string,
-): { iv: Buffer; ciphertext: Buffer; authTag: Buffer } {
+) {
   const key = deriveUserKey(masterKeyBuf, userId);
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);

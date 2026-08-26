@@ -56,7 +56,7 @@ type GeminiJson = {
   error?: { message?: string; type?: string } | string;
 };
 
-function buildArgs(prompt: string, agentMode: boolean): { args: string[]; stdin: string } {
+function buildArgs(prompt: string, agentMode: boolean) {
   const { geminiCli } = loadConfig().ai;
 
   const args = ["--output-format", "json", "--approval-mode", agentMode ? "yolo" : "default"];

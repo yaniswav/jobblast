@@ -1,9 +1,9 @@
 import type { en } from './en';
 
-// French dictionary. The explicit `Record<keyof typeof en, string>`
-// annotation makes a missing OR extra key (relative to en.ts) a compile
-// error, so the two dictionaries can never drift apart silently.
-export const fr: Record<keyof typeof en, string> = {
+// French dictionary. The `satisfies Record<keyof typeof en, string>` check
+// makes a missing OR extra key (relative to en.ts) a compile error, so the
+// two dictionaries can never drift apart silently.
+export const fr = {
   // Shared across pages
   'common.charsCount': '{count} caractères',
   'common.dismiss': 'Ignorer',
@@ -460,4 +460,4 @@ export const fr: Record<keyof typeof en, string> = {
   'errorBoundary.title': 'Un problème est survenu',
   'errorBoundary.body': "Cette partie de l'application a rencontré une erreur. Le reste de l'application fonctionne toujours.",
   'errorBoundary.tryAgain': 'Réessayer',
-};
+} satisfies Record<keyof typeof en, string>;

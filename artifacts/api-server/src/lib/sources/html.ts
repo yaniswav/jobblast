@@ -2,6 +2,9 @@
 // descriptions as HTML. No dependency added on purpose - this is a best
 // effort strip, not a full HTML parser.
 
+// Looked up by an arbitrary regex match below, so the `string` index
+// signature is load-bearing.
+// eslint-disable-next-line anti-slop/no-known-value-widening
 const ENTITIES: Record<string, string> = {
   "&amp;": "&",
   "&lt;": "<",

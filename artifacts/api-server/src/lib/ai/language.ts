@@ -8,6 +8,9 @@
 import { loadConfig } from "../config";
 
 /** ISO 639-1 -> English language name, for prompts. Unknown codes pass through. */
+// Looked up by an arbitrary ISO code below, so the `string` index signature
+// is load-bearing.
+// eslint-disable-next-line anti-slop/no-known-value-widening
 const LANGUAGE_NAMES: Record<string, string> = {
   ar: "Arabic",
   de: "German",
@@ -40,7 +43,7 @@ export function formatList(items: string[]): string {
  * direct interpolation into a prompt: the language(s) the applicant writes
  * in, and the fallback used when the posting matches none of them.
  */
-export function letterLanguageRule(): { letterLanguageNames: string; fallbackLanguageName: string } {
+export function letterLanguageRule() {
   const { candidate } = loadConfig();
   const letterLanguages =
     candidate.letterLanguages.length > 0 ? candidate.letterLanguages : [candidate.fallbackLetterLanguage];

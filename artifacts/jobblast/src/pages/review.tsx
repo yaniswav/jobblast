@@ -1,34 +1,34 @@
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, ExternalLink, FileDown, FileText, MapPin, Pause, RefreshCw, ShieldCheck, SkipForward, Sparkles, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ExternalLink, FileDown, FileText, MapPin, RefreshCw, ShieldCheck, SkipForward, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useCreateApplication, useGetJob, useGetJobTailoringStatus, useListJobs, useRefreshJobs, useRequestJobTailoring, useSkipJob, getGetDashboardQueryKey, getListJobsQueryKey, getGetJobQueryKey, getGetJobTailoringStatusQueryKey, getGetDocumentFileUrl, getGetJobCoverLetterPdfUrl } from '@workspace/api-client-react';
+import { useCreateApplication, useGetJob, useGetJobTailoringStatus, useListJobs, useRefreshJobs, useRequestJobTailoring, useSkipJob, getGetDashboardQueryKey, getListJobsQueryKey, getGetJobQueryKey, getGetJobTailoringStatusQueryKey, getGetDocumentFileUrl, getGetJobCoverLetterPdfUrl, type JobListingFitAnalysisVerdict, type JobTailoringStatusState } from '@workspace/api-client-react';
 import { Link } from 'wouter';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useT, type TranslationKey } from '@/i18n';
 
-const FIT_VERDICT_BADGE: Record<string, string> = {
+const FIT_VERDICT_BADGE = {
   strong: 'badge-fit-strong',
   good: 'badge-fit-good',
   stretch: 'badge-fit-stretch',
   poor: 'badge-fit-poor',
-};
+} satisfies Record<JobListingFitAnalysisVerdict, string>;
 
-const FIT_VERDICT_LABEL: Record<string, TranslationKey> = {
+const FIT_VERDICT_LABEL = {
   strong: 'review.fitVerdictStrong',
   good: 'review.fitVerdictGood',
   stretch: 'review.fitVerdictStretch',
   poor: 'review.fitVerdictPoor',
-};
+} satisfies Record<JobListingFitAnalysisVerdict, TranslationKey>;
 
-const TAILORING_LABEL: Record<string, TranslationKey> = {
+const TAILORING_LABEL = {
   ready: 'review.tailorStateReady',
   queued: 'review.tailorStateQueued',
   running: 'review.tailorStateRunning',
   failed: 'review.tailorStateFailed',
   template: 'review.tailorStateTemplate',
   unavailable: 'review.tailorStateUnavailable',
-};
+} satisfies Record<JobTailoringStatusState, TranslationKey>;
 
 /**
  * Ask for this posting's letter, and watch it arrive.

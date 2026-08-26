@@ -1,0 +1,90 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    ".agent/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".windsurf/**",
+    "tools/oxlint/anti-slop/**",
+    "lib/api-zod/src/generated/**",
+    "lib/api-client-react/src/generated/**",
+    "**/dist/**",
+    "deploy/**"
+  ],
+  "jsPlugins": [
+    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }
+  ],
+  "rules": {
+    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-conditional-empty-object-spread": "error",
+    "anti-slop/no-known-value-widening": "error",
+    "anti-slop/no-module-mocking": "error",
+    "anti-slop/no-object-parameters": "error",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop/no-shape-in-symbol-names": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-widen-then-assert": "error",
+
+    // Disabled: this codebase leans on `typeof` for two idioms the rule
+    // cannot distinguish from unparsed-input narrowing - runtime feature
+    // detection (`typeof window !== "undefined"`, `typeof Request !==
+    // "undefined"`) and discriminating an already-well-typed union
+    // (`input: string | URL`, `typeof input === "string"`). Neither has a
+    // rewrite that satisfies the rule without either breaking the check or
+    // adding no-op indirection; sample audit (lib/api-client-react/src/custom-fetch.ts,
+    // artifacts/api-server AI providers) found no real "typeof on an
+    // external unparsed value" case among the 61 hits across 21 files.
+    "anti-slop/no-runtime-typeof": "off",
+
+    // Disabled: this codebase's boundary functions (catch-clause error
+    // handlers, `toError`, `getStringField`-style narrowers) are the parsers
+    // the rule wants called *before* an `unknown` parameter - they cannot
+    // also require a pre-parsed caller. The 42 hits across 25 files are
+    // overwhelmingly `catch (err: unknown)`, which is the TS-recommended
+    // (`useUnknownInCatchVariables`) way to type a caught value.
+    "anti-slop/no-unknown-parameters": "off",
+
+    // Disabled: flags legitimately heterogeneous, boundary-validated bags -
+    // job-queue payloads (artifacts/api-server/src/lib/queue/handlers.ts,
+    // read immediately via readString/readSubscribers/readSource) and
+    // outbound HTTP body/header builders. A concrete per-key contract would
+    // mean a discriminated union per job kind, disproportionate for this
+    // queue. 29 hits across 17 files, all reviewed as this pattern.
+    "anti-slop/no-unsafe-dictionary-type": "off",
+
+    // Disabled: all 5 hits are the same two legitimate shapes - a generic
+    // fetch-body parser whose concrete shape is only known to the
+    // per-endpoint caller (lib/api-client-react/src/custom-fetch.ts), and a
+    // scheduling helper whose callback return value is deliberately ignored
+    // (artifacts/api-server/src/index.ts, lib/queue/worker.ts).
+    "anti-slop/no-unknown-returns": "off",
+
+    // Disabled: 98 findings across 50 files, each needing a hand-written,
+    // call-site-specific invariant rather than a mechanical fix - exactly
+    // the "don't rewrite 50 files" case. Sampled sites (e.g.
+    // artifacts/api-server/src/lib/auth/middleware.ts's `req as
+    // RequestWithUser`) are ordinary, already-safe assertions; the gap is
+    // documentation, not correctness.
+    "anti-slop/require-safety-comment-for-type-assertion": "off"
+  },
+  "overrides": [
+    {
+      // The only module mock in the suite. Un-mocking it means threading a
+      // credentials-repo dependency through provider.ts's public API for one
+      // test file - a production-code interface change, out of scope for a
+      // lint-only pass.
+      "files": ["artifacts/api-server/src/lib/ai/provider.test.ts"],
+      "rules": {
+        "anti-slop/no-module-mocking": "off"
+      }
+    }
+  ]
+}
