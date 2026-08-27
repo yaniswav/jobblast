@@ -336,6 +336,36 @@ export interface ProfileUpdate {
   masterResume?: string;
 }
 
+export interface Resume {
+  id: number;
+  label: string;
+  content: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * `content` may be empty - adding a resume creates an empty draft tab, filled in and saved afterward via PATCH /resumes/{id}. Only `label` must be non-empty: every resume needs a name.
+ */
+export interface ResumeInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  label: string;
+  content: string;
+}
+
+export interface ResumeUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  label?: string;
+  content?: string;
+}
+
 export type DocumentType = typeof DocumentType[keyof typeof DocumentType];
 
 
@@ -692,6 +722,7 @@ export interface AccountExport {
   user: AccountExportUser;
   settings: SettingsState;
   profile: Profile | null;
+  resumes: Resume[];
   applications: Application[];
   postings: JobListing[];
   interviewBriefs: AccountExportBrief[];

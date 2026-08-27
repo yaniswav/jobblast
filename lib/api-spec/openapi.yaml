@@ -18,6 +18,8 @@ tags:
     description: Application tracking
   - name: profile
     description: Job seeker profile
+  - name: resumes
+    description: Multiple master resumes per account, selected automatically per posting
   - name: documents
     description: CV / cover letter document management
   - name: settings
@@ -836,6 +838,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
+  /resumes:
+    get:
+      operationId: listResumes
+      tags: [resumes]
+      summary: List this account's master resumes (lot I3)
+      description: >
+        Every master resume this account has, oldest first. An account that
+        has never used this feature still gets exactly one entry (its
+        existing single master resume, labeled "Main").
+      responses:
+        "200":
+          description: Master resumes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Resume"
+    post:
+      operationId: createResume
+      tags: [resumes]
+      summary: Add a new master resume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeInput"
+      responses:
+        "201":
+          description: Resume created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resume"
+        "400":
+          description: This account already has the maximum of 5 resumes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /resumes/{id}:
+    patch:
+      operationId: updateResume
+      tags: [resumes]
+      summary: Rename a resume and/or replace its content
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeUpdate"
+      responses:
+        "200":
+          description: Updated resume
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resume"
+        "404":
+          description: No such resume for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteResume
+      tags: [resumes]
+      summary: Delete a resume
+      description: >
+        Refused when this would delete the account's last remaining resume -
+        every account always has at least one.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: This is the account's last remaining resume
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such resume for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /resumes/{id}/default:
+    post:
+      operationId: setDefaultResume
+      tags: [resumes]
+      summary: Mark a resume as this account's default
+      description: >
+        The default is the resume used for a posting when no resume scores
+        above the others (tie or no shared vocabulary at all), and for
+        every account that only has one resume.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Updated resume, now the default
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resume"
+        "404":
+          description: No such resume for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /documents:
     get:
       operationId: listDocuments
@@ -1723,6 +1840,55 @@ components:
             type: string
         masterResume:
           type: string
+    Resume:
+      type: object
+      properties:
+        id:
+          type: number
+        label:
+          type: string
+        content:
+          type: string
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - label
+        - content
+        - isDefault
+        - createdAt
+        - updatedAt
+    ResumeInput:
+      type: object
+      description: >
+        `content` may be empty - adding a resume creates an empty draft tab,
+        filled in and saved afterward via PATCH /resumes/{id}. Only `label`
+        must be non-empty: every resume needs a name.
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+        content:
+          type: string
+      required:
+        - label
+        - content
+    ResumeUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+        content:
+          type: string
     DocumentType:
       type: string
       enum: [cv, cover_letter]
@@ -2303,6 +2469,10 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Profile"
             - type: "null"
+        resumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Resume"
         applications:
           type: array
           items:
@@ -2324,6 +2494,7 @@ components:
         - user
         - settings
         - profile
+        - resumes
         - applications
         - postings
         - interviewBriefs

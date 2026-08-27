@@ -57,6 +57,9 @@ import type {
   ProfileUpdate,
   RegisterRequest,
   ResetPasswordRequest,
+  Resume,
+  ResumeInput,
+  ResumeUpdate,
   SaveAiCredentialRequest,
   SearchCompanyCatalogParams,
   SettingsState,
@@ -2708,6 +2711,371 @@ export const useUpdateProfile = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateProfileMutationOptions(options));
+    }
+
+export const getListResumesUrl = () => {
+
+
+
+
+  return `/api/resumes`
+}
+
+/**
+ * Every master resume this account has, oldest first. An account that has never used this feature still gets exactly one entry (its existing single master resume, labeled "Main").
+ * @summary List this account's master resumes (lot I3)
+ */
+export const listResumes = async ( options?: Parameters<typeof customFetch>[1]): Promise<Resume[]> => {
+
+  return customFetch<Resume[]>(getListResumesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListResumesQueryKey = () => {
+    return [
+    `/api/resumes`
+    ] as const;
+    }
+
+
+export const getListResumesQueryOptions = <TData = Awaited<ReturnType<typeof listResumes>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResumes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListResumesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listResumes>>> = ({ signal }) => listResumes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listResumes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListResumesQueryResult = NonNullable<Awaited<ReturnType<typeof listResumes>>>
+export type ListResumesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List this account's master resumes (lot I3)
+ */
+
+export function useListResumes<TData = Awaited<ReturnType<typeof listResumes>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResumes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListResumesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateResumeUrl = () => {
+
+
+
+
+  return `/api/resumes`
+}
+
+/**
+ * @summary Add a new master resume
+ */
+export const createResume = async (resumeInput: ResumeInput, options?: Parameters<typeof customFetch>[1]): Promise<Resume> => {
+
+  return customFetch<Resume>(getCreateResumeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resumeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateResumeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createResume>>, TError,{data: BodyType<ResumeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createResume>>, TError,{data: BodyType<ResumeInput>}, TContext> => {
+
+const mutationKey = ['createResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createResume>>, {data: BodyType<ResumeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createResume(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateResumeMutationResult = NonNullable<Awaited<ReturnType<typeof createResume>>>
+    export type CreateResumeMutationBody = BodyType<ResumeInput>
+    export type CreateResumeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add a new master resume
+ */
+export const useCreateResume = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createResume>>, TError,{data: BodyType<ResumeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createResume>>,
+        TError,
+        {data: BodyType<ResumeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateResumeMutationOptions(options));
+    }
+
+export const getUpdateResumeUrl = (id: number,) => {
+
+
+
+
+  return `/api/resumes/${id}`
+}
+
+/**
+ * @summary Rename a resume and/or replace its content
+ */
+export const updateResume = async (id: number,
+    resumeUpdate: ResumeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Resume> => {
+
+  return customFetch<Resume>(getUpdateResumeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resumeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateResumeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateResume>>, TError,{id: number;data: BodyType<ResumeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateResume>>, TError,{id: number;data: BodyType<ResumeUpdate>}, TContext> => {
+
+const mutationKey = ['updateResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateResume>>, {id: number;data: BodyType<ResumeUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateResume(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateResumeMutationResult = NonNullable<Awaited<ReturnType<typeof updateResume>>>
+    export type UpdateResumeMutationBody = BodyType<ResumeUpdate>
+    export type UpdateResumeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Rename a resume and/or replace its content
+ */
+export const useUpdateResume = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateResume>>, TError,{id: number;data: BodyType<ResumeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateResume>>,
+        TError,
+        {id: number;data: BodyType<ResumeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateResumeMutationOptions(options));
+    }
+
+export const getDeleteResumeUrl = (id: number,) => {
+
+
+
+
+  return `/api/resumes/${id}`
+}
+
+/**
+ * Refused when this would delete the account's last remaining resume - every account always has at least one.
+ * @summary Delete a resume
+ */
+export const deleteResume = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteResumeUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteResumeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteResume>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteResume>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteResume>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteResume(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteResumeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteResume>>>
+
+    export type DeleteResumeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a resume
+ */
+export const useDeleteResume = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteResume>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteResume>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteResumeMutationOptions(options));
+    }
+
+export const getSetDefaultResumeUrl = (id: number,) => {
+
+
+
+
+  return `/api/resumes/${id}/default`
+}
+
+/**
+ * The default is the resume used for a posting when no resume scores above the others (tie or no shared vocabulary at all), and for every account that only has one resume.
+ * @summary Mark a resume as this account's default
+ */
+export const setDefaultResume = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Resume> => {
+
+  return customFetch<Resume>(getSetDefaultResumeUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSetDefaultResumeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setDefaultResume>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setDefaultResume>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['setDefaultResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setDefaultResume>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  setDefaultResume(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetDefaultResumeMutationResult = NonNullable<Awaited<ReturnType<typeof setDefaultResume>>>
+
+    export type SetDefaultResumeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark a resume as this account's default
+ */
+export const useSetDefaultResume = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setDefaultResume>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setDefaultResume>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSetDefaultResumeMutationOptions(options));
     }
 
 export const getListDocumentsUrl = () => {

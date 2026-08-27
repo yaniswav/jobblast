@@ -28,6 +28,7 @@ export * from "./jobs";
 export * from "./passwordResetTokens";
 export * from "./postings";
 export * from "./profiles";
+export * from "./resumes";
 export * from "./sessions";
 export * from "./usageCounters";
 export * from "./userPostings";

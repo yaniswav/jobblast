@@ -3,6 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import { db, profilesTable, type Profile } from "@workspace/db";
+import { syncDefaultResumeFromProfile } from "./resumes";
 
 export type { Profile } from "@workspace/db";
 
@@ -61,6 +62,16 @@ export function hasRealResume(profile: Pick<Profile, "masterResume">): boolean {
   return value.length > 0 && value !== seedProfile.masterResume.trim();
 }
 
+/**
+ * Updates the profile row. When `patch.masterResume` is set - onboarding's
+ * "paste your resume" step, and the CV-PDF-upload flow in
+ * routes/documents.ts are the only two callers that still do this - also
+ * syncs it into the account's default resume (lot I3, see
+ * lib/repo/resumes.ts's syncDefaultResumeFromProfile), creating it when this
+ * is the account's very first resume. That is what turns onboarding's
+ * unmodified UI into this lot's multi-CV data model, and is why a
+ * single-resume account stays byte-identical to before this lot.
+ */
 export async function updateProfile(
   userId: string,
   patch: Partial<Omit<Profile, "id" | "userId">>,
@@ -70,5 +81,10 @@ export async function updateProfile(
     .set(patch)
     .where(eq(profilesTable.userId, userId))
     .returning();
-  return row ?? null;
+  if (!row) return null;
+
+  if (patch.masterResume !== undefined) {
+    await syncDefaultResumeFromProfile(userId, patch.masterResume);
+  }
+  return row;
 }

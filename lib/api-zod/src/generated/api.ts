@@ -230,6 +230,14 @@ export const GetAccountExportResponse = zod.object({
   "excludedCompanies": zod.array(zod.string()),
   "masterResume": zod.string()
 }),zod.null()]),
+  "resumes": zod.array(zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "content": zod.string(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
   "applications": zod.array(zod.object({
   "id": zod.number(),
   "jobId": zod.number(),
@@ -739,6 +747,98 @@ export const UpdateProfileResponse = zod.object({
   "salaryFloor": zod.number(),
   "excludedCompanies": zod.array(zod.string()),
   "masterResume": zod.string()
+})
+
+
+/**
+ * Every master resume this account has, oldest first. An account that has never used this feature still gets exactly one entry (its existing single master resume, labeled "Main").
+ * @summary List this account's master resumes (lot I3)
+ */
+export const ListResumesResponseItem = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "content": zod.string(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListResumesResponse = zod.array(ListResumesResponseItem)
+
+
+/**
+ * @summary Add a new master resume
+ */
+export const createResumeBodyLabelMax = 80;
+
+
+
+export const CreateResumeBody = zod.object({
+  "label": zod.string().min(1).max(createResumeBodyLabelMax),
+  "content": zod.string()
+}).describe('`content` may be empty - adding a resume creates an empty draft tab, filled in and saved afterward via PATCH \/resumes\/{id}. Only `label` must be non-empty: every resume needs a name.\n')
+
+export const CreateResumeResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "content": zod.string(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Rename a resume and/or replace its content
+ */
+export const UpdateResumeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateResumeBodyLabelMax = 80;
+
+
+
+export const UpdateResumeBody = zod.object({
+  "label": zod.string().min(1).max(updateResumeBodyLabelMax).optional(),
+  "content": zod.string().optional()
+})
+
+export const UpdateResumeResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "content": zod.string(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * Refused when this would delete the account's last remaining resume - every account always has at least one.
+ * @summary Delete a resume
+ */
+export const DeleteResumeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteResumeResponse = zod.void()
+
+
+/**
+ * The default is the resume used for a posting when no resume scores above the others (tie or no shared vocabulary at all), and for every account that only has one resume.
+ * @summary Mark a resume as this account's default
+ */
+export const SetDefaultResumeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetDefaultResumeResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "content": zod.string(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 
 

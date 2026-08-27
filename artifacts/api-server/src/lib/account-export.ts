@@ -16,6 +16,7 @@ import { listDocuments } from "./repo/documents";
 import { listBriefs } from "./repo/interview-briefs";
 import { listUserPostings } from "./repo/postings";
 import { getProfile } from "./repo/profile";
+import { listResumes } from "./repo/resumes";
 
 export type AccountExport = {
   exportedAt: string;
@@ -35,6 +36,8 @@ export type AccountExport = {
     searchCriteria: { keywords: string[]; targetLocationKeywords: string[]; letterLanguages: string[] };
   };
   profile: Awaited<ReturnType<typeof getProfile>>;
+  /** Lot I3: every master resume this account has (see lib/repo/resumes.ts). */
+  resumes: Awaited<ReturnType<typeof listResumes>>;
   applications: Awaited<ReturnType<typeof listApplications>>;
   postings: Awaited<ReturnType<typeof listUserPostings>>;
   interviewBriefs: Awaited<ReturnType<typeof listBriefs>>;
@@ -55,9 +58,10 @@ export type AccountExport = {
  * endpoints ever touch it, and even those never return the key itself).
  */
 export async function buildAccountExport(userId: string): Promise<AccountExport> {
-  const [user, profile, applications, postings, interviewBriefs, documents] = await Promise.all([
+  const [user, profile, resumes, applications, postings, interviewBriefs, documents] = await Promise.all([
     getUserById(userId),
     getProfile(userId),
+    listResumes(userId),
     listApplications(userId),
     listUserPostings(userId),
     listBriefs(userId),
@@ -78,6 +82,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExport>
     },
     settings: { ai: readAiSettings(), ...readAutomations(), searchCriteria: readSearchCriteria() },
     profile,
+    resumes,
     applications,
     postings,
     interviewBriefs,

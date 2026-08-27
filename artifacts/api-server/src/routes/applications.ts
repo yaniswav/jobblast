@@ -58,7 +58,9 @@ import {
   getReadyBrief,
   type InterviewBrief,
 } from "../lib/repo/interview-briefs";
+import { getUserPosting } from "../lib/repo/postings";
 import { ensureProfile, getProfile } from "../lib/repo/profile";
+import { selectResumeForPosting } from "../lib/repo/resumes";
 
 const router: IRouter = Router();
 
@@ -92,9 +94,22 @@ router.post("/applications", async (req, res): Promise<void> => {
     return;
   }
 
+  // Lot I3: trace which resume this application was tailored against. The
+  // posting's own title/description drive selection (lib/repo/resumes.ts's
+  // selectResumeForPosting) - an account with a single resume always gets
+  // it back, so `resumeVersion` here is that resume's label, same as it
+  // would be for any other account. Falls back to whatever the caller sent
+  // when the posting cannot be read (createApplication below will then
+  // itself report "posting not found").
+  const posting = await getUserPosting(userId, body.data.jobId);
+  const selectedResume = posting
+    ? await selectResumeForPosting(userId, { title: posting.title, description: posting.description })
+    : null;
+  const resumeVersion = selectedResume?.label ?? body.data.resumeVersion;
+
   const result = await createApplication(userId, {
     postingId: body.data.jobId,
-    resumeVersion: body.data.resumeVersion,
+    resumeVersion,
     coverLetterVersion: body.data.coverLetterVersion,
     notes: body.data.notes ?? "",
   });

@@ -39,6 +39,7 @@ import {
   updateBrief,
 } from "../repo/interview-briefs";
 import { getProfile } from "../repo/profile";
+import { selectResumeForPosting } from "../repo/resumes";
 import { tryConsumeQuota } from "../repo/usage";
 import { logger } from "../logger";
 import { quotaCapFor } from "../quota-config";
@@ -228,8 +229,13 @@ export function isValidBriefMarkdown(markdown: string): boolean {
 // Generation
 // ---------------------------------------------------------------------------
 
+/**
+ * Lot I3: `masterResume` is passed separately from the rest of the context -
+ * it is selected per application (lib/repo/resumes.ts's
+ * selectResumeForPosting) while headline is the same for every brief in a
+ * pass.
+ */
 type BriefContext = {
-  masterResume: string;
   headline: string;
 };
 
@@ -240,13 +246,14 @@ async function loadBriefInput(userId: string, applicationId: number) {
 
 async function generateBrief(
   input: NonNullable<Awaited<ReturnType<typeof loadBriefInput>>>,
+  masterResume: string,
   context: BriefContext,
   provider: AgentProvider,
 ): Promise<string | null> {
   const { application, posting: job, fitAnalysis } = input;
 
   const prompt = buildInterviewBriefPrompt({
-    masterResume: context.masterResume,
+    masterResume,
     headline: context.headline,
     // The application row carries the title/company/location as they were
     // when the user approved it; the job listing carries the description.
@@ -371,7 +378,7 @@ export async function runInterviewBriefPass(
       logger.warn("Interview brief pass: no profile row found, skipping");
       return;
     }
-    const context: BriefContext = { masterResume: profile.masterResume, headline: profile.headline };
+    const context: BriefContext = { headline: profile.headline };
 
     logger.info({ count: eligible.length, provider: provider.name }, "Interview brief pass starting");
 
@@ -405,7 +412,15 @@ export async function runInterviewBriefPass(
 
         await updateBrief(userId, applicationId, { status: "generating", error: null });
 
-        const markdown = await generateBrief(input, context, provider);
+        // Lot I3: the resume selected for THIS application's job. See
+        // tailor.ts's own comment on selectResumeForPosting for the
+        // golden-rule note.
+        const selected = await selectResumeForPosting(userId, {
+          title: input.posting.title,
+          description: input.posting.description,
+        });
+        const masterResume = selected?.content ?? profile.masterResume;
+        const markdown = await generateBrief(input, masterResume, context, provider);
         const ms = Date.now() - startedAt;
 
         if (!markdown) {

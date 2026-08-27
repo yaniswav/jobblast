@@ -31,6 +31,7 @@ import {
   type UserPostingRow,
 } from "../repo/postings";
 import { getProfile } from "../repo/profile";
+import { selectResumeForPosting } from "../repo/resumes";
 import { tryConsumeQuota } from "../repo/usage";
 import { letterLanguageRule } from "./language";
 import {
@@ -133,19 +134,24 @@ function isValidFitAnalysis(value: unknown): value is FitAnalysis {
   return true;
 }
 
+/**
+ * Lot I3: `masterResume` is passed separately from the rest of the context -
+ * it is selected per job (lib/repo/resumes.ts's selectResumeForPosting)
+ * while headline is the same for every job in a pass.
+ */
 type FitAnalysisContext = {
-  masterResume: string;
   headline: string;
 };
 
 /** Calls the configured provider once for `job` and returns validated fit analysis, or null if invalid. */
 async function generateFitAnalysis(
   job: UserPostingRow,
+  masterResume: string,
   context: FitAnalysisContext,
   provider: TextProvider,
 ): Promise<FitAnalysis | null> {
   const prompt = buildPrompt({
-    masterResume: context.masterResume,
+    masterResume,
     headline: context.headline,
     title: job.title,
     company: job.company,
@@ -262,10 +268,7 @@ export async function runFitAnalysisPass(
       return;
     }
 
-    const context: FitAnalysisContext = {
-      masterResume: profile.masterResume,
-      headline: profile.headline,
-    };
+    const context: FitAnalysisContext = { headline: profile.headline };
 
     logger.info({ count: eligible.length, provider: provider.name }, "AI fit-analysis pass starting");
 
@@ -286,7 +289,11 @@ export async function runFitAnalysisPass(
 
       const startedAt = Date.now();
       try {
-        const analysis = await generateFitAnalysis(job, context, provider);
+        // Lot I3: the resume selected for THIS job. See tailor.ts's own
+        // comment on selectResumeForPosting for the golden-rule note.
+        const selected = await selectResumeForPosting(userId, { title: job.title, description: job.description });
+        const masterResume = selected?.content ?? profile.masterResume;
+        const analysis = await generateFitAnalysis(job, masterResume, context, provider);
         const ms = Date.now() - startedAt;
 
         if (!analysis) {

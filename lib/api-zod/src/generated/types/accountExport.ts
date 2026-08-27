@@ -11,6 +11,7 @@ import type { AccountExportUser } from './accountExportUser';
 import type { Application } from './application';
 import type { JobListing } from './jobListing';
 import type { Profile } from './profile';
+import type { Resume } from './resume';
 import type { SettingsState } from './settingsState';
 
 export interface AccountExport {
@@ -18,6 +19,7 @@ export interface AccountExport {
   user: AccountExportUser;
   settings: SettingsState;
   profile: Profile | null;
+  resumes: Resume[];
   applications: Application[];
   postings: JobListing[];
   interviewBriefs: AccountExportBrief[];

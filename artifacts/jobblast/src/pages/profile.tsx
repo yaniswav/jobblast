@@ -1,15 +1,15 @@
-import { Check, Eye, FileText, Plus, Save, Trash2, Upload, UserRound } from 'lucide-react';
+import { Check, Eye, FileText, Plus, Save, Star, Trash2, Upload, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { getGetProfileQueryKey, getGetDocumentFileUrl, getListDocumentsQueryKey, useGetProfile, useListDocuments, useUpdateProfile, useUploadDocument, type DocumentType } from '@workspace/api-client-react';
+import { getGetProfileQueryKey, getGetDocumentFileUrl, getListDocumentsQueryKey, getListResumesQueryKey, useCreateResume, useDeleteResume, useGetProfile, useListDocuments, useListResumes, useSetDefaultResume, useUpdateProfile, useUpdateResume, useUploadDocument, type DocumentType, type Resume } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
 import { COMPANY_SUGGESTIONS, filterSuggestions, isDuplicateTag, LOCATION_SUGGESTIONS, ROLE_SUGGESTIONS } from '@/lib/suggestions';
 
-type ProfileForm = { name: string; headline: string; targetRoles: string[]; targetLocations: string[]; salaryFloor: string; excludedCompanies: string[]; masterResume: string };
+type ProfileForm = { name: string; headline: string; targetRoles: string[]; targetLocations: string[]; salaryFloor: string; excludedCompanies: string[] };
 
-const blank: ProfileForm = { name: '', headline: '', targetRoles: [], targetLocations: [], salaryFloor: '', excludedCompanies: [], masterResume: '' };
+const blank: ProfileForm = { name: '', headline: '', targetRoles: [], targetLocations: [], salaryFloor: '', excludedCompanies: [] };
 
 export default function Profile() {
   const t = useT();
@@ -21,7 +21,7 @@ export default function Profile() {
   const [newLocation, setNewLocation] = useState('');
   const [newExcluded, setNewExcluded] = useState('');
   const [saved, setSaved] = useState(false);
-  useEffect(() => { if (profile.data) setForm({ name: profile.data.name, headline: profile.data.headline, targetRoles: profile.data.targetRoles, targetLocations: profile.data.targetLocations, salaryFloor: String(profile.data.salaryFloor), excludedCompanies: profile.data.excludedCompanies, masterResume: profile.data.masterResume }); }, [profile.data]);
+  useEffect(() => { if (profile.data) setForm({ name: profile.data.name, headline: profile.data.headline, targetRoles: profile.data.targetRoles, targetLocations: profile.data.targetLocations, salaryFloor: String(profile.data.salaryFloor), excludedCompanies: profile.data.excludedCompanies }); }, [profile.data]);
   if (profile.isLoading) return <LoadingState label={t('loading.profile')} />;
   if (profile.isError || !profile.data) return <div className="content-wrap"><ErrorState onRetry={() => profile.refetch()} /></div>;
   const set = (key: keyof ProfileForm, value: string) => setForm((current) => ({ ...current, [key]: value }));
@@ -30,8 +30,192 @@ export default function Profile() {
   // is a cheap second line of defense, not the primary check.
   const addItem = (key: 'targetRoles' | 'targetLocations' | 'excludedCompanies', item: string) => setForm((current) => (isDuplicateTag(current[key], item) ? current : { ...current, [key]: [...current[key], item] }));
   const removeItem = (key: 'targetRoles' | 'targetLocations' | 'excludedCompanies', item: string) => setForm((current) => ({ ...current, [key]: current[key].filter((value) => value !== item) }));
-  const save = () => update.mutate({ data: { name: form.name, headline: form.headline, targetRoles: form.targetRoles, targetLocations: form.targetLocations, salaryFloor: Number(form.salaryFloor), excludedCompanies: form.excludedCompanies, masterResume: form.masterResume } }, { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() }); setSaved(true); window.setTimeout(() => setSaved(false), 2400); } });
-  return <div className="content-wrap"><section className="mb-7"><div className="eyebrow">{t('profile.eyebrow')}</div><div className="mt-3 flex flex-wrap items-end justify-between gap-4"><div><h1 className="page-title">{t('profile.title')}</h1><p className="page-subtitle">{t('profile.subtitle')}</p></div>{saved && <div className="badge badge-green" data-testid="status-profile-saved"><Check size={13} /> {t('profile.saved')}</div>}</div></section><div className="grid gap-5 lg:grid-cols-[.85fr_1.15fr]"><section className="surface p-6"><div className="flex items-center gap-3 mb-6"><div className="avatar avatar-lg"><UserRound size={20} /></div><div><h2 className="font-bold">{t('profile.identity')}</h2><p className="text-xs text-[hsl(var(--muted-foreground))]">{t('profile.identitySubtitle')}</p></div></div><div className="grid gap-4"><div><label className="label" htmlFor="profile-name">{t('profile.name')}</label><input id="profile-name" className="input" value={form.name} onChange={(event) => set('name', event.target.value)} data-testid="input-profile-name" /></div><div><label className="label" htmlFor="profile-email">{t('profile.email')}</label><input id="profile-email" className="input opacity-65" value={profile.data.email} readOnly data-testid="input-profile-email" /></div><div><label className="label" htmlFor="profile-headline">{t('profile.headline')}</label><input id="profile-headline" className="input" value={form.headline} onChange={(event) => set('headline', event.target.value)} data-testid="input-profile-headline" /></div><div><label className="label" htmlFor="profile-salary">{t('profile.salaryFloor')}</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[hsl(var(--muted-foreground))]">$</span><input id="profile-salary" className="input pl-7" type="number" value={form.salaryFloor} onChange={(event) => set('salaryFloor', event.target.value)} data-testid="input-profile-salary" /></div></div></div></section><section className="surface p-6"><div className="flex items-center gap-3 mb-6"><div className="avatar avatar-lg bg-[hsl(var(--accent)/.22)] text-[hsl(var(--accent-foreground))]">◎</div><div><h2 className="font-bold">{t('profile.targeting')}</h2><p className="text-xs text-[hsl(var(--muted-foreground))]">{t('profile.targetingSubtitle')}</p></div></div><div className="grid gap-5"><TagEditor label={t('profile.targetRoles')} values={form.targetRoles} draft={newRole} setDraft={setNewRole} onAdd={(item) => addItem('targetRoles', item)} onRemove={(item) => removeItem('targetRoles', item)} placeholder={t('profile.targetRolesPlaceholder')} testId="role" suggestions={ROLE_SUGGESTIONS} /><TagEditor label={t('profile.targetLocations')} values={form.targetLocations} draft={newLocation} setDraft={setNewLocation} onAdd={(item) => addItem('targetLocations', item)} onRemove={(item) => removeItem('targetLocations', item)} placeholder={t('profile.targetLocationsPlaceholder')} testId="location" suggestions={LOCATION_SUGGESTIONS} /><TagEditor label={t('profile.excludedCompanies')} values={form.excludedCompanies} draft={newExcluded} setDraft={setNewExcluded} onAdd={(item) => addItem('excludedCompanies', item)} onRemove={(item) => removeItem('excludedCompanies', item)} placeholder={t('profile.excludedCompaniesPlaceholder')} testId="excluded" suggestions={COMPANY_SUGGESTIONS} /></div></section></div><section className="surface p-6 mt-5"><div className="section-heading"><div><h2>{t('profile.masterResume')}</h2><p>{t('profile.masterResumeSubtitle')}</p></div><span className="font-mono-app text-[10px] text-[hsl(var(--muted-foreground))]">{t('common.charsCount', { count: form.masterResume.length })}</span></div><textarea className="textarea min-h-[260px] mt-3" value={form.masterResume} onChange={(event) => set('masterResume', event.target.value)} placeholder={t('profile.masterResumePlaceholder')} data-testid="textarea-master-resume" /></section><DocumentsCard /><div className="flex justify-end mt-5"><button className="btn btn-primary" onClick={save} disabled={update.isPending} data-testid="button-save-profile"><Save size={15} /> {update.isPending ? t('profile.savingProfile') : t('profile.saveProfile')}</button></div></div>;
+  const save = () => update.mutate({ data: { name: form.name, headline: form.headline, targetRoles: form.targetRoles, targetLocations: form.targetLocations, salaryFloor: Number(form.salaryFloor), excludedCompanies: form.excludedCompanies } }, { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() }); setSaved(true); window.setTimeout(() => setSaved(false), 2400); } });
+  return <div className="content-wrap"><section className="mb-7"><div className="eyebrow">{t('profile.eyebrow')}</div><div className="mt-3 flex flex-wrap items-end justify-between gap-4"><div><h1 className="page-title">{t('profile.title')}</h1><p className="page-subtitle">{t('profile.subtitle')}</p></div>{saved && <div className="badge badge-green" data-testid="status-profile-saved"><Check size={13} /> {t('profile.saved')}</div>}</div></section><div className="grid gap-5 lg:grid-cols-[.85fr_1.15fr]"><section className="surface p-6"><div className="flex items-center gap-3 mb-6"><div className="avatar avatar-lg"><UserRound size={20} /></div><div><h2 className="font-bold">{t('profile.identity')}</h2><p className="text-xs text-[hsl(var(--muted-foreground))]">{t('profile.identitySubtitle')}</p></div></div><div className="grid gap-4"><div><label className="label" htmlFor="profile-name">{t('profile.name')}</label><input id="profile-name" className="input" value={form.name} onChange={(event) => set('name', event.target.value)} data-testid="input-profile-name" /></div><div><label className="label" htmlFor="profile-email">{t('profile.email')}</label><input id="profile-email" className="input opacity-65" value={profile.data.email} readOnly data-testid="input-profile-email" /></div><div><label className="label" htmlFor="profile-headline">{t('profile.headline')}</label><input id="profile-headline" className="input" value={form.headline} onChange={(event) => set('headline', event.target.value)} data-testid="input-profile-headline" /></div><div><label className="label" htmlFor="profile-salary">{t('profile.salaryFloor')}</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[hsl(var(--muted-foreground))]">$</span><input id="profile-salary" className="input pl-7" type="number" value={form.salaryFloor} onChange={(event) => set('salaryFloor', event.target.value)} data-testid="input-profile-salary" /></div></div></div></section><section className="surface p-6"><div className="flex items-center gap-3 mb-6"><div className="avatar avatar-lg bg-[hsl(var(--accent)/.22)] text-[hsl(var(--accent-foreground))]">◎</div><div><h2 className="font-bold">{t('profile.targeting')}</h2><p className="text-xs text-[hsl(var(--muted-foreground))]">{t('profile.targetingSubtitle')}</p></div></div><div className="grid gap-5"><TagEditor label={t('profile.targetRoles')} values={form.targetRoles} draft={newRole} setDraft={setNewRole} onAdd={(item) => addItem('targetRoles', item)} onRemove={(item) => removeItem('targetRoles', item)} placeholder={t('profile.targetRolesPlaceholder')} testId="role" suggestions={ROLE_SUGGESTIONS} /><TagEditor label={t('profile.targetLocations')} values={form.targetLocations} draft={newLocation} setDraft={setNewLocation} onAdd={(item) => addItem('targetLocations', item)} onRemove={(item) => removeItem('targetLocations', item)} placeholder={t('profile.targetLocationsPlaceholder')} testId="location" suggestions={LOCATION_SUGGESTIONS} /><TagEditor label={t('profile.excludedCompanies')} values={form.excludedCompanies} draft={newExcluded} setDraft={setNewExcluded} onAdd={(item) => addItem('excludedCompanies', item)} onRemove={(item) => removeItem('excludedCompanies', item)} placeholder={t('profile.excludedCompaniesPlaceholder')} testId="excluded" suggestions={COMPANY_SUGGESTIONS} /></div></section></div><ResumesCard /><DocumentsCard /><div className="flex justify-end mt-5"><button className="btn btn-primary" onClick={save} disabled={update.isPending} data-testid="button-save-profile"><Save size={15} /> {update.isPending ? t('profile.savingProfile') : t('profile.saveProfile')}</button></div></div>;
+}
+
+/**
+ * Multiple master resumes per account (lot I3, e.g. "Stage FR" / "CDI EN").
+ * A tab per resume - editable label, a star to mark the default, delete with
+ * inline confirmation - and the same free-text editor the single master
+ * resume used to have, now scoped to whichever tab is selected. Tailoring
+ * picks the best-matching resume for each posting automatically
+ * (lib/repo/resumes.ts); the star here only sets the fallback used when no
+ * resume scores above the others.
+ */
+const RESUME_CAP = 5;
+
+function ResumesCard() {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const resumes = useListResumes();
+  const create = useCreateResume();
+  const updateResume = useUpdateResume();
+  const deleteResume = useDeleteResume();
+  const setDefault = useSetDefaultResume();
+
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [draftLabel, setDraftLabel] = useState('');
+  const [draftContent, setDraftContent] = useState('');
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
+  const [savedTabId, setSavedTabId] = useState<number | null>(null);
+
+  const list: Resume[] = resumes.data ?? [];
+  const selected = list.find((resume) => resume.id === selectedId) ?? list[0];
+
+  // Keep the selection valid (list shrank, or nothing picked yet) and the
+  // draft buffers in sync with whichever resume is selected - mirrors the
+  // outer form's own "seed local state from the query" useEffect above.
+  useEffect(() => {
+    if (list.length === 0) return;
+    if (!list.some((resume) => resume.id === selectedId)) setSelectedId(list[0]!.id);
+  }, [list, selectedId]);
+  useEffect(() => {
+    if (selected) { setDraftLabel(selected.label); setDraftContent(selected.content); }
+  }, [selected?.id, selected?.label, selected?.content]);
+
+  if (resumes.isLoading) return <section className="surface p-6 mt-5"><LoadingState label={t('loading.resumes')} /></section>;
+  if (resumes.isError || !selected) return <section className="surface p-6 mt-5"><ErrorState onRetry={() => resumes.refetch()} /></section>;
+
+  const dirty = draftLabel !== selected.label || draftContent !== selected.content;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListResumesQueryKey() });
+
+  const handleAdd = () => create.mutate(
+    { data: { label: t('profile.newResumeLabel'), content: '' } },
+    {
+      onSuccess: (created) => { invalidate(); setSelectedId(created.id); },
+      onError: (err) => toast((err && typeof err === 'object' && 'status' in err && (err as { status?: number }).status === 400) ? t('profile.toastResumeCapReached') : t('profile.toastResumeCreateFailed')),
+    },
+  );
+
+  const handleSave = () => updateResume.mutate(
+    { id: selected.id, data: { label: draftLabel.trim() || selected.label, content: draftContent } },
+    {
+      onSuccess: () => { invalidate(); setSavedTabId(selected.id); window.setTimeout(() => setSavedTabId(null), 2000); },
+      onError: () => toast(t('profile.toastResumeSaveFailed')),
+    },
+  );
+
+  const handleSetDefault = () => setDefault.mutate({ id: selected.id }, {
+    onSuccess: () => invalidate(),
+    onError: () => toast(t('profile.toastDefaultResumeFailed')),
+  });
+
+  const handleDelete = (id: number) => deleteResume.mutate({ id }, {
+    onSuccess: () => { invalidate(); setConfirmingDeleteId(null); if (id === selectedId) setSelectedId(null); },
+    onError: (err) => {
+      setConfirmingDeleteId(null);
+      toast((err && typeof err === 'object' && 'status' in err && (err as { status?: number }).status === 400) ? t('profile.toastResumeLastOne') : t('profile.toastResumeDeleteFailed'));
+    },
+  });
+
+  return (
+    <section className="surface p-6 mt-5" data-testid="card-resumes">
+      <div className="section-heading">
+        <div><h2>{t('profile.resumesTitle')}</h2><p>{t('profile.resumesSubtitle')}</p></div>
+        <span className="font-mono-app text-[10px] text-[hsl(var(--muted-foreground))]" data-testid="text-resumes-count">
+          {t('profile.resumesCount', { count: list.length, cap: RESUME_CAP })}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mt-4" role="tablist" aria-label={t('profile.resumesTitle')}>
+        {list.map((resume) => (
+          <button
+            key={resume.id}
+            type="button"
+            role="tab"
+            aria-selected={resume.id === selected.id}
+            className={`tag pr-2 ${resume.id === selected.id ? 'bg-[hsl(var(--accent)/.22)] text-[hsl(var(--accent-foreground))]' : ''}`}
+            onClick={() => setSelectedId(resume.id)}
+            data-testid={`tab-resume-${resume.id}`}
+          >
+            {resume.isDefault && <Star size={11} className="fill-current" />}
+            {resume.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="btn btn-ghost icon-btn"
+          onClick={handleAdd}
+          disabled={create.isPending || list.length >= RESUME_CAP}
+          aria-label={t('profile.addResume')}
+          data-testid="button-add-resume"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+
+      <div className="grid gap-4 mt-4">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <div>
+            <label className="label" htmlFor="resume-label">{t('profile.resumeLabel')}</label>
+            <input
+              id="resume-label"
+              className="input"
+              value={draftLabel}
+              onChange={(event) => setDraftLabel(event.target.value)}
+              placeholder={t('profile.resumeLabelPlaceholder')}
+              data-testid="input-resume-label"
+            />
+          </div>
+          <div className="flex items-end">
+            {selected.isDefault ? (
+              <span className="badge badge-green" data-testid="badge-default-resume"><Star size={12} className="fill-current" /> {t('profile.defaultResumeBadge')}</span>
+            ) : (
+              <button type="button" className="btn btn-ghost" onClick={handleSetDefault} disabled={setDefault.isPending} data-testid="button-set-default-resume">
+                <Star size={13} /> {t('profile.setDefaultResume')}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="section-heading">
+            <div><h3 className="text-sm font-bold">{t('profile.resumeContent')}</h3></div>
+            <span className="font-mono-app text-[10px] text-[hsl(var(--muted-foreground))]">{t('common.charsCount', { count: draftContent.length })}</span>
+          </div>
+          <textarea
+            className="textarea min-h-[260px] mt-3"
+            value={draftContent}
+            onChange={(event) => setDraftContent(event.target.value)}
+            placeholder={t('profile.masterResumePlaceholder')}
+            data-testid="textarea-resume-content"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            {confirmingDeleteId === selected.id ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('profile.deleteResumeConfirm')}</span>
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirmingDeleteId(null)} data-testid="button-delete-resume-cancel">{t('profile.deleteResumeCancel')}</button>
+                <button type="button" className="btn btn-danger" onClick={() => handleDelete(selected.id)} disabled={deleteResume.isPending} data-testid="button-delete-resume-confirm">
+                  <Trash2 size={13} /> {t('profile.deleteResumeConfirmButton')}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setConfirmingDeleteId(selected.id)}
+                disabled={list.length <= 1}
+                data-testid="button-delete-resume"
+              >
+                <Trash2 size={13} /> {t('profile.deleteResume')}
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {savedTabId === selected.id && <span className="badge badge-green" data-testid="status-resume-saved"><Check size={12} /> {t('profile.resumeSaved')}</span>}
+            <button type="button" className="btn btn-primary" onClick={handleSave} disabled={updateResume.isPending || !dirty} data-testid="button-save-resume">
+              <Save size={14} /> {updateResume.isPending ? t('profile.savingResume') : t('profile.saveResume')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function formatBytes(bytes: number, t: ReturnType<typeof useT>): string {

@@ -25,6 +25,7 @@ import {
   type UserPostingRow,
 } from "../repo/postings";
 import { getProfile } from "../repo/profile";
+import { selectResumeForPosting } from "../repo/resumes";
 import { getCoverLetterTemplate } from "../sources/tailoring";
 import { letterLanguageRule } from "./language";
 import {
@@ -132,20 +133,26 @@ function isValidTailoredContent(value: unknown): value is TailoredContent {
   return true;
 }
 
-/** Calls the Claude CLI once for `job` and returns validated tailored content, or null if invalid. */
+/**
+ * Calls the Claude CLI once for `job` and returns validated tailored
+ * content, or null if invalid. `masterResume` is passed separately from the
+ * rest of the context (lot I3): it is selected per job - see
+ * lib/repo/resumes.ts's selectResumeForPosting - while headline and the
+ * cover letter template are the same for every job in a pass.
+ */
 type TailoringContext = {
-  masterResume: string;
   headline: string;
   coverLetterTemplate: string;
 };
 
 async function generateTailoredContent(
   job: UserPostingRow,
+  masterResume: string,
   context: TailoringContext,
   provider: TextProvider,
 ): Promise<TailoredContent | null> {
   const prompt = buildPrompt({
-    masterResume: context.masterResume,
+    masterResume,
     headline: context.headline,
     coverLetterTemplate: context.coverLetterTemplate,
     title: job.title,
@@ -253,7 +260,6 @@ export async function runTailoringPass(
     }
 
     const context: TailoringContext = {
-      masterResume: profile.masterResume,
       headline: profile.headline,
       coverLetterTemplate: await getCoverLetterTemplate(userId),
     };
@@ -266,7 +272,14 @@ export async function runTailoringPass(
     for (const job of eligible) {
       const startedAt = Date.now();
       try {
-        const content = await generateTailoredContent(job, context, provider);
+        // Lot I3: the resume selected for THIS job - see
+        // lib/repo/resumes.ts's selectResumeForPosting. An account with a
+        // single resume always gets it back, with no scoring, so this is
+        // exactly `profile.masterResume` for every account that predates
+        // this lot.
+        const selected = await selectResumeForPosting(userId, { title: job.title, description: job.description });
+        const masterResume = selected?.content ?? profile.masterResume;
+        const content = await generateTailoredContent(job, masterResume, context, provider);
         const ms = Date.now() - startedAt;
 
         if (!content) {
@@ -345,14 +358,15 @@ export async function tailorOnePosting(userId: string, postingId: number): Promi
   }
 
   const context: TailoringContext = {
-    masterResume: profile.masterResume,
     headline: profile.headline,
     coverLetterTemplate: await getCoverLetterTemplate(userId),
   };
+  const selected = await selectResumeForPosting(userId, { title: job.title, description: job.description });
+  const masterResume = selected?.content ?? profile.masterResume;
 
   const startedAt = Date.now();
   try {
-    const content = await generateTailoredContent(job, context, provider);
+    const content = await generateTailoredContent(job, masterResume, context, provider);
     if (!content) {
       logger.warn({ jobId: job.id }, "On-demand tailoring: invalid output, leaving placeholder");
       return false;
