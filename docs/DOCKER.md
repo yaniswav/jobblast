@@ -191,7 +191,7 @@ rotate it:
 Losing the master key without a rotation makes every stored BYOK credential
 permanently undecryptable - accounts would need to re-enter their key.
 
-## 10. Quotas, hygiene jobs and the Privacy page
+## 10. Quotas, hygiene jobs, instance watches and the Privacy page
 
 **Quotas** (docs/SAAS-ARCHITECTURE.md section 5): daily per-account caps on
 AI job kinds, checked before every provider call so a runaway loop never
@@ -209,6 +209,20 @@ as everything else - `sessions.sweep` (deletes expired session rows) and
 older than `JOBBLAST_POSTING_RETENTION_DAYS`, default 90). Both are saas
 only: the queue worker itself never starts in selfhosted, which also never
 creates a session row in the first place (no login screen).
+
+**Instance watches** (lot H5): `JOBBLAST_INSTANCE_WATCHES` is a
+comma-separated list of ids from the built-in company catalog
+(`lib/sources/ats/catalog.ts`, e.g. `thales,alten,assystem`). Every refresh
+cycle, this instance fetches those companies straight into the shared
+postings pool regardless of whether any account watches them - so the
+anonymous `/try` trial has something current to match against right after a
+fresh deploy, before the first real account signs up. It rides its own job
+kind (`postings.instanceSeed`) and never fans out a per-user score, unlike a
+real account's Company Watch. Leaving it unset is fine (no instance watches
+at all); a suggested starting point of a dozen large, frequently-hiring
+French employers is commented out in `.env.docker.example`. Saas only -
+selfhosted ignores this variable entirely, on purpose: a self-hoster's
+refresh is exactly the companies they chose to watch, nothing added on top.
 
 **Privacy page**: `GET /api/legal` (linked from the login screen, the
 sidebar and Settings) reports the operator identity from the

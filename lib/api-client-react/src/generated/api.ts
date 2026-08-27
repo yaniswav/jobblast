@@ -30,6 +30,7 @@ import type {
   ApplicationInput,
   ApplicationUpdate,
   AuthSession,
+  CompanyCatalogEntry,
   DashboardSummary,
   DeleteAccountRequest,
   DocumentMeta,
@@ -55,6 +56,7 @@ import type {
   RegisterRequest,
   ResetPasswordRequest,
   SaveAiCredentialRequest,
+  SearchCompanyCatalogParams,
   SettingsState,
   SettingsUpdate,
   TestAiCredentialRequest,
@@ -3371,6 +3373,91 @@ export const useAddWatchedCompany = <TError = ErrorType<Error>,
       > => {
       return useMutation(getAddWatchedCompanyMutationOptions(options));
     }
+
+export const getSearchCompanyCatalogUrl = (params?: SearchCompanyCatalogParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/companies/catalog?${stringifiedParams}` : `/api/companies/catalog`
+}
+
+/**
+ * Case- and accent-insensitive match against the entry's label and sector, for the Company Watch "type a name" autocomplete. Returns at most 10 results, empty query returns none (the UI only shows this dropdown once the visitor has typed something). Picking a result adds it the same way pasting its `careerUrl` into `POST /settings/companies` would.
+ * @summary Search the built-in company catalog by name or sector (Company Watch, lot H5)
+ */
+export const searchCompanyCatalog = async (params?: SearchCompanyCatalogParams, options?: Parameters<typeof customFetch>[1]): Promise<CompanyCatalogEntry[]> => {
+
+  return customFetch<CompanyCatalogEntry[]>(getSearchCompanyCatalogUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchCompanyCatalogQueryKey = (params?: SearchCompanyCatalogParams,) => {
+    return [
+    `/api/companies/catalog`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchCompanyCatalogQueryOptions = <TData = Awaited<ReturnType<typeof searchCompanyCatalog>>, TError = ErrorType<unknown>>(params?: SearchCompanyCatalogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchCompanyCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchCompanyCatalogQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchCompanyCatalog>>> = ({ signal }) => searchCompanyCatalog(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchCompanyCatalog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchCompanyCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof searchCompanyCatalog>>>
+export type SearchCompanyCatalogQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search the built-in company catalog by name or sector (Company Watch, lot H5)
+ */
+
+export function useSearchCompanyCatalog<TData = Awaited<ReturnType<typeof searchCompanyCatalog>>, TError = ErrorType<unknown>>(
+ params?: SearchCompanyCatalogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchCompanyCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchCompanyCatalogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getRemoveWatchedCompanyUrl = (id: string,) => {
 

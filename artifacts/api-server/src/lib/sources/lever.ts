@@ -20,7 +20,12 @@ function toPostedDate(createdAt: number | undefined): string {
   return date.toISOString().slice(0, 10);
 }
 
-async function fetchBoard(board: { slug: string; name: string }): Promise<RawJob[]> {
+/**
+ * Fetches one Lever board. Exported (lot H5) so instance-watch seeding
+ * (lib/sources/refresh.ts's fetchInstanceWatchesIntoPool) can fetch a single
+ * catalog company - see fetchGreenhouseBoard's comment in greenhouse.ts.
+ */
+export async function fetchLeverBoard(board: { slug: string; name: string }): Promise<RawJob[]> {
   const url = `https://api.lever.co/v0/postings/${board.slug}?mode=json`;
   const res = await fetch(url);
   if (!res.ok) {
@@ -43,7 +48,7 @@ async function fetchBoard(board: { slug: string; name: string }): Promise<RawJob
 /** Fetches all configured Lever boards. A single board failing does not fail the rest. */
 export async function fetchLeverJobs(): Promise<RawJob[]> {
   const boards = leverBoards();
-  const results = await Promise.allSettled(boards.map((board) => fetchBoard(board)));
+  const results = await Promise.allSettled(boards.map((board) => fetchLeverBoard(board)));
   const jobs: RawJob[] = [];
   results.forEach((result, index) => {
     if (result.status === "fulfilled") {

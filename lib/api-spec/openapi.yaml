@@ -987,6 +987,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /companies/catalog:
+    get:
+      operationId: searchCompanyCatalog
+      tags: [settings]
+      summary: Search the built-in company catalog by name or sector (Company Watch, lot H5)
+      description: >
+        Case- and accent-insensitive match against the entry's label and
+        sector, for the Company Watch "type a name" autocomplete. Returns at
+        most 10 results, empty query returns none (the UI only shows this
+        dropdown once the visitor has typed something). Picking a result adds
+        it the same way pasting its `careerUrl` into
+        `POST /settings/companies` would.
+      parameters:
+        - $ref: "#/components/parameters/CompanyCatalogQuery"
+      responses:
+        "200":
+          description: Matching catalog entries, best match first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompanyCatalogEntry"
   /settings/companies/{id}:
     delete:
       operationId: removeWatchedCompany
@@ -1084,6 +1107,13 @@ components:
       name: id
       in: path
       required: true
+      schema:
+        type: string
+    CompanyCatalogQuery:
+      name: q
+      in: query
+      required: false
+      description: Free-text match against the catalog entry's name and sector.
       schema:
         type: string
   schemas:
@@ -1904,6 +1934,33 @@ components:
           type: string
       required:
         - url
+    CompanyCatalogEntry:
+      type: object
+      description: >
+        One entry in the built-in company catalog (lot H5): a company known
+        in advance to run one of the supported ATSs, so a visitor can find it
+        by typing its name instead of hunting down its career page URL. See
+        lib/sources/ats/catalog.ts.
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        sector:
+          type: string
+        ats:
+          $ref: "#/components/schemas/AtsId"
+        careerUrl:
+          description: >
+            The career page URL - pass this to POST /settings/companies to
+            watch the company, exactly as if it had been pasted in by hand.
+          type: string
+      required:
+        - id
+        - label
+        - sector
+        - ats
+        - careerUrl
     AiTestResult:
       type: object
       properties:

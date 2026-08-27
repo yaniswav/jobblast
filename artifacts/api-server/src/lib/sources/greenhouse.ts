@@ -25,7 +25,14 @@ function toPostedDate(updatedAt: string | undefined): string {
   return date.toISOString().slice(0, 10);
 }
 
-async function fetchBoard(board: { slug: string; name: string }): Promise<RawJob[]> {
+/**
+ * Fetches one Greenhouse board. Exported (lot H5) so instance-watch seeding
+ * (lib/sources/refresh.ts's fetchInstanceWatchesIntoPool) can fetch a single
+ * catalog company without going through greenhouseBoards()'s account-config
+ * merge - the two other per-company adapters (workday.ts, etc.) already
+ * exposed this shape for lot H2.
+ */
+export async function fetchGreenhouseBoard(board: { slug: string; name: string }): Promise<RawJob[]> {
   const url = `https://boards-api.greenhouse.io/v1/boards/${board.slug}/jobs?content=true`;
   const res = await fetch(url);
   if (!res.ok) {
@@ -48,7 +55,7 @@ async function fetchBoard(board: { slug: string; name: string }): Promise<RawJob
 /** Fetches all configured Greenhouse boards. A single board failing does not fail the rest. */
 export async function fetchGreenhouseJobs(): Promise<RawJob[]> {
   const boards = greenhouseBoards();
-  const results = await Promise.allSettled(boards.map((board) => fetchBoard(board)));
+  const results = await Promise.allSettled(boards.map((board) => fetchGreenhouseBoard(board)));
   const jobs: RawJob[] = [];
   results.forEach((result, index) => {
     if (result.status === "fulfilled") {

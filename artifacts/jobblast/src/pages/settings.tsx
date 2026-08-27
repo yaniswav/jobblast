@@ -8,6 +8,7 @@ import {
   getGetSettingsQueryKey,
   getListAiCredentialsQueryKey,
   getListWatchedCompaniesQueryKey,
+  getSearchCompanyCatalogQueryKey,
   useAddWatchedCompany,
   useDeleteAccount,
   useDeleteAiCredential,
@@ -18,12 +19,14 @@ import {
   useListWatchedCompanies,
   useRemoveWatchedCompany,
   useSaveAiCredential,
+  useSearchCompanyCatalog,
   useTestAiCredential,
   useTestAiProvider,
   useUpdateSettings,
   type AiCredentialStatus,
   type AiProviderId,
   type AiTestResult,
+  type CompanyCatalogEntry,
   type FranceTravailContractType,
   type WatchedCompany,
 } from '@workspace/api-client-react';
@@ -467,21 +470,41 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
 }
 
 /**
- * Company Watch (lot H2): paste a company's career page URL, the backend
- * detects which ATS it runs on and adds it to the shared refresh. Universal
- * like SearchCriteriaSection above it - not saas-gated - since watching a
- * company is meaningful in both modes.
+ * Company Watch (lot H2, hybrid input added in lot H5): a single field that
+ * doubles as a career-page URL box (paste, same as before) and a company
+ * name search against the built-in catalog (lib/sources/ats/catalog.ts) -
+ * type a few letters, a dropdown of matches appears, clicking one watches it
+ * immediately via its catalog `careerUrl`, exactly like pasting that URL by
+ * hand would. Universal like SearchCriteriaSection above it - not
+ * saas-gated - since watching a company is meaningful in both modes.
  */
 function CompanyWatchSection({ t }: { t: ReturnType<typeof useT> }) {
   const companies = useListWatchedCompanies();
   const queryClient = useQueryClient();
   const add = useAddWatchedCompany();
   const remove = useRemoveWatchedCompany();
-  const [url, setUrl] = useState('');
+  const [query, setQuery] = useState('');
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+
+  const trimmedQuery = query.trim();
+  // A pasted URL never matches a catalog label/sector anyway, but skipping
+  // the request entirely for anything URL-shaped avoids firing a search on
+  // every keystroke of a long pasted link.
+  const looksLikeUrl = /^https?:\/\//i.test(trimmedQuery);
+  const catalog = useSearchCompanyCatalog(
+    { q: trimmedQuery },
+    {
+      query: {
+        enabled: suggestionsOpen && !looksLikeUrl && trimmedQuery.length >= 2,
+        queryKey: getSearchCompanyCatalogQueryKey({ q: trimmedQuery }),
+      },
+    },
+  );
+  const suggestions = catalog.data ?? [];
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListWatchedCompaniesQueryKey() });
 
-  const handleAdd = () => {
+  const addByUrl = (url: string) => {
     const trimmed = url.trim();
     if (!trimmed) return;
     add.mutate(
@@ -489,7 +512,8 @@ function CompanyWatchSection({ t }: { t: ReturnType<typeof useT> }) {
       {
         onSuccess: (company: WatchedCompany) => {
           invalidate();
-          setUrl('');
+          setQuery('');
+          setSuggestionsOpen(false);
           toast(t('settings.companyWatchToastAdded', { label: company.label }));
         },
         onError: (err) =>
@@ -497,6 +521,9 @@ function CompanyWatchSection({ t }: { t: ReturnType<typeof useT> }) {
       },
     );
   };
+
+  const handleAdd = () => addByUrl(query);
+  const handlePickSuggestion = (entry: CompanyCatalogEntry) => addByUrl(entry.careerUrl);
 
   const handleRemove = (company: WatchedCompany) => {
     remove.mutate(
@@ -521,30 +548,65 @@ function CompanyWatchSection({ t }: { t: ReturnType<typeof useT> }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end mt-4">
-        <div>
+        <div className="relative">
           <label className="label" htmlFor="company-watch-url">
             {t('settings.companyWatchUrlLabel')}
           </label>
           <input
             id="company-watch-url"
             className="input"
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
+            value={query}
+            autoComplete="off"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSuggestionsOpen(true);
+            }}
+            onFocus={() => setSuggestionsOpen(true)}
+            onBlur={() => setSuggestionsOpen(false)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
                 handleAdd();
               }
+              if (event.key === 'Escape') setSuggestionsOpen(false);
             }}
             placeholder={t('settings.companyWatchUrlPlaceholder')}
+            role="combobox"
+            aria-expanded={suggestionsOpen && suggestions.length > 0}
+            aria-controls="company-watch-suggestions"
             data-testid="input-company-url"
           />
+          {suggestionsOpen && !looksLikeUrl && suggestions.length > 0 && (
+            <ul
+              id="company-watch-suggestions"
+              role="listbox"
+              className="absolute left-0 right-0 top-full mt-1 z-10 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-lg overflow-hidden"
+              data-testid="list-company-catalog-suggestions"
+            >
+              {suggestions.map((entry) => (
+                <li key={entry.id} role="option" aria-selected={false}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-[hsl(var(--muted)/.4)]"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => handlePickSuggestion(entry)}
+                    disabled={add.isPending}
+                    data-testid={`option-catalog-suggestion-${entry.id}`}
+                  >
+                    <span className="badge badge-muted flex-none">{ATS_LABELS[entry.ats] ?? entry.ats}</span>
+                    <span className="text-sm font-bold truncate">{entry.label}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] truncate ml-auto">{entry.sector}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <button
           type="button"
           className="btn btn-primary"
           onClick={handleAdd}
-          disabled={add.isPending || !url.trim()}
+          disabled={add.isPending || !query.trim()}
           data-testid="button-add-company"
         >
           <Building2 size={15} /> {add.isPending ? t('settings.companyWatchAdding') : t('settings.companyWatchAddButton')}

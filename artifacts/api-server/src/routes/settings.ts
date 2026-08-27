@@ -18,6 +18,8 @@ import {
   SaveAiCredentialBody,
   SaveAiCredentialParams,
   SaveAiCredentialResponse,
+  SearchCompanyCatalogQueryParams,
+  SearchCompanyCatalogResponse,
   TestAiCredentialBody,
   TestAiCredentialParams,
   TestAiCredentialResponse,
@@ -39,6 +41,7 @@ import {
 import { listAiProviderOptions } from "../lib/ai/provider-options";
 import { forgetUserProvider, getTextProvider } from "../lib/ai/provider";
 import { testByokCredential } from "../lib/ai/byok-test";
+import { searchCompanyCatalog } from "../lib/sources/ats/catalog-search";
 import { detectAts } from "../lib/sources/ats/detect";
 import { actingUserId } from "../lib/auth/middleware";
 import { BYOK_PROVIDERS } from "../lib/config";
@@ -119,6 +122,18 @@ router.put("/settings", async (req, res): Promise<void> => {
 
 router.get("/settings/companies", (_req, res) => {
   res.json(ListWatchedCompaniesResponse.parse(readWatchedCompanies()));
+});
+
+// "Type a name" search (lot H5) against the built-in catalog
+// (lib/sources/ats/catalog.ts) - distinct from /settings/companies above,
+// which lists what THIS account already watches. A malformed query (`q` is
+// never anything but a string once coerced) just falls back to "" - an
+// empty query legitimately returns no suggestions rather than a 400, same as
+// searchCompanyCatalog's own contract.
+router.get("/companies/catalog", (req, res) => {
+  const params = SearchCompanyCatalogQueryParams.safeParse(req.query);
+  const query = params.success ? (params.data.q ?? "") : "";
+  res.json(SearchCompanyCatalogResponse.parse(searchCompanyCatalog(query)));
 });
 
 router.post("/settings/companies", async (req, res): Promise<void> => {

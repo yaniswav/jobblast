@@ -37,7 +37,8 @@ import { inactivityWarningEmail, isEmailEnabled, resolveEmailLocale, sendEmail }
 import { logger } from "../logger";
 import { appOrigin, IS_SAAS } from "../mode";
 import { decideInactivityAction } from "./inactivity-selection";
-import { fetchSignatureIntoPool, scorePostingsForUser, sourceDisplayName } from "../sources/refresh";
+import { instanceWatchCompanies } from "../sources/instance-watches";
+import { fetchInstanceWatchesIntoPool, fetchSignatureIntoPool, scorePostingsForUser, sourceDisplayName } from "../sources/refresh";
 import {
   groupBySignature,
   SOURCE_IDS,
@@ -112,6 +113,18 @@ export async function enqueueRefreshCycle(): Promise<{ accounts: number; signatu
       dedupeKey: `postings.refresh:${group.signature}`,
     });
     if (id !== null) scheduled++;
+  }
+
+  // Instance watches (lot H5): platform-wide, belongs to no query signature
+  // and no subscriber, so it rides its own job kind rather than a fabricated
+  // SignatureGroup - see lib/sources/instance-watches.ts. A no-op in
+  // selfhosted and in saas with no JOBBLAST_INSTANCE_WATCHES configured.
+  if (instanceWatchCompanies().length > 0) {
+    await enqueueJob({
+      kind: "postings.instanceSeed",
+      userId: null,
+      dedupeKey: "postings.instanceSeed:cycle",
+    });
   }
 
   logger.info(
@@ -352,6 +365,16 @@ async function runInactivityPass(): Promise<void> {
 }
 
 /**
+ * Instance watch seeding (lot H5): fetches this instance's
+ * JOBBLAST_INSTANCE_WATCHES companies into the shared pool. No account
+ * context needed - see lib/sources/refresh.ts's fetchInstanceWatchesIntoPool.
+ */
+async function runInstanceSeed(): Promise<void> {
+  const result = await fetchInstanceWatchesIntoPool();
+  logger.info(result, "Instance watch seeding complete");
+}
+
+/**
  * Dispatches one claimed job. Throwing is how a handler asks for a retry: the
  * worker turns it into a backoff, or a `failed` row once the attempts are
  * spent (lib/queue/store.ts).
@@ -382,6 +405,9 @@ export async function runJob(job: Job): Promise<void> {
       return;
     case "users.inactivity":
       await runInactivityPass();
+      return;
+    case "postings.instanceSeed":
+      await runInstanceSeed();
       return;
     default:
       throw new Error(`Unknown job kind "${job.kind}"`);

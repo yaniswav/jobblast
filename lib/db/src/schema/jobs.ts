@@ -36,6 +36,16 @@ import { usersTable } from "./users";
  *                      (lib/queue/inactivity-selection.ts). A no-op whenever
  *                      the email transport is "none" - no working email
  *                      means no warning and no purge, ever.
+ *   postings.instanceSeed - platform-wide, once per refresh cycle (lot H5):
+ *                      fetches this instance's JOBBLAST_INSTANCE_WATCHES
+ *                      catalog companies straight into the shared pool, so
+ *                      the anonymous /try trial has something current to
+ *                      match against even with zero accounts watching them.
+ *                      `user_id` is null, and unlike postings.refresh it
+ *                      never enqueues a user.score - see
+ *                      lib/sources/instance-watches.ts. Saas only: `kind`
+ *                      stays free text (no enum, no migration needed to add
+ *                      it), but nothing ever enqueues it in selfhosted.
  */
 export type JobKind =
   | "postings.refresh"
@@ -44,7 +54,8 @@ export type JobKind =
   | "user.tailor"
   | "sessions.sweep"
   | "postings.prune"
-  | "users.inactivity";
+  | "users.inactivity"
+  | "postings.instanceSeed";
 
 export type JobRunStatus = "pending" | "running" | "done" | "failed";
 

@@ -916,6 +916,24 @@ export const AddWatchedCompanyResponse = zod.object({
 
 
 /**
+ * Case- and accent-insensitive match against the entry's label and sector, for the Company Watch "type a name" autocomplete. Returns at most 10 results, empty query returns none (the UI only shows this dropdown once the visitor has typed something). Picking a result adds it the same way pasting its `careerUrl` into `POST /settings/companies` would.
+ * @summary Search the built-in company catalog by name or sector (Company Watch, lot H5)
+ */
+export const SearchCompanyCatalogQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Free-text match against the catalog entry\'s name and sector.')
+})
+
+export const SearchCompanyCatalogResponseItem = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "sector": zod.string(),
+  "ats": zod.enum(['greenhouse', 'lever', 'smartrecruiters', 'ashby', 'workable', 'recruitee', 'personio', 'workday']).describe('Applicant tracking systems Company Watch knows how to poll (lib\/sources\/ats\/).'),
+  "careerUrl": zod.string().describe('The career page URL - pass this to POST \/settings\/companies to watch the company, exactly as if it had been pasted in by hand.\n')
+}).describe('One entry in the built-in company catalog (lot H5): a company known in advance to run one of the supported ATSs, so a visitor can find it by typing its name instead of hunting down its career page URL. See lib\/sources\/ats\/catalog.ts.\n')
+export const SearchCompanyCatalogResponse = zod.array(SearchCompanyCatalogResponseItem)
+
+
+/**
  * @summary Stop watching a company
  */
 export const RemoveWatchedCompanyParams = zod.object({

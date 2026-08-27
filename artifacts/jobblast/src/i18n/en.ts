@@ -289,11 +289,12 @@ export const en = {
   'settings.searchCriteriaSectionSubtitle': 'What gets fetched, and how it is scored for you. Same fields as onboarding.',
   'settings.searchCriteriaSaveButton': 'Save search criteria',
 
-  // Company Watch section (both modes - lot H2)
+  // Company Watch section (both modes - lot H2, hybrid name/URL input in lot H5)
   'settings.companyWatchSectionTitle': 'Watched companies',
-  'settings.companyWatchSectionSubtitle': 'Paste a company career page URL. We detect the ATS and add it to your refresh.',
-  'settings.companyWatchUrlLabel': 'Career page URL',
-  'settings.companyWatchUrlPlaceholder': 'https://boards.greenhouse.io/acme',
+  'settings.companyWatchSectionSubtitle':
+    'Type a company name to search our catalog, or paste its career page URL directly. We detect the ATS and add it to your refresh.',
+  'settings.companyWatchUrlLabel': 'Company name or career page URL',
+  'settings.companyWatchUrlPlaceholder': 'Thales, or https://boards.greenhouse.io/acme',
   'settings.companyWatchAddButton': 'Watch company',
   'settings.companyWatchAdding': 'Adding...',
   'settings.companyWatchEmpty': 'No companies watched yet.',

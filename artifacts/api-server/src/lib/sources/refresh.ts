@@ -8,25 +8,27 @@
 // generated content are per account (see lib/repo/postings.ts).
 
 import type { InsertPosting } from "@workspace/db";
+import type { AtsId } from "../config";
 import { loadConfig } from "../config";
 import { logger } from "../logger";
 import { fetchAdzunaJobs } from "./adzuna";
 import { fetchAiScoutJobs } from "./aiscout";
 import { fetchArbeitnowJobs } from "./arbeitnow";
-import { fetchAshbyJobs } from "./ats/ashby";
-import { fetchPersonioJobs } from "./ats/personio";
-import { fetchRecruiteeJobs } from "./ats/recruitee";
-import { fetchSmartRecruitersJobs } from "./ats/smartrecruiters";
-import { fetchWorkableJobs } from "./ats/workable";
-import { fetchWorkdayJobs } from "./ats/workday";
+import { fetchAshbyCompany, fetchAshbyJobs } from "./ats/ashby";
+import { fetchPersonioCompany, fetchPersonioJobs } from "./ats/personio";
+import { fetchRecruiteeCompany, fetchRecruiteeJobs } from "./ats/recruitee";
+import { fetchSmartRecruitersCompany, fetchSmartRecruitersJobs } from "./ats/smartrecruiters";
+import { fetchWorkableCompany, fetchWorkableJobs } from "./ats/workable";
+import { fetchWorkdayCompany, fetchWorkdayJobs } from "./ats/workday";
 import { fetchCareerjetJobs } from "./careerjet";
 import { fetchFranceTravailJobs } from "./francetravail";
-import { fetchGreenhouseJobs } from "./greenhouse";
+import { fetchGreenhouseBoard, fetchGreenhouseJobs } from "./greenhouse";
 import { fetchHimalayasJobs } from "./himalayas";
+import { instanceWatchCompanies } from "./instance-watches";
 import { fetchJapanDevJobs } from "./japandev";
 import { fetch104Jobs } from "./job104";
 import { fetchJoobleJobs } from "./jooble";
-import { fetchLeverJobs } from "./lever";
+import { fetchLeverBoard, fetchLeverJobs } from "./lever";
 import { fetchNotionInboxJobs } from "./notion-inbox";
 import { fetchRemoteOkJobs } from "./remoteok";
 import { fetchRemotiveJobs } from "./remotive";
@@ -367,6 +369,61 @@ export async function fetchSignatureIntoPool(source: SourceId): Promise<{
   if (rawJobs.length === 0) return { fetched: 0, stored: 0 };
   const stored = await upsertPostings(rawJobs.map(toPosting));
   return { fetched: rawJobs.length, stored };
+}
+
+/**
+ * One company, straight through the ATS its catalog entry names - the same
+ * per-company fetchers Company Watch itself uses (lib/sources/ats/*.ts),
+ * called directly with an explicit board/label instead of through an
+ * account's watchedCompanies list. Greenhouse/Lever take a `{slug, name}`
+ * object where the other six take two plain arguments; wrapped here so
+ * fetchInstanceWatchesIntoPool() below can dispatch on `ats` alone.
+ */
+const INSTANCE_WATCH_FETCHERS = {
+  greenhouse: (board, label) => fetchGreenhouseBoard({ slug: board, name: label }),
+  lever: (board, label) => fetchLeverBoard({ slug: board, name: label }),
+  smartrecruiters: fetchSmartRecruitersCompany,
+  ashby: fetchAshbyCompany,
+  workable: fetchWorkableCompany,
+  recruitee: fetchRecruiteeCompany,
+  personio: fetchPersonioCompany,
+  workday: fetchWorkdayCompany,
+} satisfies Record<AtsId, (board: string, label: string) => Promise<RawJob[]>>;
+
+/**
+ * Fetches this instance's seed companies (JOBBLAST_INSTANCE_WATCHES,
+ * lib/sources/instance-watches.ts) straight into the shared pool. Unlike
+ * fetchSignatureIntoPool above, this belongs to no account and no query
+ * signature - there is deliberately no per-user user.score fan-out for it
+ * (lib/queue/handlers.ts's `postings.instanceSeed` job stops there). A no-op
+ * returning zeroes when the list is empty (selfhosted, or saas with the env
+ * var unset), so callers never need their own IS_SAAS check.
+ */
+export async function fetchInstanceWatchesIntoPool(): Promise<{
+  companies: number;
+  fetched: number;
+  stored: number;
+}> {
+  const companies = instanceWatchCompanies();
+  if (companies.length === 0) return { companies: 0, fetched: 0, stored: 0 };
+
+  const results = await Promise.allSettled(
+    companies.map((company) => INSTANCE_WATCH_FETCHERS[company.ats](company.board, company.label)),
+  );
+  const jobs: RawJob[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      jobs.push(...result.value);
+    } else {
+      logger.warn(
+        { id: companies[index]?.id, err: result.reason },
+        "Instance watch company fetch failed",
+      );
+    }
+  });
+
+  const stored = jobs.length > 0 ? await upsertPostings(jobs.map(toPosting)) : 0;
+  return { companies: companies.length, fetched: jobs.length, stored };
 }
 
 export type ScoreSummary = {

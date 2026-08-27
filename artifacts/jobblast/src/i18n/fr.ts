@@ -291,12 +291,12 @@ export const fr = {
   'settings.searchCriteriaSectionSubtitle': "Ce qui est récupéré, et comment c'est noté pour vous. Mêmes champs que l'onboarding.",
   'settings.searchCriteriaSaveButton': 'Enregistrer les critères',
 
-  // Section entreprises suivies (les deux modes - lot H2)
+  // Section entreprises suivies (les deux modes - lot H2, champ hybride nom/URL en lot H5)
   'settings.companyWatchSectionTitle': 'Entreprises suivies',
   'settings.companyWatchSectionSubtitle':
-    "Collez l'URL de la page carrière d'une entreprise. Nous détectons l'ATS et l'ajoutons à votre veille.",
-  'settings.companyWatchUrlLabel': 'URL de la page carrière',
-  'settings.companyWatchUrlPlaceholder': 'https://boards.greenhouse.io/acme',
+    "Tapez le nom d'une entreprise pour chercher dans notre catalogue, ou collez directement l'URL de sa page carrière. Nous détectons l'ATS et l'ajoutons à votre veille.",
+  'settings.companyWatchUrlLabel': "Nom d'entreprise ou URL de la page carrière",
+  'settings.companyWatchUrlPlaceholder': 'Thales, ou https://boards.greenhouse.io/acme',
   'settings.companyWatchAddButton': 'Suivre cette entreprise',
   'settings.companyWatchAdding': 'Ajout...',
   'settings.companyWatchEmpty': 'Aucune entreprise suivie pour le moment.',

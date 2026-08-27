@@ -508,6 +508,18 @@ export interface AddWatchedCompanyRequest {
   url: string;
 }
 
+/**
+ * One entry in the built-in company catalog (lot H5): a company known in advance to run one of the supported ATSs, so a visitor can find it by typing its name instead of hunting down its career page URL. See lib/sources/ats/catalog.ts.
+ */
+export interface CompanyCatalogEntry {
+  id: string;
+  label: string;
+  sector: string;
+  ats: AtsId;
+  /** The career page URL - pass this to POST /settings/companies to watch the company, exactly as if it had been pasted in by hand. */
+  careerUrl: string;
+}
+
 export interface AiTestResult {
   ok: boolean;
   latencyMs: number;
@@ -669,6 +681,11 @@ export const ApplicationStatusParameter = {
   offer: 'offer',
 } as const;
 
+/**
+ * Free-text match against the catalog entry's name and sector.
+ */
+export type CompanyCatalogQueryParameter = string;
+
 export type ListJobsParams = {
 search?: SearchParameter;
 status?: JobStatusParameter;
@@ -676,5 +693,12 @@ status?: JobStatusParameter;
 
 export type ListApplicationsParams = {
 status?: ApplicationStatusParameter;
+};
+
+export type SearchCompanyCatalogParams = {
+/**
+ * Free-text match against the catalog entry's name and sector.
+ */
+q?: CompanyCatalogQueryParameter;
 };
 
