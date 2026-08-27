@@ -9,6 +9,7 @@
     "invite": "tsx ./src/invite.ts",
     "rotate-byok": "tsx ./src/rotate-byok.ts",
     "catalog-candidates": "tsx ./src/catalog-candidates.ts",
+    "build-rome-suggestions": "tsx ./src/build-rome-suggestions.ts",
     "backfill-application-events": "tsx ./src/backfill-application-events.ts",
     "backfill-resumes": "tsx ./src/backfill-resumes.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",

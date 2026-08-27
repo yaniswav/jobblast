@@ -434,6 +434,37 @@ const KEYWORD_RULES: KeywordRule[] = [
   { skill: "Élevage", regex: bound("[ée]levage|livestock"), weight: 6 },
   { skill: "Viticulture", regex: bound("viticulture|viticoles?|vignerons?|vigneronnes?"), weight: 6 },
   { skill: "Maraîchage/Horticulture", regex: bound("mara[îi]chage|horticulture"), weight: 6 },
+
+  // --- Lot K1: ROME domain gaps ---
+  // lot K1's brief for suggestions.ts (the ROME_ROLE_SUGGESTIONS import in
+  // that file) also asked to check the groups above against ROME 4.0's 14
+  // official "grands domaines professionnels" and add one safe generic rule
+  // per domain still missing entirely, if any - not a wholesale
+  // auto-generation of rules from the ROME appellation list (that stays out
+  // of scope deliberately, see rome-roles.ts's own header: 500
+  // auto-generated regexes would be a real false-positive risk). The groups
+  // above (Santé, BTP, Vente/commerce, Hôtellerie-restauration,
+  // Logistique/transport, Admin/compta/finance, Éducation/social,
+  // RH/juridique, Marketing/com, Industrie/production,
+  // Sécurité/nettoyage/services, Immobilier, Banque/assurance,
+  // Agriculture/paysage - plus the original tech/business-function rules,
+  // which fall under ROME's own "Support à l'entreprise" domain) cover 11 of
+  // ROME's 14 domains (A, C, D, E, F, G, H, J, K, M, N). Three domains had
+  // no rule at all: B "Arts et Façonnage d'ouvrages d'art" (art/craft
+  // trades - jewelry, glasswork, art restoration...), I "Installation et
+  // Maintenance" (on-site equipment technicians - HVAC, elevators, vehicles
+  // - distinct from H's *industrial production line* maintenance, already
+  // covered above), and L "Spectacle" (live performance - distinct from E's
+  // media/communication, already covered above). One generic, unambiguous
+  // term each, verified against every existing regex above for zero
+  // overlap:
+  { skill: "Artisan d'art", regex: bound("artisans? d'art|m[ée]tiers d'art"), weight: 6 },
+  { skill: "Technicien(ne) SAV / installation", regex: bound("techniciens? sav|techniciennes? sav|ascensoristes?"), weight: 6 },
+  {
+    skill: "Métiers du spectacle",
+    regex: bound("intermittents? du spectacle|intermittentes? du spectacle|r[ée]gisseurs? (?:de |du )?spectacle"),
+    weight: 6,
+  },
 ];
 
 // Adapted from scoring.ts's `penalties.workAuthorization` pattern (the

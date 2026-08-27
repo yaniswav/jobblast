@@ -648,3 +648,15 @@ A row that already received a reply is never suggested - [Gmail sync](#gmailsync
 first place, and this feature trusts that field completely rather than
 re-checking your mailbox itself. Once you confirm a follow-up, the next one
 is suggested another `afterDays` later, up to 2 suggestions per application.
+
+## Target-role suggestions (ROME)
+
+The "target roles" field's autocomplete (`ROLE_SUGGESTIONS` in
+`artifacts/jobblast/src/lib/suggestions.ts`) merges ~140 hand-picked roles
+with `artifacts/jobblast/src/lib/rome-roles.ts`, a ~3200-entry vocabulary
+generated from France Travail's ROME 4.0 open data (Licence Ouverte) - not
+config, so nothing to set here, but it is a committed, generated file.
+Regenerate it with `pnpm run build-rome-suggestions` (downloads the latest
+official file) or `pnpm run build-rome-suggestions -- path/to.csv` for a
+reproducible build from a local snapshot; see that script's own header
+comment for the source URL, license, and curation rules.

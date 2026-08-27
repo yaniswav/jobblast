@@ -2,6 +2,7 @@
 // network: fold/dedup/filter are plain string functions, exercised directly.
 
 import { describe, expect, it } from 'vitest';
+import { ROME_ROLE_SUGGESTIONS } from './rome-roles';
 import {
   COMPANY_SUGGESTIONS,
   fold,
@@ -100,7 +101,84 @@ describe('vocabularies', () => {
     expect(SKILL_SUGGESTIONS.length).toBeLessThanOrEqual(450);
     expect(LOCATION_SUGGESTIONS.length).toBeGreaterThanOrEqual(95);
     expect(LOCATION_SUGGESTIONS.length).toBeLessThanOrEqual(115);
-    expect(ROLE_SUGGESTIONS.length).toBeGreaterThanOrEqual(120);
-    expect(ROLE_SUGGESTIONS.length).toBeLessThanOrEqual(150);
+  });
+
+  it('ROLE_SUGGESTIONS scales to the lot K1 brief\'s target after merging in ROME_ROLE_SUGGESTIONS (~2000-4000)', () => {
+    expect(ROLE_SUGGESTIONS.length).toBeGreaterThanOrEqual(2000);
+    expect(ROLE_SUGGESTIONS.length).toBeLessThanOrEqual(4000);
+  });
+});
+
+describe('ROLE_SUGGESTIONS merge with ROME_ROLE_SUGGESTIONS (lot K1)', () => {
+  it('keeps the hand-picked roles in their original relative order, all before the ROME-only entries', () => {
+    // 'Software Engineer' is the first hand-picked role, 'Ouvrier Agricole'
+    // the last (see suggestions.ts's HAND_PICKED_ROLE_SUGGESTIONS); 'Maçon
+    // -fumiste' is a niche ROME-only term no hand-picked list names.
+    const first = ROLE_SUGGESTIONS.indexOf('Software Engineer');
+    const last = ROLE_SUGGESTIONS.indexOf('Ouvrier Agricole');
+    const romeOnly = ROLE_SUGGESTIONS.indexOf('Maçon-fumiste');
+    expect(first).toBe(0);
+    expect(first).toBeLessThan(last);
+    expect(last).toBeLessThan(romeOnly);
+  });
+
+  it('is deduplicated by fold across the hand-picked and ROME pools combined', () => {
+    const folded = ROLE_SUGGESTIONS.map(fold);
+    expect(new Set(folded).size).toBe(folded.length);
+  });
+
+  it('adds real new ROME entries not present in the pre-K1 hand-picked list (e.g. a niche trade)', () => {
+    expect(ROLE_SUGGESTIONS).toContain('Maçon-fumiste');
+  });
+
+  it('every ROME_ROLE_SUGGESTIONS entry is represented in ROLE_SUGGESTIONS (itself, or a fold-equal hand-picked entry)', () => {
+    const foldedRoleSuggestions = new Set(ROLE_SUGGESTIONS.map(fold));
+    for (const romeEntry of ROME_ROLE_SUGGESTIONS) {
+      expect(foldedRoleSuggestions.has(fold(romeEntry))).toBe(true);
+    }
+  });
+
+  it('never shows a ROME entry that folds the same as an existing hand-picked entry twice', () => {
+    // "Maçon" is both hand-picked (SKILL_SUGGESTIONS/ROLE_SUGGESTIONS predate
+    // lot K1) and present verbatim in ROME_ROLE_SUGGESTIONS - only one survives the merge.
+    const maconOccurrences = ROLE_SUGGESTIONS.filter((role) => fold(role) === fold('Maçon'));
+    expect(maconOccurrences).toHaveLength(1);
+  });
+});
+
+describe('filterSuggestions against the merged ~3200-entry ROLE_SUGGESTIONS pool (lot K1)', () => {
+  it('finds relevant results typing "infirm" (santé)', () => {
+    const results = filterSuggestions(ROLE_SUGGESTIONS, 'infirm');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((role) => fold(role).includes('infirm'))).toBe(true);
+  });
+
+  it('finds relevant results typing "maç" (BTP)', () => {
+    const results = filterSuggestions(ROLE_SUGGESTIONS, 'maç');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((role) => fold(role).startsWith('macon'))).toBe(true);
+  });
+
+  it('finds relevant results typing "comptab" (tertiaire)', () => {
+    const results = filterSuggestions(ROLE_SUGGESTIONS, 'comptab');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((role) => fold(role).includes('comptab'))).toBe(true);
+  });
+
+  it('still caps at MAX_SUGGESTIONS against the much larger pool', () => {
+    expect(filterSuggestions(ROLE_SUGGESTIONS, 'e').length).toBe(MAX_SUGGESTIONS);
+  });
+
+  it('runs comfortably fast against the merged pool (perf check, lot K1 brief)', () => {
+    const queries = ['infirm', 'maç', 'comptab', 'dev', 'chauffeur', 'a', 'e'];
+    const start = performance.now();
+    for (let i = 0; i < 50; i++) {
+      for (const query of queries) filterSuggestions(ROLE_SUGGESTIONS, query);
+    }
+    const elapsedMs = performance.now() - start;
+    // 350 calls against a ~3200-entry pool; generous budget - this is a
+    // regression guard, not a tight benchmark (see build-rome-suggestions's
+    // report for the actual measured numbers with/without fold() memoized).
+    expect(elapsedMs).toBeLessThan(2000);
   });
 });

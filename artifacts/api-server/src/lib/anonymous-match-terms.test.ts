@@ -242,3 +242,45 @@ describe("extractCvProfile - non-tech trade coverage (lot J1)", () => {
     });
   });
 });
+
+// Lot K1: one generic rule was added per ROME domain the J1 groups above
+// left with no rule at all (B "Arts et Façonnage d'ouvrages d'art", I
+// "Installation et Maintenance", L "Spectacle" - see anonymous-match.ts's
+// own comment above these three rules for the full domain-by-domain
+// accounting). Same shape of check as the J1 trade CVs above: each new term
+// is detected, and none of them false-positives on the tech witness or on
+// each other's CV text.
+describe("extractCvProfile - ROME domain-gap coverage (lot K1)", () => {
+  const CV_ARTISAN_ART = "Artisan d'art spécialisé en bijouterie, formation aux métiers d'art.";
+  const CV_TECHNICIEN_SAV = "Technicien SAV itinérant, ascensoriste chez un fabricant d'ascenseurs.";
+  const CV_SPECTACLE = "Intermittent du spectacle, régisseur spectacle pour des tournées et festivals.";
+  const CV_TECH_WITNESS = "Senior TypeScript engineer. Built React apps on AWS with Docker.";
+
+  it("detects the 'Artisan d'art' term", () => {
+    expect(extractCvProfile(CV_ARTISAN_ART).skills.has("Artisan d'art")).toBe(true);
+  });
+
+  it("detects the 'Technicien(ne) SAV / installation' term", () => {
+    expect(extractCvProfile(CV_TECHNICIEN_SAV).skills.has("Technicien(ne) SAV / installation")).toBe(true);
+  });
+
+  it("detects the 'Métiers du spectacle' term", () => {
+    expect(extractCvProfile(CV_SPECTACLE).skills.has("Métiers du spectacle")).toBe(true);
+  });
+
+  it("none of the three new terms false-positives on the tech witness CV or on each other's CV", () => {
+    const newSkills = ["Artisan d'art", "Technicien(ne) SAV / installation", "Métiers du spectacle"];
+    const cvs = [CV_TECH_WITNESS, CV_ARTISAN_ART, CV_TECHNICIEN_SAV, CV_SPECTACLE];
+    for (const cv of cvs) {
+      const skills = extractCvProfile(cv).skills;
+      const hits = newSkills.filter((skill) => skills.has(skill));
+      // Each CV above is written to hit exactly the one new term it targets
+      // (none), except the three trade CVs, which should hit exactly their own.
+      if (cv === CV_TECH_WITNESS) {
+        expect(hits).toEqual([]);
+      } else {
+        expect(hits.length).toBe(1);
+      }
+    }
+  });
+});

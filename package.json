@@ -24,6 +24,7 @@
     "invite": "pnpm --filter @workspace/scripts run invite",
     "rotate-byok": "pnpm --filter @workspace/scripts run rotate-byok",
     "catalog-candidates": "pnpm --filter @workspace/scripts run catalog-candidates",
+    "build-rome-suggestions": "pnpm --filter @workspace/scripts run build-rome-suggestions",
     "test": "pnpm --filter @workspace/api-server run test && pnpm --filter @workspace/scripts run test && pnpm --filter @workspace/jobblast run test",
     "test:e2e": "node tests/e2e/run.mjs"
   },

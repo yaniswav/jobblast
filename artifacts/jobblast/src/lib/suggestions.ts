@@ -5,17 +5,43 @@
 // server, but this module is the browser-side twin since these dropdowns
 // filter entirely client-side against a static list.
 //
+// Lot K1: ROLE_SUGGESTIONS below also merges in ROME_ROLE_SUGGESTIONS
+// (rome-roles.ts, generated from France Travail's ROME 4.0 open data by
+// scripts/src/build-rome-suggestions.ts - see that file's header for the
+// source/license/curation writeup), so the "target roles" field scales from
+// the ~140 hand-picked roles here to France Travail's ~3200-entry official
+// trade nomenclature.
+//
 // Nothing here talks to the backend. A user typing free text that matches
 // nothing in these lists behaves exactly as before this lot: the dropdown
 // just stays empty and the raw text is still addable.
 
+import { ROME_ROLE_SUGGESTIONS } from './rome-roles';
+
+// Lot K1: fold() is memoized. ROLE_SUGGESTIONS now merges in
+// ROME_ROLE_SUGGESTIONS (rome-roles.ts, ~3200 entries), and filterSuggestions
+// folds every pool item on every call - unmemoized, that is ~3200 fresh
+// normalize()+regex passes per keystroke. fold() is pure, so caching by
+// input value is always safe; the same pool strings get folded again and
+// again across keystrokes/renders, so only the first call per distinct
+// string ever pays the real cost. ROLE_SUGGESTIONS is warmed once below at
+// module load, so no keystroke ever hits a cold cache for it. Unbounded
+// growth from arbitrary typed queries is not a real concern here - a
+// self-hosted app, one browser tab, at most a few hundred short strings a
+// session.
+const foldCache = new Map<string, string>();
+
 /** Strips diacritics and lowercases, so "é"/"e" and "Thalès"/"thales" compare equal. */
 export function fold(value: string): string {
-  return value
+  const cached = foldCache.get(value);
+  if (cached !== undefined) return cached;
+  const folded = value
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '') // combining diacritical marks left behind by NFD
     .toLowerCase()
     .trim();
+  foldCache.set(value, folded);
+  return folded;
 }
 
 /**
@@ -64,6 +90,25 @@ export function filterSuggestions(
     })
     .slice(0, limit)
     .map(({ item }) => item);
+}
+
+/**
+ * Merges two suggestion pools, `primary` first and in its own order, then
+ * every `secondary` item that doesn't fold to the same key as something
+ * already in `primary` or already added from `secondary` itself (lot K1:
+ * used to merge the hand-picked ROLE_SUGGESTIONS with the generated
+ * ROME_ROLE_SUGGESTIONS - see that export's doc).
+ */
+function mergeSuggestionPools(primary: readonly string[], secondary: readonly string[]): string[] {
+  const seen = new Set(primary.map(fold));
+  const merged = [...primary];
+  for (const item of secondary) {
+    const key = fold(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,8 +265,12 @@ export const LOCATION_SUGGESTIONS: string[] = [
   'Sweden', 'United States', 'Canada', 'Japan', 'Taiwan',
 ];
 
-/** Target-role suggestions for profile.tsx's "target roles" field, FR + EN. */
-export const ROLE_SUGGESTIONS: string[] = [
+/**
+ * Hand-picked target-role suggestions, FR + EN - kept first in
+ * ROLE_SUGGESTIONS below (see that export's own doc) so these still win
+ * ranking ties over a same-ranked ROME entry, same as before lot K1.
+ */
+const HAND_PICKED_ROLE_SUGGESTIONS: string[] = [
   'Software Engineer', 'Senior Software Engineer', 'Frontend Engineer', 'Backend Engineer',
   'Full-Stack Engineer', 'Mobile Engineer', 'iOS Engineer', 'Android Engineer', 'DevOps Engineer',
   'Site Reliability Engineer', 'Data Engineer', 'Data Scientist', 'Data Analyst',
@@ -271,6 +320,22 @@ export const ROLE_SUGGESTIONS: string[] = [
   // Agriculture / paysage (lot J1)
   'Agriculteur', 'Exploitant Agricole', 'Paysagiste', 'Ouvrier Agricole',
 ];
+
+/**
+ * Target-role suggestions for profile.tsx's "target roles" field
+ * (explore.tsx's search bar reuses it too): HAND_PICKED_ROLE_SUGGESTIONS
+ * above, kept first and in order, plus France Travail's ROME 4.0 job-title
+ * vocabulary (ROME_ROLE_SUGGESTIONS, rome-roles.ts, lot K1) for everything
+ * the hand-picked list doesn't already name - deduped by fold() against the
+ * hand-picked list, so a ROME entry that folds the same as an existing
+ * hand-picked one (e.g. "Maçon") is dropped rather than shown twice.
+ */
+export const ROLE_SUGGESTIONS: string[] = mergeSuggestionPools(HAND_PICKED_ROLE_SUGGESTIONS, ROME_ROLE_SUGGESTIONS);
+
+// Warms fold()'s cache for the whole merged pool once, at module load,
+// rather than paying for it on the first keystroke that touches it (see
+// fold()'s own comment above).
+for (const suggestion of ROLE_SUGGESTIONS) fold(suggestion);
 
 /**
  * Company-name suggestions for profile.tsx's "excluded companies" field:
