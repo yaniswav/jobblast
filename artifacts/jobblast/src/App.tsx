@@ -14,6 +14,7 @@ import Try from '@/pages/try';
 import Onboarding from '@/pages/onboarding';
 import Review from '@/pages/review';
 import Applications from '@/pages/applications';
+import Stats from '@/pages/stats';
 import Profile from '@/pages/profile';
 import Settings from '@/pages/settings';
 import Privacy from '@/pages/privacy';
@@ -24,7 +25,7 @@ import { I18nProvider, useT } from '@/i18n';
 const queryClient = new QueryClient();
 
 function Router() {
-  return <RoutedErrorBoundary><AppShell><Switch><Route path="/" component={Dashboard} /><Route path="/review" component={Review} /><Route path="/applications" component={Applications} /><Route path="/profile" component={Profile} /><Route path="/settings" component={Settings} /><Route path="/privacy" component={Privacy} /><Route component={NotFound} /></Switch></AppShell></RoutedErrorBoundary>;
+  return <RoutedErrorBoundary><AppShell><Switch><Route path="/" component={Dashboard} /><Route path="/review" component={Review} /><Route path="/applications" component={Applications} /><Route path="/stats" component={Stats} /><Route path="/profile" component={Profile} /><Route path="/settings" component={Settings} /><Route path="/privacy" component={Privacy} /><Route component={NotFound} /></Switch></AppShell></RoutedErrorBoundary>;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {

@@ -32,6 +32,7 @@ import type {
   ApplicationNoteInput,
   ApplicationUpdate,
   AuthSession,
+  CampaignStats,
   CompanyCatalogEntry,
   DashboardSummary,
   DeleteAccountRequest,
@@ -1198,6 +1199,84 @@ export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCampaignStatsUrl = () => {
+
+
+
+
+  return `/api/stats`
+}
+
+/**
+ * Every number is derived from existing applications, their timeline events and the postings they came from - lot I4 adds no new table. `byResume` is null unless the account has sent applications under at least two distinct resume labels; `bySource` only lists sources with at least one sent application; `averageResponseDelayDays` is null until at least one application has a recorded first response.
+ * @summary Get campaign performance stats
+ */
+export const getCampaignStats = async ( options?: Parameters<typeof customFetch>[1]): Promise<CampaignStats> => {
+
+  return customFetch<CampaignStats>(getGetCampaignStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCampaignStatsQueryKey = () => {
+    return [
+    `/api/stats`
+    ] as const;
+    }
+
+
+export const getGetCampaignStatsQueryOptions = <TData = Awaited<ReturnType<typeof getCampaignStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCampaignStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCampaignStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCampaignStats>>> = ({ signal }) => getCampaignStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCampaignStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCampaignStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getCampaignStats>>>
+export type GetCampaignStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get campaign performance stats
+ */
+
+export function useGetCampaignStats<TData = Awaited<ReturnType<typeof getCampaignStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCampaignStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCampaignStatsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

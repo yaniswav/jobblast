@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: dashboard
     description: Dashboard aggregates
+  - name: stats
+    description: Campaign performance aggregates (funnel, response rate by source and by resume, weekly trend, average response delay)
   - name: jobs
     description: Ranked job listings
   - name: applications
@@ -419,6 +421,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
+  /stats:
+    get:
+      operationId: getCampaignStats
+      tags: [stats]
+      summary: Get campaign performance stats
+      description: >
+        Every number is derived from existing applications, their timeline
+        events and the postings they came from - lot I4 adds no new table.
+        `byResume` is null unless the account has sent applications under at
+        least two distinct resume labels; `bySource` only lists sources with
+        at least one sent application; `averageResponseDelayDays` is null
+        until at least one application has a recorded first response.
+      responses:
+        "200":
+          description: Campaign performance stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignStats"
   /jobs:
     get:
       operationId: listJobs
@@ -1780,6 +1801,118 @@ components:
         - streakDays
         - recentApplications
         - firstBatchPending
+    CampaignFunnel:
+      description: >
+        Counters for the six stages a tracked application can be described
+        by. Not strictly cumulative: `rejected` is its own terminal branch
+        (a rejection can land straight from "applied", skipping "responded"
+        or "interview"), counted separately rather than nested under an
+        earlier stage.
+      type: object
+      properties:
+        toSend:
+          description: Status "approved" - prepared but not yet sent to the employer.
+          type: number
+        sent:
+          description: Any status other than "approved".
+          type: number
+        responded:
+          description: Any reply at all, including a rejection - status responded, interview, offer or rejected.
+          type: number
+        interview:
+          description: Reached interview or further - status interview or offer.
+          type: number
+        offer:
+          type: number
+        rejected:
+          type: number
+      required:
+        - toSend
+        - sent
+        - responded
+        - interview
+        - offer
+        - rejected
+    CampaignSourceStat:
+      type: object
+      properties:
+        source:
+          description: The linked posting's source (e.g. "Adzuna", "France Travail", "ats:workday").
+          type: string
+        sent:
+          type: number
+        responded:
+          type: number
+        responseRate:
+          description: Percentage of `sent` that reached `responded`, rounded to the nearest integer.
+          type: number
+      required:
+        - source
+        - sent
+        - responded
+        - responseRate
+    CampaignResumeStat:
+      type: object
+      properties:
+        resumeVersion:
+          description: The resume label tailored for this application (lot I3).
+          type: string
+        sent:
+          type: number
+        responded:
+          type: number
+        interviews:
+          type: number
+      required:
+        - resumeVersion
+        - sent
+        - responded
+        - interviews
+    CampaignWeeklyTrendPoint:
+      type: object
+      properties:
+        weekStart:
+          description: Monday of that week, UTC.
+          type: string
+          format: date
+        count:
+          type: number
+      required:
+        - weekStart
+        - count
+    CampaignStats:
+      type: object
+      properties:
+        funnel:
+          $ref: "#/components/schemas/CampaignFunnel"
+        bySource:
+          description: Only sources with at least one sent application.
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignSourceStat"
+        byResume:
+          description: Null unless at least two distinct resume labels have sent applications.
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CampaignResumeStat"
+        weeklyTrend:
+          description: Sent applications per week, oldest first, always exactly 8 points (zero-filled).
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignWeeklyTrendPoint"
+        averageResponseDelayDays:
+          description: Average days from appliedAt to the first responded/interview/rejected status change. Null with no qualifying data yet.
+          type: ["number", "null"]
+        responseDelaySampleSize:
+          description: How many applications the average above is computed from.
+          type: number
+      required:
+        - funnel
+        - bySource
+        - byResume
+        - weeklyTrend
+        - averageResponseDelayDays
+        - responseDelaySampleSize
     Profile:
       type: object
       properties:

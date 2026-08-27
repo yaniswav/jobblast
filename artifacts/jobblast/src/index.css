@@ -218,6 +218,17 @@
 .banner-exit.banner-exit-active { opacity:0; max-height:0; margin-bottom:0; padding-top:0; padding-bottom:0; border-width:0; }
 .notice-slot { min-height:46px; margin-bottom:16px; border-radius:12px; padding:12px 16px; font-size:13px; font-weight:600; background:hsl(var(--primary) / .13); color:hsl(var(--primary)); opacity:0; transition: opacity 200ms cubic-bezier(.22,1,.36,1); }
 .notice-slot.notice-visible { opacity:1; }
+.stats-grid { display:grid; gap:16px; }
+.funnel-row { display:grid; grid-template-columns:104px 1fr 40px; align-items:center; gap:12px; }
+.funnel-row + .funnel-row { margin-top:13px; }
+.funnel-label { font-size:12px; font-weight:600; color:hsl(var(--muted-foreground)); }
+.funnel-value { font-size:12px; font-weight:700; text-align:right; font-family:var(--app-font-mono); }
+.trend-chart { display:flex; align-items:flex-end; gap:7px; height:120px; }
+.trend-bar { flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; height:100%; min-width:0; }
+.trend-bar-track { width:100%; max-width:30px; flex:1; display:flex; align-items:flex-end; }
+.trend-bar-fill { width:100%; border-radius:6px 6px 2px 2px; background:hsl(var(--primary)); min-height:3px; transition:height .5s cubic-bezier(.22,1,.36,1); }
+.trend-bar-count { font-size:10px; font-weight:700; font-family:var(--app-font-mono); color:hsl(var(--muted-foreground)); }
+.trend-bar-label { font-size:9px; color:hsl(var(--muted-foreground)); text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
 .mobile-nav { display:none; }
 @media (max-width: 960px) {
   .sidebar { width:216px; flex-basis:216px; }
@@ -239,6 +250,8 @@
   .hide-mobile { display:none; }
   .page-title { font-size:30px; }
   .surface { border-radius:13px; }
+  .funnel-row { grid-template-columns:76px 1fr 34px; gap:8px; }
+  .trend-chart { height:90px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -254,6 +267,7 @@
   .flash-approve { animation: none; }
   .skeleton { animation: none; }
   .progress-bar { transition: none; }
+  .trend-bar-fill { transition: none; }
   .nav-item, .switch-thumb, .btn { transition-duration: 0.01ms !important; }
   .banner-exit { transition: none; }
   .notice-slot { transition: none; }

@@ -358,6 +358,40 @@ export const GetDashboardResponse = zod.object({
 
 
 /**
+ * Every number is derived from existing applications, their timeline events and the postings they came from - lot I4 adds no new table. `byResume` is null unless the account has sent applications under at least two distinct resume labels; `bySource` only lists sources with at least one sent application; `averageResponseDelayDays` is null until at least one application has a recorded first response.
+ * @summary Get campaign performance stats
+ */
+export const GetCampaignStatsResponse = zod.object({
+  "funnel": zod.object({
+  "toSend": zod.number().describe('Status \"approved\" - prepared but not yet sent to the employer.'),
+  "sent": zod.number().describe('Any status other than \"approved\".'),
+  "responded": zod.number().describe('Any reply at all, including a rejection - status responded, interview, offer or rejected.'),
+  "interview": zod.number().describe('Reached interview or further - status interview or offer.'),
+  "offer": zod.number(),
+  "rejected": zod.number()
+}).describe('Counters for the six stages a tracked application can be described by. Not strictly cumulative: `rejected` is its own terminal branch (a rejection can land straight from \"applied\", skipping \"responded\" or \"interview\"), counted separately rather than nested under an earlier stage.\n'),
+  "bySource": zod.array(zod.object({
+  "source": zod.string().describe('The linked posting\'s source (e.g. \"Adzuna\", \"France Travail\", \"ats:workday\").'),
+  "sent": zod.number(),
+  "responded": zod.number(),
+  "responseRate": zod.number().describe('Percentage of `sent` that reached `responded`, rounded to the nearest integer.')
+})).describe('Only sources with at least one sent application.'),
+  "byResume": zod.array(zod.object({
+  "resumeVersion": zod.string().describe('The resume label tailored for this application (lot I3).'),
+  "sent": zod.number(),
+  "responded": zod.number(),
+  "interviews": zod.number()
+})).nullable().describe('Null unless at least two distinct resume labels have sent applications.'),
+  "weeklyTrend": zod.array(zod.object({
+  "weekStart": zod.coerce.date().describe('Monday of that week, UTC.'),
+  "count": zod.number()
+})).describe('Sent applications per week, oldest first, always exactly 8 points (zero-filled).'),
+  "averageResponseDelayDays": zod.number().nullable().describe('Average days from appliedAt to the first responded\/interview\/rejected status change. Null with no qualifying data yet.'),
+  "responseDelaySampleSize": zod.number().describe('How many applications the average above is computed from.')
+})
+
+
+/**
  * @summary List ranked job matches
  */
 export const ListJobsQueryParams = zod.object({

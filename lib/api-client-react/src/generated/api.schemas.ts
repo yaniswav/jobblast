@@ -314,6 +314,65 @@ export interface DashboardSummary {
   firstBatchPending: boolean;
 }
 
+/**
+ * Counters for the six stages a tracked application can be described by. Not strictly cumulative: `rejected` is its own terminal branch (a rejection can land straight from "applied", skipping "responded" or "interview"), counted separately rather than nested under an earlier stage.
+ */
+export interface CampaignFunnel {
+  /** Status "approved" - prepared but not yet sent to the employer. */
+  toSend: number;
+  /** Any status other than "approved". */
+  sent: number;
+  /** Any reply at all, including a rejection - status responded, interview, offer or rejected. */
+  responded: number;
+  /** Reached interview or further - status interview or offer. */
+  interview: number;
+  offer: number;
+  rejected: number;
+}
+
+export interface CampaignSourceStat {
+  /** The linked posting's source (e.g. "Adzuna", "France Travail", "ats:workday"). */
+  source: string;
+  sent: number;
+  responded: number;
+  /** Percentage of `sent` that reached `responded`, rounded to the nearest integer. */
+  responseRate: number;
+}
+
+export interface CampaignResumeStat {
+  /** The resume label tailored for this application (lot I3). */
+  resumeVersion: string;
+  sent: number;
+  responded: number;
+  interviews: number;
+}
+
+export interface CampaignWeeklyTrendPoint {
+  /** Monday of that week, UTC. */
+  weekStart: string;
+  count: number;
+}
+
+export interface CampaignStats {
+  funnel: CampaignFunnel;
+  /** Only sources with at least one sent application. */
+  bySource: CampaignSourceStat[];
+  /**
+     * Null unless at least two distinct resume labels have sent applications.
+     * @nullable
+     */
+  byResume: CampaignResumeStat[] | null;
+  /** Sent applications per week, oldest first, always exactly 8 points (zero-filled). */
+  weeklyTrend: CampaignWeeklyTrendPoint[];
+  /**
+     * Average days from appliedAt to the first responded/interview/rejected status change. Null with no qualifying data yet.
+     * @nullable
+     */
+  averageResponseDelayDays: number | null;
+  /** How many applications the average above is computed from. */
+  responseDelaySampleSize: number;
+}
+
 export interface Profile {
   id: number;
   name: string;
