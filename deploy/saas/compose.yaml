@@ -74,7 +74,20 @@ services:
     # "Using the published image".
     image: ${JOBBLAST_IMAGE:-jobblast-saas:local}
     container_name: jobblast-saas-migrate
-    command: ["pnpm", "--filter", "@workspace/db", "run", "push-force"]
+    # Retried because drizzle-kit's initial "pulling schema" connection can
+    # drop right after the db healthcheck flips on slow CI runners (observed
+    # twice on GitHub-hosted runners, never locally).
+    command:
+      - sh
+      - -c
+      - |
+        for attempt in 1 2 3; do
+          pnpm --filter @workspace/db run push-force && exit 0
+          echo "migrate attempt $$attempt failed, retrying in 5s..." >&2
+          sleep 5
+        done
+        echo "migrate failed after 3 attempts" >&2
+        exit 1
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/saas/.env.docker}@db:5432/jobblast
     depends_on:
