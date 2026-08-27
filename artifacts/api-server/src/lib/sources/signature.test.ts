@@ -110,6 +110,85 @@ describe("sourceQueries", () => {
   });
 });
 
+describe("sourceQueries: Company Watch keyword targeting (lot J3)", () => {
+  function withWatchedWorkday(keywords: string[], boards: string[] = ["thales/wd3/Careers"]) {
+    const cfg = JobBlastConfigSchema.parse({
+      sources: ONLY({ franceTravail: { enabled: false, keywords } }),
+      watchedCompanies: boards.map((board, i) => ({
+        id: `w${i}`,
+        url: `https://example.com/${board}`,
+        ats: "workday",
+        board,
+        label: board,
+      })),
+    });
+    return cfg;
+  }
+
+  function withWatchedAshby(keywords: string[], boards: string[] = ["ramp"]) {
+    return JobBlastConfigSchema.parse({
+      sources: ONLY({ franceTravail: { enabled: false, keywords } }),
+      watchedCompanies: boards.map((board, i) => ({
+        id: `a${i}`,
+        url: `https://example.com/${board}`,
+        ats: "ashby",
+        board,
+        label: board,
+      })),
+    });
+  }
+
+  it("gives two accounts watching the same Workday board different signatures when their keywords differ", () => {
+    const a = sourceQueries(withWatchedWorkday(["c++"]));
+    const b = sourceQueries(withWatchedWorkday(["python"]));
+    const workdayA = a.find((q) => q.source === "workday");
+    const workdayB = b.find((q) => q.source === "workday");
+    expect(workdayA?.signature).not.toBe(workdayB?.signature);
+  });
+
+  it("gives two accounts watching the same Workday board the same signature when their keywords match (order/case/whitespace-insensitive)", () => {
+    const a = sourceQueries(withWatchedWorkday(["c++", "embedded"]));
+    const b = sourceQueries(withWatchedWorkday(["Embedded", " C++ "]));
+    const workdayA = a.find((q) => q.source === "workday");
+    const workdayB = b.find((q) => q.source === "workday");
+    expect(workdayA?.signature).toBe(workdayB?.signature);
+  });
+
+  it("does the same for SmartRecruiters (the other keyword-targeted ATS)", () => {
+    function withWatchedSmartRecruiters(keywords: string[]) {
+      return JobBlastConfigSchema.parse({
+        sources: ONLY({ franceTravail: { enabled: false, keywords } }),
+        watchedCompanies: [
+          { id: "s1", url: "https://careers.smartrecruiters.com/Grab", ats: "smartrecruiters", board: "Grab", label: "Grab" },
+        ],
+      });
+    }
+    const a = sourceQueries(withWatchedSmartRecruiters(["c++"]));
+    const b = sourceQueries(withWatchedSmartRecruiters(["rust"]));
+    const srA = a.find((q) => q.source === "smartrecruiters");
+    const srB = b.find((q) => q.source === "smartrecruiters");
+    expect(srA?.signature).not.toBe(srB?.signature);
+  });
+
+  it("does NOT fragment a non-keyword-targeted ATS's signature when only keywords differ", () => {
+    // Ashby's fetcher never searches by keyword (lot J3 only covers Workday
+    // and SmartRecruiters), so its params must stay just the board list.
+    const a = sourceQueries(withWatchedAshby(["c++"]));
+    const b = sourceQueries(withWatchedAshby(["python"]));
+    const ashbyA = a.find((q) => q.source === "ashby");
+    const ashbyB = b.find((q) => q.source === "ashby");
+    expect(ashbyA?.signature).toBe(ashbyB?.signature);
+  });
+
+  it("keeps a Workday signature stable for two accounts with identical boards and no keywords", () => {
+    const a = sourceQueries(withWatchedWorkday([]));
+    const b = sourceQueries(withWatchedWorkday([]));
+    const workdayA = a.find((q) => q.source === "workday");
+    const workdayB = b.find((q) => q.source === "workday");
+    expect(workdayA?.signature).toBe(workdayB?.signature);
+  });
+});
+
 describe("groupBySignature", () => {
   it("collapses identical queries into one fetch with several subscribers", () => {
     const queries = sourceQueries(configWith(ONLY({ arbeitnow: { enabled: true } })));

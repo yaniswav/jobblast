@@ -174,6 +174,8 @@ export interface ExplorePosting {
   /** HTML-stripped, truncated to ~300 characters on a word boundary. */
   descriptionExcerpt: string;
   postedDate: string;
+  /** The posting's original URL, for a "View posting" link out to the source. */
+  url: string;
   /** True when this account already has a review-queue row for this posting. */
   inMyQueue: boolean;
 }

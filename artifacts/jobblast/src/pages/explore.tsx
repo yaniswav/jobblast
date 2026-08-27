@@ -1,4 +1,4 @@
-import { Check, MapPin, Search } from 'lucide-react';
+import { Check, ExternalLink, MapPin, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -152,6 +152,15 @@ function ExploreCard({ posting, onAdded }: { posting: ExplorePosting; onAdded: (
         )}
       </div>
       <p className="mt-4 text-sm leading-6 text-[hsl(var(--muted-foreground))]">{posting.descriptionExcerpt}</p>
+      <a
+        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[hsl(var(--primary))] hover:underline"
+        href={posting.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid={`link-explore-view-${posting.id}`}
+      >
+        {t('explore.viewPosting')} <ExternalLink size={13} />
+      </a>
     </article>
   );
 }

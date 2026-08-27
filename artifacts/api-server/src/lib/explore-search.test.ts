@@ -111,6 +111,7 @@ describe("toExplorePostingCard", () => {
     workMode: "Remote",
     description: "<p>Build things.</p>",
     postedDate: "2026-08-01",
+    url: "https://boards.greenhouse.io/acme/jobs/1",
     inMyQueue: false,
   };
 

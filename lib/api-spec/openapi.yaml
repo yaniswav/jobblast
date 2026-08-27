@@ -1693,6 +1693,9 @@ components:
         postedDate:
           type: string
           format: date
+        url:
+          type: string
+          description: The posting's original URL, for a "View posting" link out to the source.
         inMyQueue:
           type: boolean
           description: True when this account already has a review-queue row for this posting.
@@ -1705,6 +1708,7 @@ components:
         - workMode
         - descriptionExcerpt
         - postedDate
+        - url
         - inMyQueue
     ExploreAddResult:
       type: object

@@ -155,6 +155,7 @@ export const fr = {
   'explore.loadingMore': 'Chargement…',
   'explore.addToQueue': 'Ajouter à ma file',
   'explore.inQueue': 'Dans ta file',
+  'explore.viewPosting': "Voir l'offre",
   'explore.toastAdded': 'Ajoutée à votre file de revue.',
   'explore.toastAlreadyQueued': 'Déjà dans votre file.',
   'explore.toastAddFailed': "Impossible d'ajouter cette offre.",

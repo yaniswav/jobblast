@@ -104,6 +104,7 @@ export type ExplorePostingRow = {
   workMode: string;
   description: string;
   postedDate: string;
+  url: string;
   inMyQueue: boolean;
 };
 

@@ -105,6 +105,20 @@ export function signatureOf(source: string, params: Record<string, unknown>): st
 /** The six Company Watch ATSs beyond Greenhouse/Lever - see sourceQueries() below. */
 const COMPANY_WATCH_ATS_IDS = ["smartrecruiters", "ashby", "workable", "recruitee", "personio", "workday"] as const;
 
+/**
+ * The two Company Watch ATSs whose fetcher actually searches with the
+ * account's keywords (lot J3, lib/sources/ats/keyword-search.ts): Workday's
+ * `searchText` and SmartRecruiters' `?q=`, both verified live. The other
+ * four still only take a board list, so folding keywords into their params
+ * too would fragment their signatures (more fetches) for a parameter no
+ * request they make ever uses - see this file's header on why `params` is
+ * "what the fetcher actually puts in the URL".
+ */
+const KEYWORD_TARGETED_ATS_IDS: ReadonlySet<(typeof COMPANY_WATCH_ATS_IDS)[number]> = new Set([
+  "workday",
+  "smartrecruiters",
+]);
+
 function companyWatchQueries(config: JobBlastConfig): Array<{
   source: SourceId;
   enabled: boolean;
@@ -112,7 +126,17 @@ function companyWatchQueries(config: JobBlastConfig): Array<{
 }> {
   return COMPANY_WATCH_ATS_IDS.map((ats) => {
     const boards = config.watchedCompanies.filter((c) => c.ats === ats).map((c) => c.board);
-    return { source: ats, enabled: boards.length > 0, params: { boards } };
+    // Two accounts watching the exact same boards but hunting different
+    // keywords no longer share this fetch (lot J3): each targeted search is
+    // run under one ambient account's context (lib/queue/handlers.ts's
+    // runRefresh), so every subscriber sharing a signature must be asking
+    // with the identical keyword list for that to be correct - the same
+    // "accepted, and no worse than today's board-list split" tradeoff
+    // mergeCompanyBoards's own doc comment already makes.
+    const params = KEYWORD_TARGETED_ATS_IDS.has(ats)
+      ? { boards, keywords: config.sources.franceTravail.keywords }
+      : { boards };
+    return { source: ats, enabled: boards.length > 0, params };
   });
 }
 

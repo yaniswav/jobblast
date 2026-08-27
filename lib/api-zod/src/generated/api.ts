@@ -547,6 +547,7 @@ export const SearchExploreResponseItem = zod.object({
   "workMode": zod.enum(['Remote', 'Hybrid', 'On-site']),
   "descriptionExcerpt": zod.string().describe('HTML-stripped, truncated to ~300 characters on a word boundary.'),
   "postedDate": zod.coerce.date(),
+  "url": zod.string().describe('The posting\'s original URL, for a \"View posting\" link out to the source.'),
   "inMyQueue": zod.boolean().describe('True when this account already has a review-queue row for this posting.')
 }).describe('One shared-pool posting as GET \/explore returns it - a lighter shape than JobListing (no score, no tailored content: those only exist once a posting is actually in an account\'s queue).\n')
 export const SearchExploreResponse = zod.array(SearchExploreResponseItem)

@@ -386,6 +386,7 @@ export type PostingSearchRow = {
   workMode: string;
   description: string;
   postedDate: string;
+  url: string;
   inMyQueue: boolean;
 };
 
@@ -439,6 +440,7 @@ export async function searchPostings(
       workMode: postingsTable.workMode,
       description: postingsTable.description,
       postedDate: postingsTable.postedDate,
+      url: postingsTable.url,
       queuedByUserId: userPostingsTable.userId,
     })
     .from(postingsTable)

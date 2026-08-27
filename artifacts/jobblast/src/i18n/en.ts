@@ -153,6 +153,7 @@ export const en = {
   'explore.loadingMore': 'Loading…',
   'explore.addToQueue': 'Add to your queue',
   'explore.inQueue': 'In your queue',
+  'explore.viewPosting': 'View posting',
   'explore.toastAdded': 'Added to your review queue.',
   'explore.toastAlreadyQueued': 'Already in your queue.',
   'explore.toastAddFailed': 'Could not add this posting.',
