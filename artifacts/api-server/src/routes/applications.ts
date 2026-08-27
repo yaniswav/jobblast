@@ -10,6 +10,7 @@ import {
   GetInterviewBriefParams,
   GetInterviewBriefPdfParams,
   GetInterviewBriefResponse,
+  GetInterviewIcsParams,
   ListApplicationEventsParams,
   ListApplicationEventsResponse,
   ListApplicationsQueryParams,
@@ -34,8 +35,11 @@ import {
   recordApplicationEvent,
 } from "../lib/application-events";
 import { actingUserId } from "../lib/auth/middleware";
+import { getUserById } from "../lib/auth/store";
 import { loadConfig } from "../lib/config";
+import { resolveEmailLocale } from "../lib/email";
 import { withFollowUpEligibility } from "../lib/follow-ups";
+import { buildInterviewIcs } from "../lib/ics";
 import { logger } from "../lib/logger";
 import { renderInterviewBriefPdf } from "../lib/pdf-interview-brief";
 import { sanitizeFilenameSegment } from "../lib/pdf-cover-letter";
@@ -124,7 +128,12 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
     return;
   }
   // update gains its keys conditionally below; `satisfies` would freeze it to `{}`.
-  type ApplicationUpdate = { status?: string; notes?: string; followUpDate?: string | null };
+  type ApplicationUpdate = {
+    status?: string;
+    notes?: string;
+    followUpDate?: string | null;
+    interviewAt?: Date | null;
+  };
   // eslint-disable-next-line anti-slop/no-known-value-widening
   const update: ApplicationUpdate = {};
   if (body.data.status !== undefined) update.status = body.data.status;
@@ -135,6 +144,10 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
         ? null
         : body.data.followUpDate.toISOString().slice(0, 10);
   }
+  // Lot I2: set, move or clear the scheduled interview date/time. No status
+  // requirement, same as followUpDate above - a user can schedule ahead of
+  // the row actually reaching "interview".
+  if (body.data.interviewAt !== undefined) update.interviewAt = body.data.interviewAt;
   // Read the row before the write so the interview trigger below fires on
   // the transition into "interview", not on every later save of a row that
   // is already there.
@@ -164,7 +177,71 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
   if (application.status === "interview" && previous?.status !== "interview") {
     await ensureInterviewBrief(userId, application.id);
   }
+  // The interview date was set, moved or cleared - timelined the same way a
+  // status change is, but only when it actually changed (a save that leaves
+  // interviewAt untouched writes nothing here).
+  if (
+    update.interviewAt !== undefined &&
+    previous &&
+    (previous.interviewAt?.getTime() ?? null) !== (application.interviewAt?.getTime() ?? null)
+  ) {
+    await recordApplicationEvent(userId, application.id, {
+      kind: "interview_scheduled",
+      payload: { interviewAt: application.interviewAt ? application.interviewAt.toISOString() : null },
+    });
+  }
   res.json(UpdateApplicationResponse.parse(toApplicationResponse(application)));
+});
+
+// ---------------------------------------------------------------------------
+// Interview calendar file (lot I2, lib/ics.ts)
+//
+// A plain RFC 5545 .ics download for the interview date set via the PATCH
+// above - role, company, location and time, plus one line mentioning a
+// brief exists when one is ready. Never the brief's own content - see
+// lib/ics.ts's header.
+// ---------------------------------------------------------------------------
+
+router.get("/applications/:id/interview.ics", async (req, res): Promise<void> => {
+  const userId = actingUserId(req);
+  const params = GetInterviewIcsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const application = await getApplication(userId, params.data.id);
+  if (!application) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+  if (!application.interviewAt) {
+    res.status(404).json({ error: "No interview date set for this application" });
+    return;
+  }
+
+  const [brief, user] = await Promise.all([
+    getReadyBrief(userId, application.id),
+    getUserById(userId),
+  ]);
+
+  const ics = buildInterviewIcs({
+    applicationId: application.id,
+    title: application.title,
+    company: application.company,
+    location: application.location,
+    interviewAt: application.interviewAt,
+    hasBrief: Boolean(brief),
+    host: req.hostname,
+    locale: resolveEmailLocale(user?.locale),
+  });
+
+  // Binary-ish text response - intentionally NOT run through a Zod .parse()
+  // (see GET /documents/:type/file for the same rationale).
+  const filename = `Interview_${sanitizeFilenameSegment(application.company)}.ics`;
+  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(ics);
 });
 
 // ---------------------------------------------------------------------------

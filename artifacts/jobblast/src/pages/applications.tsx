@@ -1,11 +1,12 @@
-import { ArrowRightLeft, CalendarClock, Check, CircleAlert, Copy, Edit3, ExternalLink, FileDown, Filter, History, Inbox, Mail, RefreshCw, Search, Send, Sparkles, StickyNote, X } from 'lucide-react';
+import { ArrowRightLeft, CalendarClock, CalendarPlus, Check, CircleAlert, Copy, Edit3, ExternalLink, FileDown, Filter, History, Inbox, Mail, RefreshCw, Search, Send, Sparkles, StickyNote, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApplicationStatus, getGetDashboardQueryKey, getGetFollowUpEmailQueryKey, getGetInterviewBriefPdfUrl, getGetInterviewBriefQueryKey, getGetJobQueryKey, getListApplicationEventsQueryKey, getListApplicationsQueryKey, useAddApplicationNote, useGetFollowUpEmail, useGetInterviewBrief, useGetJob, useListApplicationEvents, useListApplications, useMarkFollowedUp, useRegenerateInterviewBrief, useUpdateApplication } from '@workspace/api-client-react';
+import { ApplicationStatus, getGetDashboardQueryKey, getGetFollowUpEmailQueryKey, getGetInterviewBriefPdfUrl, getGetInterviewBriefQueryKey, getGetInterviewIcsUrl, getGetJobQueryKey, getListApplicationEventsQueryKey, getListApplicationsQueryKey, useAddApplicationNote, useGetFollowUpEmail, useGetInterviewBrief, useGetJob, useListApplicationEvents, useListApplications, useMarkFollowedUp, useRegenerateInterviewBrief, useUpdateApplication } from '@workspace/api-client-react';
 import type { Application, ApplicationEvent, ApplicationEventKind, ApplicationStatus as ApplicationStatusType } from '@workspace/api-client-react';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
+import { buildGoogleCalendarUrl } from '@/lib/google-calendar';
 import { fold } from '@/lib/suggestions';
 
 const statuses = Object.values(ApplicationStatus);
@@ -21,6 +22,7 @@ export default function Applications() {
   const [preparing, setPreparing] = useState<Application | null>(null);
   const [preparingFollowUp, setPreparingFollowUp] = useState<Application | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Application | null>(null);
+  const [scheduling, setScheduling] = useState<Application | null>(null);
   const applications = useListApplications(filter === 'all' ? undefined : { status: filter });
   // Lot H6: accent/case-insensitive (fold(), same helper the tag-editor
   // dropdowns use) so "cafe" finds "Café" and "MULLER" finds "Müller" -
@@ -37,17 +39,18 @@ export default function Applications() {
         <select className="select w-auto min-w-[130px]" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} data-testid="select-application-status"><option value="all">{t('applications.allStatuses')}</option>{statuses.map((status) => <option value={status} key={status}>{t(`status.${status}` as TranslationKey)}</option>)}</select>
       </div>
       <section className="surface">
-        {visible.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('applications.colRole')}</th><th>{t('applications.colStatus')}</th><th>{t('applications.colFollowUp')}</th><th>{t('applications.colNotes')}</th><th><span className="sr-only">{t('applications.colActions')}</span></th></tr></thead><tbody>{visible.map((application) => <ApplicationRow key={application.id} application={application} onEdit={() => setEditing(application)} onPrep={() => setPreparing(application)} onPrepFollowUp={() => setPreparingFollowUp(application)} onHistory={() => setViewingHistory(application)} />)}</tbody></table></div> : <EmptyState title={search ? t('applications.emptySearchTitle') : t('applications.emptyTitle')} body={search ? t('applications.emptySearchBody') : t('applications.emptyBody')} /> }
+        {visible.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('applications.colRole')}</th><th>{t('applications.colStatus')}</th><th>{t('applications.colFollowUp')}</th><th>{t('applications.colNotes')}</th><th><span className="sr-only">{t('applications.colActions')}</span></th></tr></thead><tbody>{visible.map((application) => <ApplicationRow key={application.id} application={application} onEdit={() => setEditing(application)} onPrep={() => setPreparing(application)} onPrepFollowUp={() => setPreparingFollowUp(application)} onHistory={() => setViewingHistory(application)} onSchedule={() => setScheduling(application)} />)}</tbody></table></div> : <EmptyState title={search ? t('applications.emptySearchTitle') : t('applications.emptyTitle')} body={search ? t('applications.emptySearchBody') : t('applications.emptyBody')} /> }
       </section>
       {editing && <EditApplication application={editing} onClose={() => setEditing(null)} />}
       {preparing && <InterviewBrief application={preparing} onClose={() => setPreparing(null)} />}
       {preparingFollowUp && <FollowUpPanel application={preparingFollowUp} onClose={() => setPreparingFollowUp(null)} />}
       {viewingHistory && <TimelinePanel application={viewingHistory} onClose={() => setViewingHistory(null)} />}
+      {scheduling && <InterviewSchedulePanel application={scheduling} onClose={() => setScheduling(null)} onOpenBrief={() => setPreparing(scheduling)} />}
     </div>
   );
 }
 
-function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp, onHistory }: { application: Application; onEdit: () => void; onPrep: () => void; onPrepFollowUp: () => void; onHistory: () => void }) {
+function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp, onHistory, onSchedule }: { application: Application; onEdit: () => void; onPrep: () => void; onPrepFollowUp: () => void; onHistory: () => void; onSchedule: () => void }) {
   const t = useT();
   const [locale] = useLocale();
   const isApproved = application.status === 'approved';
@@ -67,7 +70,7 @@ function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp, onHistory
     },
     onError: () => toast(t('applications.toastMarkAppliedFailed')),
   });
-  return <tr className="list-enter" data-testid={`row-application-${application.id}`}><td><div className="flex items-center gap-3"><div className="avatar">{application.companyInitials}</div><div><div className="font-bold">{application.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.company} · {application.location}</div></div></div></td><td><div className="flex items-center gap-1.5 flex-wrap"><span className={`badge ${tone}`}>{t(`status.${application.status}` as TranslationKey)}</span>{application.followUpEligible && <span className="badge badge-amber" data-testid={`badge-follow-up-${application.id}`}>{t('applications.followUpBadge')}</span>}</div></td><td>{application.followUpDate ? <div className={`flex items-center gap-1.5 text-xs ${due ? 'text-[hsl(var(--accent))] font-bold' : 'text-[hsl(var(--muted-foreground))]'}`}><CalendarClock size={14} />{due ? t('applications.dueNow') : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(application.followUpDate))}</div> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}</td><td><div className="max-w-[210px] truncate text-xs text-[hsl(var(--muted-foreground))]" title={application.notes}>{application.notes || t('applications.noNoteYet')}</div></td><td><div className="flex items-center justify-end gap-2">{isApproved && <a className="btn btn-ghost" href={job.data?.url} target="_blank" rel="noreferrer" aria-disabled={!job.data?.url} onClick={(event) => { if (!job.data?.url) event.preventDefault(); }} data-testid={`link-open-job-${application.id}`}><ExternalLink size={14} /> {t('applications.openListing')}</a>}{isApproved && <button className="btn btn-primary" onClick={handleMarkApplied} disabled={markApplied.isPending} data-testid={`button-mark-applied-${application.id}`}><Check size={14} /> {markApplied.isPending ? t('applications.markingApplied') : t('applications.markApplied')}</button>}{isInterview && <button className="btn btn-primary" onClick={onPrep} data-testid={`button-interview-prep-${application.id}`}><Sparkles size={14} /> {t('applications.prep')}</button>}{application.followUpEligible && <button className="btn btn-primary" onClick={onPrepFollowUp} data-testid={`button-prepare-follow-up-${application.id}`}><Mail size={14} /> {t('applications.prepareFollowUp')}</button>}<button className="btn btn-ghost icon-btn" onClick={onHistory} aria-label={t('timeline.openAriaLabel', { title: application.title })} data-testid={`button-history-${application.id}`}><History size={15} /></button><button className="btn btn-ghost icon-btn" onClick={onEdit} aria-label={t('applications.editAriaLabel', { title: application.title })} data-testid={`button-edit-application-${application.id}`}><Edit3 size={15} /></button></div></td></tr>;
+  return <tr className="list-enter" data-testid={`row-application-${application.id}`}><td><div className="flex items-center gap-3"><div className="avatar">{application.companyInitials}</div><div><div className="font-bold">{application.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.company} · {application.location}</div></div></div></td><td><div className="flex items-center gap-1.5 flex-wrap"><span className={`badge ${tone}`}>{t(`status.${application.status}` as TranslationKey)}</span>{application.followUpEligible && <span className="badge badge-amber" data-testid={`badge-follow-up-${application.id}`}>{t('applications.followUpBadge')}</span>}</div></td><td>{application.followUpDate ? <div className={`flex items-center gap-1.5 text-xs ${due ? 'text-[hsl(var(--accent))] font-bold' : 'text-[hsl(var(--muted-foreground))]'}`}><CalendarClock size={14} />{due ? t('applications.dueNow') : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(application.followUpDate))}</div> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}</td><td><div className="max-w-[210px] truncate text-xs text-[hsl(var(--muted-foreground))]" title={application.notes}>{application.notes || t('applications.noNoteYet')}</div></td><td><div className="flex items-center justify-end gap-2">{isApproved && <a className="btn btn-ghost" href={job.data?.url} target="_blank" rel="noreferrer" aria-disabled={!job.data?.url} onClick={(event) => { if (!job.data?.url) event.preventDefault(); }} data-testid={`link-open-job-${application.id}`}><ExternalLink size={14} /> {t('applications.openListing')}</a>}{isApproved && <button className="btn btn-primary" onClick={handleMarkApplied} disabled={markApplied.isPending} data-testid={`button-mark-applied-${application.id}`}><Check size={14} /> {markApplied.isPending ? t('applications.markingApplied') : t('applications.markApplied')}</button>}{isInterview && <button className="btn btn-primary" onClick={onPrep} data-testid={`button-interview-prep-${application.id}`}><Sparkles size={14} /> {t('applications.prep')}</button>}{isInterview && <button className="btn btn-ghost" onClick={onSchedule} aria-label={t('interview.scheduleAriaLabel', { title: application.title })} data-testid={`button-schedule-interview-${application.id}`}><CalendarPlus size={14} /> {application.interviewAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(application.interviewAt)) : t('interview.scheduleButton')}</button>}{application.followUpEligible && <button className="btn btn-primary" onClick={onPrepFollowUp} data-testid={`button-prepare-follow-up-${application.id}`}><Mail size={14} /> {t('applications.prepareFollowUp')}</button>}<button className="btn btn-ghost icon-btn" onClick={onHistory} aria-label={t('timeline.openAriaLabel', { title: application.title })} data-testid={`button-history-${application.id}`}><History size={15} /></button><button className="btn btn-ghost icon-btn" onClick={onEdit} aria-label={t('applications.editAriaLabel', { title: application.title })} data-testid={`button-edit-application-${application.id}`}><Edit3 size={15} /></button></div></td></tr>;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +90,7 @@ const EVENT_ICON_BY_KIND = {
   note_added: StickyNote,
   email_detected: Inbox,
   brief_generated: Sparkles,
+  interview_scheduled: CalendarPlus,
 } satisfies Record<ApplicationEventKind, typeof History>;
 
 function payloadText(payload: Record<string, unknown>, key: string): string | undefined {
@@ -98,7 +102,7 @@ function payloadText(payload: Record<string, unknown>, key: string): string | un
 type EventDescription = { title: string; detail?: string };
 
 /** Fully localized { title, detail } for one timeline event. */
-function describeEvent(event: ApplicationEvent, t: ReturnType<typeof useT>): EventDescription {
+function describeEvent(event: ApplicationEvent, t: ReturnType<typeof useT>, locale: string): EventDescription {
   const payload = event.payload as Record<string, unknown>;
   switch (event.kind) {
     case 'applied':
@@ -121,6 +125,12 @@ function describeEvent(event: ApplicationEvent, t: ReturnType<typeof useT>): Eve
       return { title: t('timeline.kindEmailDetected'), detail: payloadText(payload, 'subject') };
     case 'brief_generated':
       return { title: t('timeline.kindBriefGenerated') };
+    case 'interview_scheduled': {
+      const interviewAt = payloadText(payload, 'interviewAt');
+      if (!interviewAt) return { title: t('timeline.kindInterviewCleared') };
+      const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(interviewAt));
+      return { title: t('timeline.kindInterviewScheduled', { date }) };
+    }
     default:
       return { title: event.kind };
   }
@@ -190,7 +200,7 @@ function TimelinePanel({ application, onClose }: { application: Application; onC
             <ol className="grid gap-0" data-testid="timeline-list">
               {events.data.map((event, index) => {
                 const Icon = EVENT_ICON_BY_KIND[event.kind];
-                const { title, detail } = describeEvent(event, t);
+                const { title, detail } = describeEvent(event, t, locale);
                 const occurredAt = new Date(event.occurredAt);
                 const isLast = index === events.data!.length - 1;
                 return (
@@ -365,6 +375,106 @@ function InterviewBrief({ application, onClose }: { application: Application; on
             {status === 'ready' && <a className="btn btn-ghost" href={getGetInterviewBriefPdfUrl(application.id)} target="_blank" rel="noreferrer" data-testid="link-interview-brief-pdf"><FileDown size={14} /> {t('brief.pdf')}</a>}
             {status !== 'failed' && <button className="btn btn-ghost" onClick={handleRegenerate} disabled={regenerate.isPending || working} data-testid="button-regenerate-interview-brief"><RefreshCw size={14} /> {regenerate.isPending ? t('brief.regenerating') : t('brief.regenerate')}</button>}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Interview scheduling (lot I2)
+//
+// The date/time is stored server-side (UTC, via PATCH /applications/:id)
+// and this panel offers two one-click ways to get it onto a real calendar:
+// a downloadable .ics (api-server/src/lib/ics.ts, RFC 5545) and a prefilled
+// Google Calendar link built entirely client-side (@/lib/google-calendar,
+// no OAuth). Neither ever carries the interview brief's content - only
+// role, company, location and time, plus a one-line mention that a brief
+// exists.
+// ---------------------------------------------------------------------------
+
+/** `<input type="datetime-local">` expects local wall-clock time with no timezone designator. */
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function InterviewSchedulePanel({ application, onClose, onOpenBrief }: { application: Application; onClose: () => void; onOpenBrief: () => void }) {
+  const t = useT();
+  const [locale] = useLocale();
+  const queryClient = useQueryClient();
+  const update = useUpdateApplication();
+  const interviewDate = application.interviewAt ? new Date(application.interviewAt) : null;
+  const [value, setValue] = useState(() => (interviewDate ? toDatetimeLocalValue(interviewDate) : ''));
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
+  };
+
+  const handleSave = () => {
+    if (!value) return;
+    // datetime-local carries no timezone - `new Date(value)` reads it as the
+    // browser's local time, and toISOString() converts that to UTC, which
+    // is exactly what the server stores.
+    const interviewAt = new Date(value).toISOString();
+    update.mutate({ id: application.id, data: { interviewAt } }, {
+      onSuccess: () => { invalidate(); toast(t('interview.toastSaved')); },
+      onError: () => toast(t('interview.toastSaveFailed')),
+    });
+  };
+
+  const handleClear = () => {
+    update.mutate({ id: application.id, data: { interviewAt: null } }, {
+      onSuccess: () => { invalidate(); setValue(''); toast(t('interview.toastCleared')); },
+      onError: () => toast(t('interview.toastClearFailed')),
+    });
+  };
+
+  const googleCalendarHref = interviewDate
+    ? buildGoogleCalendarUrl({
+      text: t('interview.icsSummary', { title: application.title, company: application.company }),
+      location: application.location,
+      start: interviewDate,
+    })
+    : undefined;
+
+  return (
+    <div className="fixed inset-0 z-40 grid place-items-center bg-[hsl(var(--foreground)/.38)] p-4" onClick={onClose}>
+      <div className="surface w-full max-w-lg p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <div className="eyebrow">{t('interview.eyebrow')}</div>
+            <h2 className="text-xl font-bold tracking-[-.04em] mt-2">{application.company}</h2>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.title}</p>
+          </div>
+          <button className="btn btn-ghost icon-btn" onClick={onClose} aria-label={t('interview.close')} data-testid="button-close-interview-schedule"><X size={17} /></button>
+        </div>
+
+        <div className="grid gap-4">
+          <div>
+            <label className="label" htmlFor="interview-at">{t('interview.dateLabel')}</label>
+            <input id="interview-at" className="input" type="datetime-local" value={value} onChange={(event) => setValue(event.target.value)} data-testid="input-interview-at" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-primary" onClick={handleSave} disabled={!value || update.isPending} data-testid="button-save-interview-at">
+              <Check size={14} /> {update.isPending ? t('interview.saving') : t('interview.save')}
+            </button>
+            {interviewDate && <button className="btn btn-ghost" onClick={handleClear} disabled={update.isPending} data-testid="button-clear-interview-at">{t('interview.clear')}</button>}
+          </div>
+
+          {interviewDate && (
+            <div className="pt-4 border-t border-[hsl(var(--border))] grid gap-3">
+              <div className="text-sm font-bold" data-testid="text-interview-at">
+                {new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeStyle: 'short' }).format(interviewDate)}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a className="btn btn-ghost" href={getGetInterviewIcsUrl(application.id)} download data-testid="link-download-ics"><FileDown size={14} /> {t('interview.downloadIcs')}</a>
+                <a className="btn btn-ghost" href={googleCalendarHref} target="_blank" rel="noreferrer" data-testid="link-google-calendar"><ExternalLink size={14} /> {t('interview.googleCalendar')}</a>
+                <button className="btn btn-ghost" onClick={() => { onOpenBrief(); onClose(); }} data-testid="button-open-brief-from-interview"><Sparkles size={14} /> {t('interview.viewBrief')}</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

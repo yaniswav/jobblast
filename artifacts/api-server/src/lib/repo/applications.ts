@@ -161,6 +161,7 @@ export type ApplicationPatch = {
   status?: string;
   notes?: string;
   followUpDate?: string | null;
+  interviewAt?: Date | null;
 };
 
 export async function updateApplication(

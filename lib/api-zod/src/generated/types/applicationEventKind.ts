@@ -7,7 +7,7 @@
  */
 
 /**
- * applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload's origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.
+ * applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload's origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished. interview_scheduled - the user set, moved or cleared the interview date/time (lot I2).
  */
 export type ApplicationEventKind = typeof ApplicationEventKind[keyof typeof ApplicationEventKind];
 
@@ -19,4 +19,5 @@ export const ApplicationEventKind = {
   note_added: 'note_added',
   email_detected: 'email_detected',
   brief_generated: 'brief_generated',
+  interview_scheduled: 'interview_scheduled',
 } as const;

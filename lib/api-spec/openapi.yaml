@@ -620,6 +620,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /applications/{id}/interview.ics:
+    get:
+      operationId: getInterviewIcs
+      tags: [applications]
+      summary: Download a calendar (.ics) file for this application's scheduled interview
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Interview calendar event (RFC 5545)
+          content:
+            text/calendar:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Application not found, or no interview date set for it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /applications/{id}/interview-brief:
     get:
       operationId: getInterviewBrief
@@ -1453,6 +1474,10 @@ components:
         followUpEligible:
           description: Whether this application is due for a follow-up suggestion right now (status "applied", no reply, past the account's follow-up delay, under the suggestion cap).
           type: boolean
+        interviewAt:
+          description: When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.
+          type: ["string", "null"]
+          format: date-time
       required:
         - id
         - jobId
@@ -1469,6 +1494,7 @@ components:
         - lastFollowedUpAt
         - followUpCount
         - followUpEligible
+        - interviewAt
     ApplicationInput:
       type: object
       properties:
@@ -1494,6 +1520,10 @@ components:
         followUpDate:
           type: ["string", "null"]
           format: date
+        interviewAt:
+          description: Set, move or clear (null) the scheduled interview date/time. Sent as an ISO datetime, stored in UTC.
+          type: ["string", "null"]
+          format: date-time
     InterviewBriefStatus:
       type: string
       enum: [pending, generating, ready, failed]
@@ -1542,9 +1572,19 @@ components:
         note_added - a personal note (append-only, no edit or delete).
         email_detected - Gmail sync matched (or considered, then declined) an
         e-mail against this application. brief_generated - an interview prep
-        brief finished.
+        brief finished. interview_scheduled - the user set, moved or cleared
+        the interview date/time (lot I2).
       type: string
-      enum: [applied, status_changed, followed_up, note_added, email_detected, brief_generated]
+      enum:
+        [
+          applied,
+          status_changed,
+          followed_up,
+          note_added,
+          email_detected,
+          brief_generated,
+          interview_scheduled,
+        ]
     ApplicationEvent:
       type: object
       properties:

@@ -30,4 +30,9 @@ export interface Application {
   followUpCount: number;
   /** Whether this application is due for a follow-up suggestion right now (status "applied", no reply, past the account's follow-up delay, under the suggestion cap). */
   followUpEligible: boolean;
+  /**
+     * When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.
+     * @nullable
+     */
+  interviewAt: Date | null;
 }

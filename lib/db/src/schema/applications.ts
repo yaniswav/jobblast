@@ -49,6 +49,13 @@ export const applicationsTable = pgTable(
     // feature, which is exactly "never followed up" - no backfill needed.
     lastFollowedUpAt: timestamp("last_followed_up_at", { withTimezone: true }),
     followUpCount: integer("follow_up_count").notNull().default(0),
+    // Lot I2: when the user has a scheduled interview for this application,
+    // stored in UTC. Null until they set one (there is no status
+    // requirement, mirroring followUpDate above - a user can schedule ahead
+    // of the row reaching "interview"), and cleared back to null if they
+    // remove it. Feeds GET /applications/:id/interview.ics (lib/ics.ts) and
+    // the Google Calendar link built client-side.
+    interviewAt: timestamp("interview_at", { withTimezone: true }),
   },
   (table) => [index("applications_user_id_idx").on(table.userId)],
 );

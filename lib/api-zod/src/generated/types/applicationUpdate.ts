@@ -12,4 +12,9 @@ export interface ApplicationUpdate {
   notes?: string;
   /** @nullable */
   followUpDate?: Date | null;
+  /**
+     * Set, move or clear (null) the scheduled interview date/time. Sent as an ISO datetime, stored in UTC.
+     * @nullable
+     */
+  interviewAt?: Date | null;
 }

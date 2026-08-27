@@ -171,6 +171,26 @@ export const fr = {
   'applications.followUpBadge': 'À relancer',
   'applications.prepareFollowUp': 'Préparer la relance',
 
+  // Planification de l'entretien (lot I2) - la date est stockée côté serveur
+  // (UTC) ; ce panneau propose un .ics téléchargeable et un lien Google
+  // Agenda préremplis, sans jamais inclure le contenu du dossier d'entretien.
+  'interview.scheduleButton': "Planifier l'entretien",
+  'interview.scheduleAriaLabel': "Entretien planifié pour {title}",
+  'interview.eyebrow': 'Entretien',
+  'interview.close': "Fermer la planification",
+  'interview.dateLabel': "Date et heure de l'entretien",
+  'interview.save': 'Enregistrer',
+  'interview.saving': 'Enregistrement...',
+  'interview.clear': 'Effacer',
+  'interview.downloadIcs': 'Télécharger le .ics',
+  'interview.googleCalendar': 'Ajouter à Google Agenda',
+  'interview.viewBrief': "Voir le dossier d'entretien",
+  'interview.icsSummary': 'Entretien - {title} chez {company}',
+  'interview.toastSaved': 'Entretien planifié.',
+  'interview.toastSaveFailed': "Impossible d'enregistrer la date d'entretien.",
+  'interview.toastCleared': "Date d'entretien effacée.",
+  'interview.toastClearFailed': "Impossible d'effacer la date d'entretien.",
+
   // Panneau du mail de relance (lot H4) - le serveur ne rédige que l'objet
   // et le corps ; JobBlast n'envoie jamais ce mail lui-même.
   'followUp.eyebrow': 'Mail de relance',
@@ -222,6 +242,8 @@ export const fr = {
   'timeline.kindNoteAdded': 'Note ajoutée',
   'timeline.kindEmailDetected': 'Mail détecté',
   'timeline.kindBriefGenerated': "Dossier d'entretien généré",
+  'timeline.kindInterviewScheduled': 'Entretien planifié pour le {date}',
+  'timeline.kindInterviewCleared': "Date d'entretien effacée",
   'timeline.noteLabel': 'Ajouter une note',
   'timeline.notePlaceholder': 'Notez ce qui vaut la peine de s\'en souvenir...',
   'timeline.noteSaving': 'Enregistrement...',

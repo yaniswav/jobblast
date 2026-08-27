@@ -1963,6 +1963,83 @@ export const useUpdateApplication = <TError = ErrorType<Error>,
       return useMutation(getUpdateApplicationMutationOptions(options));
     }
 
+export const getGetInterviewIcsUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/interview.ics`
+}
+
+/**
+ * @summary Download a calendar (.ics) file for this application's scheduled interview
+ */
+export const getInterviewIcs = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetInterviewIcsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetInterviewIcsQueryKey = (id: number,) => {
+    return [
+    `/api/applications/${id}/interview.ics`
+    ] as const;
+    }
+
+
+export const getGetInterviewIcsQueryOptions = <TData = Awaited<ReturnType<typeof getInterviewIcs>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInterviewIcs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInterviewIcsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInterviewIcs>>> = ({ signal }) => getInterviewIcs(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInterviewIcs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetInterviewIcsQueryResult = NonNullable<Awaited<ReturnType<typeof getInterviewIcs>>>
+export type GetInterviewIcsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Download a calendar (.ics) file for this application's scheduled interview
+ */
+
+export function useGetInterviewIcs<TData = Awaited<ReturnType<typeof getInterviewIcs>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInterviewIcs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetInterviewIcsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetInterviewBriefUrl = (id: number,) => {
 
 

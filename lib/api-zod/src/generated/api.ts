@@ -245,7 +245,8 @@ export const GetAccountExportResponse = zod.object({
   "followUpDate": zod.coerce.date().nullable(),
   "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
   "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
-  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).'),
+  "interviewAt": zod.coerce.date().nullable().describe('When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.')
 })),
   "postings": zod.array(zod.object({
   "id": zod.number(),
@@ -341,7 +342,8 @@ export const GetDashboardResponse = zod.object({
   "followUpDate": zod.coerce.date().nullable(),
   "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
   "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
-  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).'),
+  "interviewAt": zod.coerce.date().nullable().describe('When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.')
 })),
   "firstBatchPending": zod.boolean().describe('True when this account has never had a single posting yet and is still within the \"still fetching\" window after account creation (G1 onboarding lot) - lets the dashboard say so instead of showing a silent empty queue. Always false in selfhosted.\n')
 })
@@ -500,7 +502,8 @@ export const ListApplicationsResponseItem = zod.object({
   "followUpDate": zod.coerce.date().nullable(),
   "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
   "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
-  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).'),
+  "interviewAt": zod.coerce.date().nullable().describe('When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.')
 })
 export const ListApplicationsResponse = zod.array(ListApplicationsResponseItem)
 
@@ -530,7 +533,8 @@ export const CreateApplicationResponse = zod.object({
   "followUpDate": zod.coerce.date().nullable(),
   "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
   "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
-  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).'),
+  "interviewAt": zod.coerce.date().nullable().describe('When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.')
 })
 
 
@@ -544,7 +548,8 @@ export const UpdateApplicationParams = zod.object({
 export const UpdateApplicationBody = zod.object({
   "status": zod.enum(['queued', 'approved', 'applied', 'responded', 'interview', 'rejected', 'offer']).optional(),
   "notes": zod.string().optional(),
-  "followUpDate": zod.coerce.date().nullish()
+  "followUpDate": zod.coerce.date().nullish(),
+  "interviewAt": zod.coerce.date().nullish().describe('Set, move or clear (null) the scheduled interview date\/time. Sent as an ISO datetime, stored in UTC.')
 })
 
 export const UpdateApplicationResponse = zod.object({
@@ -562,8 +567,19 @@ export const UpdateApplicationResponse = zod.object({
   "followUpDate": zod.coerce.date().nullable(),
   "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
   "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
-  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).'),
+  "interviewAt": zod.coerce.date().nullable().describe('When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.')
 })
+
+
+/**
+ * @summary Download a calendar (.ics) file for this application's scheduled interview
+ */
+export const GetInterviewIcsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetInterviewIcsResponse = zod.unknown()
 
 
 /**
@@ -642,7 +658,8 @@ export const MarkFollowedUpResponse = zod.object({
   "followUpDate": zod.coerce.date().nullable(),
   "lastFollowedUpAt": zod.coerce.date().nullable().describe('When the user last confirmed sending a follow-up (lot H4). Never set by anything that actually sends mail.'),
   "followUpCount": zod.number().describe('How many follow-ups the user has confirmed sending for this application, capped at 2 suggestions.'),
-  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).')
+  "followUpEligible": zod.boolean().describe('Whether this application is due for a follow-up suggestion right now (status \"applied\", no reply, past the account\'s follow-up delay, under the suggestion cap).'),
+  "interviewAt": zod.coerce.date().nullable().describe('When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.')
 })
 
 
@@ -656,7 +673,7 @@ export const ListApplicationEventsParams = zod.object({
 export const ListApplicationEventsResponseItem = zod.object({
   "id": zod.number(),
   "applicationId": zod.number(),
-  "kind": zod.enum(['applied', 'status_changed', 'followed_up', 'note_added', 'email_detected', 'brief_generated']).describe('applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload\'s origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.\n'),
+  "kind": zod.enum(['applied', 'status_changed', 'followed_up', 'note_added', 'email_detected', 'brief_generated', 'interview_scheduled']).describe('applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload\'s origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished. interview_scheduled - the user set, moved or cleared the interview date\/time (lot I2).\n'),
   "occurredAt": zod.coerce.date(),
   "payload": zod.record(zod.string(), zod.unknown()).describe('Shape depends on `kind` - see ApplicationEventKind. Never contains an e-mail\'s body: a `subject` field, when present, is a short synthetic label built from structured fields, not a quote from the message.\n')
 })
@@ -677,7 +694,7 @@ export const AddApplicationNoteBody = zod.object({
 export const AddApplicationNoteResponse = zod.object({
   "id": zod.number(),
   "applicationId": zod.number(),
-  "kind": zod.enum(['applied', 'status_changed', 'followed_up', 'note_added', 'email_detected', 'brief_generated']).describe('applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload\'s origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.\n'),
+  "kind": zod.enum(['applied', 'status_changed', 'followed_up', 'note_added', 'email_detected', 'brief_generated', 'interview_scheduled']).describe('applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload\'s origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished. interview_scheduled - the user set, moved or cleared the interview date\/time (lot I2).\n'),
   "occurredAt": zod.coerce.date(),
   "payload": zod.record(zod.string(), zod.unknown()).describe('Shape depends on `kind` - see ApplicationEventKind. Never contains an e-mail\'s body: a `subject` field, when present, is a short synthetic label built from structured fields, not a quote from the message.\n')
 })

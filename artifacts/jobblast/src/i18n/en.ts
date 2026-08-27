@@ -169,6 +169,26 @@ export const en = {
   'applications.followUpBadge': 'Follow up',
   'applications.prepareFollowUp': 'Prepare follow-up',
 
+  // Interview scheduling (lot I2) - the date is stored server-side (UTC);
+  // this panel offers a downloadable .ics and a prefilled Google Calendar
+  // link, both built without ever including the interview brief's content.
+  'interview.scheduleButton': 'Schedule interview',
+  'interview.scheduleAriaLabel': 'Interview schedule for {title}',
+  'interview.eyebrow': 'Interview',
+  'interview.close': 'Close interview scheduling',
+  'interview.dateLabel': 'Interview date and time',
+  'interview.save': 'Save',
+  'interview.saving': 'Saving…',
+  'interview.clear': 'Clear',
+  'interview.downloadIcs': 'Download .ics',
+  'interview.googleCalendar': 'Add to Google Calendar',
+  'interview.viewBrief': 'View interview brief',
+  'interview.icsSummary': 'Interview - {title} at {company}',
+  'interview.toastSaved': 'Interview scheduled.',
+  'interview.toastSaveFailed': 'Could not save the interview date.',
+  'interview.toastCleared': 'Interview date cleared.',
+  'interview.toastClearFailed': 'Could not clear the interview date.',
+
   // Follow-up e-mail panel (lot H4) - the server only ever drafts subject +
   // body text; JobBlast never sends this e-mail itself.
   'followUp.eyebrow': 'Follow-up email',
@@ -219,6 +239,8 @@ export const en = {
   'timeline.kindNoteAdded': 'Note added',
   'timeline.kindEmailDetected': 'Email detected',
   'timeline.kindBriefGenerated': 'Interview brief generated',
+  'timeline.kindInterviewScheduled': 'Interview scheduled for {date}',
+  'timeline.kindInterviewCleared': 'Interview date cleared',
   'timeline.noteLabel': 'Add a note',
   'timeline.notePlaceholder': 'Jot down anything worth remembering...',
   'timeline.noteSaving': 'Saving...',

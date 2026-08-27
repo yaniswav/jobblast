@@ -201,6 +201,11 @@ export interface Application {
   followUpCount: number;
   /** Whether this application is due for a follow-up suggestion right now (status "applied", no reply, past the account's follow-up delay, under the suggestion cap). */
   followUpEligible: boolean;
+  /**
+     * When the user has a scheduled interview for this application, in UTC (lot I2). Null until they set one, cleared back to null if they remove it.
+     * @nullable
+     */
+  interviewAt: string | null;
 }
 
 export interface ApplicationInput {
@@ -215,6 +220,11 @@ export interface ApplicationUpdate {
   notes?: string;
   /** @nullable */
   followUpDate?: string | null;
+  /**
+     * Set, move or clear (null) the scheduled interview date/time. Sent as an ISO datetime, stored in UTC.
+     * @nullable
+     */
+  interviewAt?: string | null;
 }
 
 export type InterviewBriefStatus = typeof InterviewBriefStatus[keyof typeof InterviewBriefStatus];
@@ -255,7 +265,7 @@ export interface FollowUpEmail {
 }
 
 /**
- * applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload's origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.
+ * applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload's origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished. interview_scheduled - the user set, moved or cleared the interview date/time (lot I2).
  */
 export type ApplicationEventKind = typeof ApplicationEventKind[keyof typeof ApplicationEventKind];
 
@@ -267,6 +277,7 @@ export const ApplicationEventKind = {
   note_added: 'note_added',
   email_detected: 'email_detected',
   brief_generated: 'brief_generated',
+  interview_scheduled: 'interview_scheduled',
 } as const;
 
 /**

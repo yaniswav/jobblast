@@ -1,9 +1,9 @@
 // Timeline events for one application (lot I1): a fire-and-forget audit
 // trail of everything that happened to it - applied, status changes (manual
 // or detected from Gmail), confirmed follow-ups, personal notes, detected
-// e-mails and generated interview briefs. One place to see the whole story,
-// instead of it being scattered across the free-text `notes` column and the
-// Gmail sync journal file.
+// e-mails, generated interview briefs and scheduled interviews (lot I2).
+// One place to see the whole story, instead of it being scattered across the
+// free-text `notes` column and the Gmail sync journal file.
 //
 // Every write goes through recordApplicationEvent() below, which NEVER
 // throws: the timeline is a read model for humans, not something anything
@@ -33,6 +33,7 @@ export const APPLICATION_EVENT_KINDS = [
   "note_added",
   "email_detected",
   "brief_generated",
+  "interview_scheduled",
 ] as const;
 export type ApplicationEventKind = (typeof APPLICATION_EVENT_KINDS)[number];
 
@@ -162,6 +163,13 @@ export type EmptyPayload = Record<string, never>;
 export type BriefGeneratedPayload = { chars: number };
 
 // ---------------------------------------------------------------------------
+// interview_scheduled (lot I2, lib/ics.ts)
+// ---------------------------------------------------------------------------
+
+/** `interviewAt` is an ISO datetime string when set, null when the user cleared it. */
+export type InterviewScheduledPayload = { interviewAt: string | null };
+
+// ---------------------------------------------------------------------------
 // Write
 // ---------------------------------------------------------------------------
 
@@ -171,7 +179,8 @@ export type RecordApplicationEventInput =
   | { kind: "followed_up"; payload: FollowedUpPayload }
   | { kind: "note_added"; payload: NoteAddedPayload }
   | { kind: "email_detected"; payload: EmailDetectedPayload }
-  | { kind: "brief_generated"; payload?: BriefGeneratedPayload };
+  | { kind: "brief_generated"; payload?: BriefGeneratedPayload }
+  | { kind: "interview_scheduled"; payload: InterviewScheduledPayload };
 
 /**
  * The shape of `insertApplicationEvent` (lib/repo/application-events.ts) -

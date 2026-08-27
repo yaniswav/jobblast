@@ -40,6 +40,10 @@ import { usersTable } from "./users";
  *                      synthetic subject, never the e-mail's excerpt/body.
  *   brief_generated   - an interview prep brief finished generating
  *                      (lib/ai/interview-brief.ts).
+ *   interview_scheduled - the user set, moved or cleared the interview
+ *                      date/time for this application (lot I2, lib/ics.ts).
+ *                      `payload` carries { interviewAt }, an ISO datetime
+ *                      string, or null when cleared.
  *
  * Every row is written fire-and-forget by lib/application-events.ts's
  * recordApplicationEvent(): a failed insert here must never fail the
@@ -55,6 +59,7 @@ export const APPLICATION_EVENT_KINDS = [
   "note_added",
   "email_detected",
   "brief_generated",
+  "interview_scheduled",
 ] as const;
 export type ApplicationEventKind = (typeof APPLICATION_EVENT_KINDS)[number];
 
