@@ -95,12 +95,12 @@ describe('vocabularies', () => {
     }
   });
 
-  it('sizes roughly match the lot H6 brief', () => {
-    expect(SKILL_SUGGESTIONS.length).toBeGreaterThanOrEqual(150);
-    expect(SKILL_SUGGESTIONS.length).toBeLessThanOrEqual(250);
-    expect(LOCATION_SUGGESTIONS.length).toBeGreaterThanOrEqual(60);
-    expect(LOCATION_SUGGESTIONS.length).toBeLessThanOrEqual(80);
-    expect(ROLE_SUGGESTIONS.length).toBeGreaterThanOrEqual(40);
-    expect(ROLE_SUGGESTIONS.length).toBeLessThanOrEqual(63);
+  it('sizes roughly match the lot J1 brief (opening to all trades, was lot H6)', () => {
+    expect(SKILL_SUGGESTIONS.length).toBeGreaterThanOrEqual(380);
+    expect(SKILL_SUGGESTIONS.length).toBeLessThanOrEqual(450);
+    expect(LOCATION_SUGGESTIONS.length).toBeGreaterThanOrEqual(95);
+    expect(LOCATION_SUGGESTIONS.length).toBeLessThanOrEqual(115);
+    expect(ROLE_SUGGESTIONS.length).toBeGreaterThanOrEqual(120);
+    expect(ROLE_SUGGESTIONS.length).toBeLessThanOrEqual(150);
   });
 });

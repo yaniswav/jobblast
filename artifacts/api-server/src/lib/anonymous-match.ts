@@ -81,6 +81,27 @@ const DESCRIPTION_EXCERPT_LENGTH = 220;
 
 type KeywordRule = { skill: string; regex: RegExp; weight: number };
 
+// Lot J1 (opening to all trades, not just tech/business-function CVs): a
+// plain `\b` word boundary silently breaks around an accented letter. JS's
+// `\b` only recognizes ASCII `[A-Za-z0-9_]` as "word" characters, so a
+// position between a space and an accented letter counts as two *non-word*
+// sides - no transition, no boundary, no match. Concretely, `/\bkin[ée]\b/i`
+// matches "kine" but not "kiné", and `/\b[ée]lectricien\b/i` matches
+// "electricien" but not "électricien" - confirmed empirically, not
+// theoretical. Most of this lot's new rules are French trade terms that
+// routinely start or end on an accented letter ("Électricien", "kiné",
+// "embarqué", "sûreté"...), so a plain `\b` would silently fail on the
+// correctly-accented spelling exactly the CVs it targets are likely to use.
+// `bound()` wraps a pattern in lookaround boundaries built on a word-char
+// class that also includes the accented Latin letters (and œ/Œ), so these
+// rules match equally whether the CV is typed with or without accents.
+// Existing rules above are untouched - same behavior, same `\b` - this only
+// applies to new rules appended below.
+const WORD_CHAR = "A-Za-z0-9_À-ÖØ-öø-ÿŒœ";
+function bound(pattern: string): RegExp {
+  return new RegExp(`(?<![${WORD_CHAR}])(?:${pattern})(?![${WORD_CHAR}])`, "i");
+}
+
 // Generalized from lib/sources/scoring.ts's default (jobblast.config.example.json's
 // `scoring.rules`), which is tuned to one person's C++/embedded/DDS profile.
 // Nothing here is copied verbatim from that personal config - this is a
@@ -182,6 +203,235 @@ const KEYWORD_RULES: KeywordRule[] = [
   // Methodology
   { skill: "Agile/Scrum", regex: /\b(agile|scrum)\b/i, weight: 5 },
   { skill: "Project management", regex: /\bproject management\b|\bgestion de projet\b/i, weight: 6 },
+
+  // --- Lot J1: opening to all trades (France-first, all contract types) ---
+  // The rules above skew entirely software/business-function, which matches
+  // this app's original niche but leaves a nurse, a mason, a salesperson, a
+  // cook or a forklift operator with almost no recognizable terms in their
+  // own CV. These groups cover the major non-tech trades so `/try` and
+  // multi-CV selection (resume-select.ts, which reuses extractCvProfile())
+  // work for a French job seeker in any field, not just tech.
+
+  // Santé (healthcare)
+  { skill: "Infirmier/Nurse", regex: bound("infirmiers?|infirmi[èe]res?|nursing|nurse"), weight: 9 },
+  { skill: "Aide-soignant(e)", regex: bound("aide[- ]soignante?s?"), weight: 8 },
+  { skill: "Médecin", regex: bound("m[ée]decins?|physician"), weight: 8 },
+  { skill: "Pharmacien(ne)", regex: bound("pharmaciens?|pharmacienne?s?|pharmacist"), weight: 8 },
+  { skill: "Kinésithérapeute", regex: bound("kin[ée]sith[ée]rapeutes?|kin[ée]|physiotherapist"), weight: 8 },
+  { skill: "Ambulancier(ère)", regex: bound("ambulanciers?|ambulanci[èe]res?"), weight: 7 },
+  { skill: "Sage-femme", regex: bound("sage[- ]femmes?|midwife"), weight: 8 },
+  { skill: "EHPAD", regex: bound("ehpad|maison de retraite"), weight: 6 },
+  { skill: "Bloc opératoire", regex: bound("bloc op[ée]ratoire"), weight: 6 },
+  { skill: "Dentiste", regex: bound("dentistes?|chirurgien[- ]dentiste"), weight: 7 },
+
+  // BTP / artisanat (construction trades)
+  { skill: "Maçon(nerie)", regex: bound("ma[çc]ons?|ma[çc]onnerie"), weight: 8 },
+  { skill: "Électricien(ne)", regex: bound("[ée]lectriciens?|[ée]lectricienne?s?"), weight: 8 },
+  { skill: "Plombier", regex: bound("plombiers?|plomberie"), weight: 8 },
+  { skill: "Chauffagiste", regex: bound("chauffagistes?"), weight: 7 },
+  { skill: "Menuisier(ère)", regex: bound("menuisiers?|menuisi[èe]res?|menuiserie"), weight: 8 },
+  // Bare "peintre" is ambiguous with a fine-art/creative painter - scoped to
+  // the building-trade phrasing only.
+  { skill: "Peintre en bâtiment", regex: bound("peintres? en b[âa]timent"), weight: 7 },
+  { skill: "Conducteur de travaux", regex: bound("conducteurs? de travaux|chefs? de chantier"), weight: 8 },
+  { skill: "Gros œuvre", regex: bound("gros[ -]?(?:œuvre|oeuvre)"), weight: 6 },
+  { skill: "Couvreur", regex: bound("couvreurs?"), weight: 7 },
+  { skill: "Carreleur", regex: bound("carreleurs?"), weight: 6 },
+  { skill: "Charpentier", regex: bound("charpentiers?|charpente"), weight: 7 },
+  { skill: "BTP", regex: bound("btp"), weight: 6 },
+
+  // Vente / commerce
+  { skill: "Vendeur/Vendeuse", regex: bound("vendeurs?|vendeuses?|retail sales|sales associate"), weight: 7 },
+  { skill: "Commercial (vente)", regex: bound("commercial(?:e)?s?|technico[- ]commercial"), weight: 6 },
+  {
+    skill: "Conseiller clientèle",
+    regex: bound(
+      "conseillers? (?:de )?client[èe]le|conseill[èe]res? (?:de )?client[èe]le|charg[ée]s? de client[èe]le|customer advisor",
+    ),
+    weight: 7,
+  },
+  { skill: "Caissier(ère)", regex: bound("caissiers?|caissi[èe]res?|h[ôo]tesse de caisse"), weight: 6 },
+  { skill: "Merchandising", regex: bound("merchandising"), weight: 6 },
+  { skill: "Négociation commerciale", regex: bound("n[ée]gociation commerciale|n[ée]gociation client"), weight: 6 },
+  { skill: "B2B/B2C", regex: bound("b2b|b2c"), weight: 5 },
+  { skill: "Grande distribution", regex: bound("grande distribution"), weight: 6 },
+
+  // Hôtellerie-restauration
+  { skill: "Cuisinier(ère)", regex: bound("cuisiniers?|cuisini[èe]res?|commis de cuisine"), weight: 9 },
+  { skill: "Chef de cuisine", regex: bound("chefs? de cuisine|executive chef"), weight: 8 },
+  { skill: "Chef de partie", regex: bound("chefs? de partie"), weight: 8 },
+  // Bare "serveur" collides with the tech sense of "server" (a French CV
+  // says "administrateur serveur" too) - scoped to the restaurant/salle
+  // phrasing, plus the unambiguous feminine "serveuse".
+  {
+    skill: "Serveur/Serveuse (salle)",
+    regex: bound("serveurs? (?:en salle|de restaurant)|serveuses?|commis de salle|waiter|waitress"),
+    weight: 8,
+  },
+  { skill: "Réceptionniste", regex: bound("r[ée]ceptionnistes?|front desk"), weight: 7 },
+  { skill: "Barman/Barmaid", regex: bound("barmans?|barmaids?|bartenders?"), weight: 7 },
+  { skill: "HACCP", regex: bound("haccp"), weight: 6 },
+  { skill: "Hôtellerie-restauration", regex: bound("h[ôo]tellerie[- ]restauration|restauration collective"), weight: 6 },
+
+  // Logistique / transport
+  { skill: "Cariste", regex: bound("caristes?|chariots? [ée]l[ée]vateurs?"), weight: 8 },
+  {
+    skill: "Préparateur de commandes",
+    regex: bound("pr[ée]parateurs? de commandes?|pr[ée]paratrices? de commandes?"),
+    weight: 8,
+  },
+  { skill: "Chauffeur PL/SPL", regex: bound("chauffeurs? (?:pl|spl|poids lourds?)|truck driver"), weight: 8 },
+  { skill: "CACES", regex: bound("caces"), weight: 7 },
+  { skill: "Magasinier(ère)", regex: bound("magasiniers?|magasini[èe]res?"), weight: 7 },
+  { skill: "Supply chain", regex: bound("supply chain|cha[îi]ne d'approvisionnement"), weight: 7 },
+  { skill: "Livreur", regex: bound("livreurs?|chauffeur[- ]livreur|delivery driver"), weight: 6 },
+  { skill: "Logistique", regex: bound("logistiques?"), weight: 6 },
+  { skill: "Entrepôt", regex: bound("entrep[ôo]ts?|warehouse"), weight: 6 },
+
+  // Admin / compta / finance
+  { skill: "Comptable", regex: bound("comptables?"), weight: 8 },
+  { skill: "Gestion de la paie", regex: bound("gestion(?:naire)?s? de (?:la )?paie|payroll"), weight: 7 },
+  {
+    skill: "Assistant(e) administratif(ve)",
+    regex: bound("assistants? administratifs?|assistantes? administratives?"),
+    weight: 7,
+  },
+  { skill: "Facturation", regex: bound("facturation|billing"), weight: 6 },
+  { skill: "Contrôle de gestion", regex: bound("contr[ôo]le de gestion|contr[ôo]leurs? de gestion"), weight: 7 },
+  { skill: "Audit", regex: bound("audits?|auditeurs?|auditrices?|auditors?"), weight: 7 },
+  { skill: "Trésorerie", regex: bound("tr[ée]sorerie"), weight: 6 },
+  { skill: "Fiscalité", regex: bound("fiscalit[ée]|fiscalistes?"), weight: 6 },
+
+  // Éducation / social
+  { skill: "Enseignant(e)", regex: bound("enseignants?|enseignantes?|teacher"), weight: 8 },
+  { skill: "Formateur/trice", regex: bound("formateurs?|formatrices?|trainer"), weight: 7 },
+  {
+    skill: "Éducateur spécialisé",
+    regex: bound("[ée]ducateurs? sp[ée]cialis[ée]s?|[ée]ducatrices? sp[ée]cialis[ée]es?"),
+    weight: 8,
+  },
+  {
+    skill: "Petite enfance",
+    regex: bound("petite enfance|auxiliaire de pu[ée]riculture|[ée]ducateurs? de jeunes enfants"),
+    weight: 7,
+  },
+  { skill: "Auxiliaire de vie", regex: bound("auxiliaires? de vie|home care aide"), weight: 7 },
+  // Bare "animateur" collides with a 3D/motion-graphics animator - scoped to
+  // the socio-educational phrasing plus the unambiguous BAFA certification.
+  {
+    skill: "Animation socioculturelle",
+    regex: bound(
+      "animateurs? (?:socioculturels?|p[ée]riscolaires?|jeunesse)|animatrices? (?:socioculturelles?|p[ée]riscolaires?)|bafa",
+    ),
+    weight: 7,
+  },
+  { skill: "AESH", regex: bound("aesh"), weight: 6 },
+
+  // RH / juridique
+  { skill: "Gestionnaire RH", regex: bound("gestionnaires? (?:rh|ressources humaines)|hr generalist"), weight: 7 },
+  { skill: "Juriste", regex: bound("juristes?"), weight: 7 },
+  { skill: "Paralegal", regex: bound("paralegals?"), weight: 6 },
+  { skill: "Droit social/du travail", regex: bound("droit (?:social|du travail)|employment law"), weight: 6 },
+  // Bare "avocat" is the French word for "avocado" - scoped to the
+  // profession-specific phrasing to avoid matching a cuisine/nutrition CV.
+  {
+    skill: "Avocat(e)",
+    regex: bound("avocats? au barreau|avocates? au barreau|cabinet d'avocats?|lawyer|attorney"),
+    weight: 7,
+  },
+  { skill: "Contentieux", regex: bound("contentieux"), weight: 6 },
+
+  // Marketing / com
+  { skill: "Community management", regex: bound("community manager|community management"), weight: 7 },
+  // Bare "SEA" (a common acquisition-marketing acronym) is also the English
+  // word "sea" - dropped in favor of "SEO" (safe, not an English word) and
+  // the spelled-out phrases.
+  {
+    skill: "SEO",
+    regex: bound("seo|search engine optimization|search engine advertising|r[ée]f[ée]rencement naturel"),
+    weight: 7,
+  },
+  {
+    skill: "Rédaction de contenu",
+    regex: bound(
+      "r[ée]dacteurs? (?:web|de contenu)|r[ée]dactrices? (?:web|de contenu)|content writer|copywriter|copywriting",
+    ),
+    weight: 7,
+  },
+  { skill: "Graphiste", regex: bound("graphistes?|graphic designer"), weight: 7 },
+  { skill: "Chargé(e) de communication", regex: bound("charg[ée]s? de communication|communications officer"), weight: 7 },
+  { skill: "Réseaux sociaux", regex: bound("r[ée]seaux sociaux|social media"), weight: 6 },
+
+  // Industrie / production
+  {
+    skill: "Opérateur de production",
+    regex: bound("op[ée]rateurs? de production|op[ée]ratrices? de production|production operator"),
+    weight: 7,
+  },
+  { skill: "Usinage", regex: bound("usinage|usineurs?|machining"), weight: 7 },
+  { skill: "Soudeur(euse)", regex: bound("soudeurs?|soudeuses?|welder"), weight: 8 },
+  {
+    skill: "Maintenance industrielle",
+    regex: bound("maintenance industrielle|techniciens? de maintenance|industrial maintenance"),
+    weight: 8,
+  },
+  {
+    skill: "Contrôle qualité industriel",
+    regex: bound("contr[ôo]le qualit[ée]|assurance qualit[ée]|quality control"),
+    weight: 6,
+  },
+  { skill: "Conducteur de ligne", regex: bound("conducteurs? de ligne|r[ée]gleurs?|commande num[ée]rique"), weight: 6 },
+  {
+    skill: "Méthodes industrielles",
+    regex: bound("m[ée]thodes industrielles|industrialisation|techniciens? m[ée]thodes"),
+    weight: 6,
+  },
+
+  // Sécurité / nettoyage / services
+  { skill: "Agent de sécurité", regex: bound("agents? de s[ée]curit[ée]|security guard"), weight: 8 },
+  { skill: "SSIAP", regex: bound("ssiap"), weight: 7 },
+  // Bare "entretien" is also the French word for a job interview - scoped to
+  // "agent d'entretien"/"agent de nettoyage".
+  { skill: "Agent d'entretien", regex: bound("agents? d'entretien|agents? de nettoyage|cleaning agent"), weight: 7 },
+  // Bare "gardien" is also a sports goalkeeper ("gardien de but") - scoped
+  // to the building-caretaker sense.
+  {
+    skill: "Gardien(ne) d'immeuble",
+    regex: bound("gardiens? d'immeuble|gardiennes? d'immeuble|concierge"),
+    weight: 6,
+  },
+  { skill: "Sûreté/vidéosurveillance", regex: bound("vid[ée]osurveillance|s[ûu]ret[ée]"), weight: 6 },
+  { skill: "Agent de ménage", regex: bound("agents? de m[ée]nage|femmes? de m[ée]nage|housekeeping"), weight: 6 },
+
+  // Immobilier
+  { skill: "Agent immobilier", regex: bound("agents? immobiliers?|real estate agent"), weight: 8 },
+  {
+    skill: "Négociateur immobilier",
+    regex: bound("n[ée]gociateurs? immobiliers?|n[ée]gociatrices? immobili[èe]res?"),
+    weight: 7,
+  },
+  { skill: "Gestion locative/Syndic", regex: bound("gestion locative|syndic(?: de copropri[ée]t[ée])?"), weight: 6 },
+  { skill: "Property management", regex: bound("property management|property manager"), weight: 6 },
+
+  // Banque / assurance
+  { skill: "Conseiller(ère) bancaire", regex: bound("conseillers? bancaires?|conseill[èe]res? bancaires?|bank advisor"), weight: 7 },
+  {
+    skill: "Gestionnaire de sinistres",
+    regex: bound("gestionnaires? (?:de )?sinistres?|claims handler|claims adjuster"),
+    weight: 7,
+  },
+  { skill: "Souscripteur", regex: bound("souscripteurs?|souscriptrices?|underwriters?"), weight: 6 },
+  { skill: "Courtier(ère)", regex: bound("courtiers?|courti[èe]res?|broker"), weight: 6 },
+  { skill: "Actuaire", regex: bound("actuaires?|actuary|actuaries"), weight: 6 },
+  { skill: "Banque de détail", regex: bound("banque de d[ée]tail|retail banking"), weight: 5 },
+
+  // Agriculture / paysage
+  { skill: "Agriculteur(trice)", regex: bound("agriculteurs?|agricultrices?|exploitants? agricoles?|farmer"), weight: 7 },
+  { skill: "Ouvrier agricole", regex: bound("ouvriers? agricoles?|agricultural worker"), weight: 6 },
+  { skill: "Paysagiste", regex: bound("paysagistes?|landscaper"), weight: 7 },
+  { skill: "Élevage", regex: bound("[ée]levage|livestock"), weight: 6 },
+  { skill: "Viticulture", regex: bound("viticulture|viticoles?|vignerons?|vigneronnes?"), weight: 6 },
+  { skill: "Maraîchage/Horticulture", regex: bound("mara[îi]chage|horticulture"), weight: 6 },
 ];
 
 // Adapted from scoring.ts's `penalties.workAuthorization` pattern (the

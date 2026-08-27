@@ -74,13 +74,19 @@ export function filterSuggestions(
  * Skill / keyword suggestions for search-criteria keywords (search-criteria-fields.tsx,
  * used by onboarding + Settings). Extracted and generalized from the skill
  * labels of artifacts/api-server/src/lib/anonymous-match.ts's KEYWORD_RULES
- * (the ~74 rules that drive the anonymous trial matcher) - that file stays
- * the single source of truth for actual matching logic; this is only a flat
- * list of strings for autocomplete, with combined labels split out
- * ("PostgreSQL/MySQL" -> "PostgreSQL", "MySQL") and a handful of common
- * French synonyms added, since this app's postings are bilingual (FR/EN).
- * A term typed here that isn't in this list still works exactly as before -
- * this only feeds the dropdown, never validates input.
+ * (the ~177 rules that drive the anonymous trial matcher, since lot J1 - was
+ * ~74, tech/business-function only) - that file stays the single source of
+ * truth for actual matching logic; this is only a flat list of strings for
+ * autocomplete, with combined labels split out ("PostgreSQL/MySQL" ->
+ * "PostgreSQL", "MySQL") and a handful of common French synonyms added,
+ * since this app's postings are bilingual (FR/EN). Lot J1 broadened this
+ * from tech/business-function alone to the major French trades - health,
+ * BTP, retail, hospitality, logistics, admin/finance, education/social,
+ * legal/HR, marketing, industry, security/cleaning, real estate,
+ * banking/insurance, agriculture - so a nurse's or a mason's CV finds its
+ * own vocabulary here too, not just a developer's. A term typed here that
+ * isn't in this list still works exactly as before - this only feeds the
+ * dropdown, never validates input.
  */
 export const SKILL_SUGGESTIONS: string[] = [
   // Languages
@@ -129,6 +135,60 @@ export const SKILL_SUGGESTIONS: string[] = [
   'Sécurité informatique', 'Cybersécurité', 'Réseau', 'Administrateur système', 'Scrum master',
   'Designer UX/UI', 'Qualité logicielle', 'Assurance qualité', 'Systèmes embarqués', 'Développement web',
   'Embarqué',
+  // Santé (lot J1)
+  'Infirmier', 'Infirmière', "Infirmier diplômé d'État", 'IDE (infirmier)', 'Aide-soignant', 'Aide-soignante',
+  'Médecin', 'Médecin généraliste', 'Pharmacien', 'Pharmacienne', 'Kinésithérapeute', 'Kiné', 'Ambulancier',
+  'Ambulancière', 'Sage-femme', 'EHPAD', 'Bloc opératoire', 'Soins infirmiers', 'Dentiste',
+  'Auxiliaire de puériculture',
+  // BTP / artisanat (lot J1)
+  'Maçon', 'Maçonnerie', 'Électricien', 'Électricité', 'Plombier', 'Plomberie', 'Chauffagiste', 'Menuisier',
+  'Menuiserie', 'Peintre en bâtiment', 'Conducteur de travaux', 'Chef de chantier', 'Gros œuvre', 'Second œuvre',
+  'Couvreur', 'Carreleur', 'Charpentier', 'BTP',
+  // Vente / commerce (lot J1)
+  'Vendeur', 'Vendeuse', 'Commercial', 'Commerciale', 'Conseiller clientèle', 'Conseillère clientèle',
+  'Chargé de clientèle', 'Caissier', 'Caissière', 'Merchandising', 'Négociation commerciale',
+  'Prospection commerciale', 'B2B', 'B2C', 'Grande distribution', 'Technico-commercial',
+  // Hôtellerie-restauration (lot J1)
+  'Cuisinier', 'Cuisinière', 'Chef de cuisine', 'Chef de partie', 'Commis de cuisine', 'Serveur en salle',
+  'Serveuse', 'Réceptionniste', 'Barman', 'Barmaid', 'HACCP', 'Hôtellerie-restauration', 'Restauration collective',
+  'Service en salle', 'Plonge',
+  // Logistique / transport (lot J1)
+  'Cariste', 'Préparateur de commandes', 'Préparatrice de commandes', 'Chauffeur PL', 'Chauffeur SPL',
+  'Chauffeur-livreur', 'CACES', 'Magasinier', 'Magasinière', 'Logistique', 'Entrepôt', 'Livreur', 'Permis PL',
+  'Permis SPL', 'Gestion des stocks',
+  // Admin / compta / finance (lot J1)
+  'Comptable', 'Comptabilité générale', 'Gestion de la paie', 'Payroll', 'Assistant administratif',
+  'Assistante administrative', 'Facturation', 'Contrôle de gestion', 'Contrôleur de gestion', 'Audit', 'Auditeur',
+  'Trésorerie', 'Fiscalité',
+  // Éducation / social (lot J1)
+  'Enseignant', 'Enseignante', 'Formateur', 'Formatrice', 'Éducateur spécialisé', 'Éducatrice spécialisée',
+  'Petite enfance', 'Auxiliaire de vie', 'Animateur socioculturel', 'Animatrice socioculturelle', 'BAFA', 'AESH',
+  'Éducateur de jeunes enfants',
+  // RH / juridique (lot J1)
+  'Gestionnaire RH', "Cabinet d'avocats", 'Juriste', 'Paralegal', 'Droit social', 'Droit du travail', 'Avocat',
+  'Contentieux', 'Chargé de recrutement',
+  // Marketing / com (lot J1)
+  'Community manager', 'SEO', 'Référencement naturel', 'Rédaction web', 'Rédacteur web', 'Copywriting',
+  'Graphiste', 'Chargé de communication', 'Réseaux sociaux', 'Social media', 'Content marketing',
+  // Industrie / production (lot J1)
+  'Opérateur de production', 'Opératrice de production', 'Usinage', 'Soudeur', 'Soudeuse', 'Soudure',
+  'Maintenance industrielle', 'Technicien de maintenance', 'Contrôle qualité', 'Conducteur de ligne', 'Régleur',
+  'Méthodes industrielles', 'Industrialisation',
+  // Sécurité / nettoyage / services (lot J1)
+  'Agent de sécurité', 'SSIAP', "Agent d'entretien", 'Agent de nettoyage', "Gardien d'immeuble", 'Concierge',
+  'Vidéosurveillance', 'Sûreté', 'Agent de ménage', 'Housekeeping',
+  // Immobilier (lot J1)
+  'Agent immobilier', 'Négociateur immobilier', 'Gestion locative', 'Syndic de copropriété',
+  'Property management', 'Transaction immobilière', 'Diagnostiqueur immobilier', 'Chasseur immobilier',
+  // Banque / assurance (lot J1)
+  'Conseiller bancaire', 'Conseillère bancaire', 'Gestionnaire de sinistres', 'Souscripteur', 'Courtier',
+  'Courtière', 'Actuaire', 'Banque de détail', 'Chargé de clientèle bancaire', 'Assurance',
+  // Agriculture / paysage (lot J1)
+  'Agriculteur', 'Agricultrice', 'Exploitant agricole', 'Ouvrier agricole', 'Paysagiste', 'Élevage',
+  'Viticulture', 'Maraîchage', 'Horticulture', 'Agriculture',
+  // Certifications / permis (lot J1)
+  'Permis B', 'Permis C', 'Permis D', 'Habilitation électrique', 'CAP', 'BEP', 'Bac Pro', 'BTS',
+  "Diplôme d'État",
 ];
 
 /**
@@ -143,7 +203,9 @@ export const LOCATION_SUGGESTIONS: string[] = [
   // France - cities
   'Paris', 'Lyon', 'Marseille', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux',
   'Lille', 'Rennes', 'Grenoble', 'Toulon', 'Angers', 'Dijon', 'Saint-Étienne', 'Reims', 'Tours', 'Rouen',
-  'Nancy',
+  'Nancy', 'Le Havre', 'Villeurbanne', 'Clermont-Ferrand', 'Le Mans', 'Aix-en-Provence', 'Brest', 'Limoges',
+  'Amiens', 'Perpignan', 'Metz', 'Besançon', 'Orléans', 'Mulhouse', 'Caen', 'Nîmes', 'Avignon', 'Poitiers',
+  'Versailles', 'Pau', 'La Rochelle', 'Annecy', 'Chambéry', 'Bayonne',
   // France - regions
   'Île-de-France', 'Auvergne-Rhône-Alpes', 'Nouvelle-Aquitaine', 'Occitanie', 'Hauts-de-France', 'Grand Est',
   "Provence-Alpes-Côte d'Azur", 'Bretagne', 'Normandie',
@@ -174,6 +236,40 @@ export const ROLE_SUGGESTIONS: string[] = [
   'Chef de Projet', 'Chef de Produit', 'Analyste de Données', 'Ingénieur Data',
   'Développeur Full-Stack', 'Responsable Marketing', 'Chargé de Recrutement', 'Comptable',
   'Assistant de Direction', 'Ingénieur Systèmes Embarqués',
+  // Santé (lot J1)
+  "Infirmier Diplômé d'État", 'Infirmière DE', 'Aide-Soignant', 'Aide-Soignante', 'Médecin Généraliste',
+  'Pharmacien', 'Kinésithérapeute', 'Ambulancier',
+  // BTP / artisanat (lot J1)
+  'Maçon', 'Électricien du Bâtiment', 'Plombier Chauffagiste', 'Menuisier', 'Peintre en Bâtiment',
+  'Conducteur de Travaux', 'Chef de Chantier', 'Couvreur', 'Charpentier',
+  // Vente / commerce (lot J1)
+  'Vendeur', 'Vendeuse', 'Commercial Terrain', 'Conseiller Clientèle', 'Chargé de Clientèle', 'Caissier',
+  'Technico-Commercial',
+  // Hôtellerie-restauration (lot J1)
+  'Cuisinier', 'Chef de Cuisine', 'Chef de Partie', 'Serveur en Salle', 'Réceptionniste', 'Barman',
+  // Logistique / transport (lot J1)
+  'Cariste', 'Préparateur de Commandes', 'Chauffeur Poids Lourd', 'Chauffeur-Livreur', 'Magasinier',
+  'Responsable Logistique', 'Agent Logistique',
+  // Admin / compta / finance (lot J1)
+  'Assistant Administratif', 'Gestionnaire de Paie', 'Contrôleur de Gestion', 'Auditeur Financier', 'Trésorier',
+  // Éducation / social (lot J1)
+  'Enseignant', 'Formateur', 'Éducateur Spécialisé', 'Auxiliaire de Puériculture', 'Animateur Socioculturel',
+  'Assistant Social', 'Assistante Sociale',
+  // RH / juridique (lot J1)
+  'Gestionnaire RH', 'Juriste', "Juriste d'Entreprise", 'Avocat',
+  // Marketing / com (lot J1)
+  'Community Manager', 'Chargé de Communication', 'Rédacteur Web', 'Graphiste', 'Responsable SEO',
+  // Industrie / production (lot J1)
+  'Opérateur de Production', 'Soudeur', 'Technicien de Maintenance', 'Conducteur de Ligne',
+  'Responsable Qualité', 'Technicien Méthodes',
+  // Sécurité / nettoyage / services (lot J1)
+  'Agent de Sécurité', 'Agent SSIAP', "Agent d'Entretien", "Gardien d'Immeuble", 'Agent de Propreté',
+  // Immobilier (lot J1)
+  'Agent Immobilier', 'Négociateur Immobilier', 'Gestionnaire Locatif',
+  // Banque / assurance (lot J1)
+  'Conseiller Bancaire', 'Chargé de Clientèle Bancaire', 'Gestionnaire Sinistres', 'Courtier en Assurance',
+  // Agriculture / paysage (lot J1)
+  'Agriculteur', 'Exploitant Agricole', 'Paysagiste', 'Ouvrier Agricole',
 ];
 
 /**
