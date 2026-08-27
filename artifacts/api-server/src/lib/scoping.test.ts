@@ -61,6 +61,14 @@ const PLATFORM_SCOPED = new Set([
   // the pool before anyone has an account to scope by - see the doc comment
   // on listPostingsForAnonymousMatch in repo/postings.ts.
   "postings.ts:listPostingsForAnonymousMatch",
+  // GET /explore (lot J2): searches the entire shared pool, not one
+  // account's own queue - see the doc comments on getPostingById and
+  // searchPostings in repo/postings.ts. searchPostings still takes `userId`
+  // (as its second parameter) to compute the `inMyQueue` flag per row, which
+  // is why it is here rather than genuinely parameterless like the two
+  // above.
+  "postings.ts:getPostingById",
+  "postings.ts:searchPostings",
 ]);
 
 describe("every repository function is scoped by account", () => {

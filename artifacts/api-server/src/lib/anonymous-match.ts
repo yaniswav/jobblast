@@ -25,6 +25,8 @@
 // of a public demo, and "senior/staff/lead" is only a poor match when the
 // CV itself carries no seniority signal - see `hasSeniorSignal` below.
 
+import { excerpt } from "./text-excerpt";
+
 export type PostingLike = {
   id: number;
   title: string;
@@ -510,16 +512,6 @@ function scorePostingForCv(profile: CvProfile, posting: PostingLike): ScoredPost
   return { posting, score: Math.max(0, Math.min(ANONYMOUS_SCORE_CAP, score)) };
 }
 
-/** Collapses whitespace/HTML and truncates on a word boundary for the trial card. */
-function excerpt(description: string): string {
-  const plain = description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  if (plain.length <= DESCRIPTION_EXCERPT_LENGTH) return plain;
-  const cut = plain.slice(0, DESCRIPTION_EXCERPT_LENGTH);
-  const lastSpace = cut.lastIndexOf(" ");
-  const boundary = lastSpace > 40 ? lastSpace : DESCRIPTION_EXCERPT_LENGTH;
-  return `${cut.slice(0, boundary).trimEnd()}…`;
-}
-
 function toCard(entry: ScoredPosting): AnonymousMatchCard {
   return {
     title: entry.posting.title,
@@ -527,7 +519,7 @@ function toCard(entry: ScoredPosting): AnonymousMatchCard {
     location: entry.posting.location,
     workMode: entry.posting.workMode,
     relevanceScore: entry.score,
-    descriptionExcerpt: excerpt(entry.posting.description),
+    descriptionExcerpt: excerpt(entry.posting.description, DESCRIPTION_EXCERPT_LENGTH),
   };
 }
 

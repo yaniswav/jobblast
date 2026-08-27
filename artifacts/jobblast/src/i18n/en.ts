@@ -9,6 +9,7 @@ export const en = {
   // Navigation (sidebar / mobile nav)
   'nav.overview': 'Overview',
   'nav.reviewQueue': 'Review queue',
+  'nav.explore': 'Explore',
   'nav.applications': 'Applications',
   'nav.stats': 'Stats',
   'nav.profile': 'Your profile',
@@ -133,6 +134,28 @@ export const en = {
   'review.toastRefreshFailed': 'Could not start the refresh.',
   'review.toastSkipped': 'Skipped. Your judgment stays in charge.',
   'review.toastApproved': 'Application prepared. Open the posting and apply, then confirm it in the tracker.',
+
+  // Explore page (lot J2: search the entire shared pool directly)
+  'explore.eyebrow': 'Search the pool',
+  'explore.title': 'Go find it yourself.',
+  'explore.subtitle': 'Search every posting in the shared pool, not just what your criteria already surfaced.',
+  'explore.searchPlaceholder': 'Search by title, company or skill (e.g. "c++")',
+  'explore.searchButton': 'Search',
+  'explore.locationPlaceholder': 'Location (optional)',
+  'explore.allSources': 'All sources',
+  'explore.filterSource': 'Source',
+  'explore.promptTitle': 'Search the whole pool.',
+  'explore.promptBody': 'Type at least 2 characters and search. This looks beyond your usual matches, across every posting the platform has seen.',
+  'explore.noResultsTitle': 'Nothing matched.',
+  'explore.noResultsBody': 'Try a different term, or clear the location and source filters.',
+  'explore.searching': 'Searching…',
+  'explore.loadMore': 'Load more',
+  'explore.loadingMore': 'Loading…',
+  'explore.addToQueue': 'Add to your queue',
+  'explore.inQueue': 'In your queue',
+  'explore.toastAdded': 'Added to your review queue.',
+  'explore.toastAlreadyQueued': 'Already in your queue.',
+  'explore.toastAddFailed': 'Could not add this posting.',
 
   // Applications page
   'applications.eyebrow': 'Application tracker',

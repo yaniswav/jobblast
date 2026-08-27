@@ -523,6 +523,49 @@ export const RefreshJobsResponse = zod.object({
 
 
 /**
+ * Free-text search across every posting in the shared pool - saas pools every account's signatures/watches together, selfhosted's pool is just its own fetches - not only the ones this account's own criteria have already scored and queued (that stays GET /jobs). Case-insensitive substring match against title, company and description; also tried against an accent-folded form of `q`, since the stored text itself is not accent-folded (see lib/explore-search.ts for the documented limitation this leaves). Bounded and paginated - at most 25 results per page, most recently posted first - so a search is always an indexed, LIMITed query, never a scan of the whole pool. `inMyQueue` is true when this account already has a review-queue row for that posting.
+ * @summary Search the entire shared pool of postings directly
+ */
+export const searchExploreQueryQMin = 2;
+
+
+
+export const SearchExploreQueryParams = zod.object({
+  "q": zod.coerce.string().min(searchExploreQueryQMin).describe('Free-text match against title, company and description. At least 2 characters.'),
+  "location": zod.coerce.string().optional().describe('Substring match against the posting\'s location.'),
+  "source": zod.coerce.string().optional().describe('Exact match against a posting\'s stored source label (e.g. \"Greenhouse\", \"France Travail\") - the UI populates this from the `source` values in the current results rather than a hardcoded list, since it does not line up with the internal SourceId config keys.\n'),
+  "limit": zod.coerce.number().optional().describe('Max results for this page. Capped at 25.'),
+  "offset": zod.coerce.number().optional()
+})
+
+export const SearchExploreResponseItem = zod.object({
+  "id": zod.number(),
+  "source": zod.string(),
+  "title": zod.string(),
+  "company": zod.string(),
+  "location": zod.string(),
+  "workMode": zod.enum(['Remote', 'Hybrid', 'On-site']),
+  "descriptionExcerpt": zod.string().describe('HTML-stripped, truncated to ~300 characters on a word boundary.'),
+  "postedDate": zod.coerce.date(),
+  "inMyQueue": zod.boolean().describe('True when this account already has a review-queue row for this posting.')
+}).describe('One shared-pool posting as GET \/explore returns it - a lighter shape than JobListing (no score, no tailored content: those only exist once a posting is actually in an account\'s queue).\n')
+export const SearchExploreResponse = zod.array(SearchExploreResponseItem)
+
+
+/**
+ * Scores the posting against this account's own configuration - the same scoring path a normal refresh uses, never a placeholder zero - and queues it as `queued`. No timeline event is recorded, since this is pre-application (see docs on POST /applications for where the real trail starts).
+ * @summary Add a posting found via Explore straight to this account's review queue
+ */
+export const AddExplorePostingParams = zod.object({
+  "postingId": zod.coerce.number()
+})
+
+export const AddExplorePostingResponse = zod.object({
+  "added": zod.boolean()
+})
+
+
+/**
  * @summary List tracked applications
  */
 export const ListApplicationsQueryParams = zod.object({

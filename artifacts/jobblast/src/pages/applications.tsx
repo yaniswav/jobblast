@@ -7,6 +7,7 @@ import type { Application, ApplicationEvent, ApplicationEventKind, ApplicationSt
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
 import { buildGoogleCalendarUrl } from '@/lib/google-calendar';
+import { relativeTime } from '@/lib/relative-time';
 import { fold } from '@/lib/suggestions';
 
 const statuses = Object.values(ApplicationStatus);
@@ -134,27 +135,6 @@ function describeEvent(event: ApplicationEvent, t: ReturnType<typeof useT>, loca
     default:
       return { title: event.kind };
   }
-}
-
-const RELATIVE_TIME_DIVISIONS: Array<{ amount: number; unit: Intl.RelativeTimeFormatUnit }> = [
-  { amount: 60, unit: 'seconds' },
-  { amount: 60, unit: 'minutes' },
-  { amount: 24, unit: 'hours' },
-  { amount: 7, unit: 'days' },
-  { amount: 4.34524, unit: 'weeks' },
-  { amount: 12, unit: 'months' },
-  { amount: Number.POSITIVE_INFINITY, unit: 'years' },
-];
-
-/** "3 days ago" / "il y a 3 jours" - phrased entirely by Intl, no custom strings to translate. */
-function relativeTime(date: Date, locale: string): string {
-  let duration = (date.getTime() - Date.now()) / 1000;
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  for (const division of RELATIVE_TIME_DIVISIONS) {
-    if (Math.abs(duration) < division.amount) return rtf.format(Math.round(duration), division.unit);
-    duration /= division.amount;
-  }
-  return rtf.format(Math.round(duration), 'years');
 }
 
 function TimelinePanel({ application, onClose }: { application: Application; onClose: () => void }) {

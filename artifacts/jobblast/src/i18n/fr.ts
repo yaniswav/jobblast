@@ -11,6 +11,7 @@ export const fr = {
   // Navigation (sidebar / mobile nav)
   'nav.overview': "Vue d'ensemble",
   'nav.reviewQueue': 'File de revue',
+  'nav.explore': 'Explorer',
   'nav.applications': 'Candidatures',
   'nav.stats': 'Statistiques',
   'nav.profile': 'Votre profil',
@@ -135,6 +136,28 @@ export const fr = {
   'review.toastRefreshFailed': 'Impossible de lancer le rafraîchissement.',
   'review.toastSkipped': 'Offre passée. Votre jugement reste maître.',
   'review.toastApproved': "Candidature préparée. Ouvrez l'offre et postulez, puis confirmez-le dans le suivi.",
+
+  // Explore page (lot J2 : recherche directe dans tout le pool d'offres)
+  'explore.eyebrow': 'Chercher dans le pool',
+  'explore.title': 'Allez le trouver vous-même.',
+  'explore.subtitle': "Cherchez dans toutes les offres du pool partagé, pas seulement celles que vos critères ont déjà fait remonter.",
+  'explore.searchPlaceholder': 'Cherchez un titre, une entreprise ou une compétence (ex. « c++ »)',
+  'explore.searchButton': 'Rechercher',
+  'explore.locationPlaceholder': 'Lieu (optionnel)',
+  'explore.allSources': 'Toutes les sources',
+  'explore.filterSource': 'Source',
+  'explore.promptTitle': 'Cherchez dans tout le pool.',
+  'explore.promptBody': "Tapez au moins 2 caractères et lancez la recherche. Ceci va au-delà de vos correspondances habituelles, dans toutes les offres vues par la plateforme.",
+  'explore.noResultsTitle': 'Aucun résultat.',
+  'explore.noResultsBody': 'Essayez un autre terme, ou videz les filtres de lieu et de source.',
+  'explore.searching': 'Recherche en cours…',
+  'explore.loadMore': 'Charger plus',
+  'explore.loadingMore': 'Chargement…',
+  'explore.addToQueue': 'Ajouter à ma file',
+  'explore.inQueue': 'Dans ta file',
+  'explore.toastAdded': 'Ajoutée à votre file de revue.',
+  'explore.toastAlreadyQueued': 'Déjà dans votre file.',
+  'explore.toastAddFailed': "Impossible d'ajouter cette offre.",
 
   // Applications page
   'applications.eyebrow': 'Suivi des candidatures',

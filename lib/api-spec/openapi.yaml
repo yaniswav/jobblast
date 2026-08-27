@@ -16,6 +16,8 @@ tags:
     description: Campaign performance aggregates (funnel, response rate by source and by resume, weekly trend, average response delay)
   - name: jobs
     description: Ranked job listings
+  - name: explore
+    description: Direct free-text search across the entire shared pool of postings (lot J2), beyond what an account's own criteria have already surfaced
   - name: applications
     description: Application tracking
   - name: profile
@@ -578,6 +580,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobRefreshStatus"
+  /explore:
+    get:
+      operationId: searchExplore
+      tags: [explore]
+      summary: Search the entire shared pool of postings directly
+      description: >
+        Free-text search across every posting in the shared pool - saas
+        pools every account's signatures/watches together, selfhosted's pool
+        is just its own fetches - not only the ones this account's own
+        criteria have already scored and queued (that stays GET /jobs).
+        Case-insensitive substring match against title, company and
+        description; also tried against an accent-folded form of `q`, since
+        the stored text itself is not accent-folded (see
+        lib/explore-search.ts for the documented limitation this leaves).
+        Bounded and paginated - at most 25 results per page, most recently
+        posted first - so a search is always an indexed, LIMITed query, never
+        a scan of the whole pool. `inMyQueue` is true when this account
+        already has a review-queue row for that posting.
+      parameters:
+        - $ref: "#/components/parameters/ExploreQuery"
+        - $ref: "#/components/parameters/ExploreLocation"
+        - $ref: "#/components/parameters/ExploreSource"
+        - $ref: "#/components/parameters/ExploreLimit"
+        - $ref: "#/components/parameters/ExploreOffset"
+      responses:
+        "200":
+          description: Matching postings from the shared pool, most recent first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExplorePosting"
+        "400":
+          description: q is missing or shorter than 2 characters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /explore/{postingId}/add:
+    post:
+      operationId: addExplorePosting
+      tags: [explore]
+      summary: Add a posting found via Explore straight to this account's review queue
+      description: >
+        Scores the posting against this account's own configuration - the
+        same scoring path a normal refresh uses, never a placeholder zero -
+        and queues it as `queued`. No timeline event is recorded, since this
+        is pre-application (see docs on POST /applications for where the
+        real trail starts).
+      parameters:
+        - $ref: "#/components/parameters/ExplorePostingId"
+      responses:
+        "201":
+          description: Added to the review queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreAddResult"
+        "404":
+          description: Posting not found in the shared pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already in this account's review queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /applications:
     get:
       operationId: listApplications
@@ -1329,6 +1402,51 @@ components:
       description: Free-text match against the catalog entry's name and sector.
       schema:
         type: string
+    ExploreQuery:
+      name: q
+      in: query
+      required: true
+      description: Free-text match against title, company and description. At least 2 characters.
+      schema:
+        type: string
+        minLength: 2
+    ExploreLocation:
+      name: location
+      in: query
+      required: false
+      description: Substring match against the posting's location.
+      schema:
+        type: string
+    ExploreSource:
+      name: source
+      in: query
+      required: false
+      description: >
+        Exact match against a posting's stored source label (e.g.
+        "Greenhouse", "France Travail") - the UI populates this from the
+        `source` values in the current results rather than a hardcoded list,
+        since it does not line up with the internal SourceId config keys.
+      schema:
+        type: string
+    ExploreLimit:
+      name: limit
+      in: query
+      required: false
+      description: Max results for this page. Capped at 25.
+      schema:
+        type: number
+    ExploreOffset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: number
+    ExplorePostingId:
+      name: postingId
+      in: path
+      required: true
+      schema:
+        type: number
   schemas:
     HealthStatus:
       type: object
@@ -1549,6 +1667,52 @@ components:
         - applicationId
         - aiGenerated
         - fitAnalysis
+    ExplorePosting:
+      type: object
+      description: >
+        One shared-pool posting as GET /explore returns it - a lighter shape
+        than JobListing (no score, no tailored content: those only exist once
+        a posting is actually in an account's queue).
+      properties:
+        id:
+          type: number
+        source:
+          type: string
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        workMode:
+          type: string
+          enum: [Remote, Hybrid, On-site]
+        descriptionExcerpt:
+          type: string
+          description: HTML-stripped, truncated to ~300 characters on a word boundary.
+        postedDate:
+          type: string
+          format: date
+        inMyQueue:
+          type: boolean
+          description: True when this account already has a review-queue row for this posting.
+      required:
+        - id
+        - source
+        - title
+        - company
+        - location
+        - workMode
+        - descriptionExcerpt
+        - postedDate
+        - inMyQueue
+    ExploreAddResult:
+      type: object
+      properties:
+        added:
+          type: boolean
+      required:
+        - added
     JobRefreshStatus:
       type: object
       properties:

@@ -40,6 +40,8 @@ import type {
   DocumentUploadPayload,
   DocumentUploadResult,
   Error,
+  ExploreAddResult,
+  ExplorePosting,
   FollowUpEmail,
   ForgotPasswordRequest,
   HealthStatus,
@@ -63,6 +65,7 @@ import type {
   ResumeUpdate,
   SaveAiCredentialRequest,
   SearchCompanyCatalogParams,
+  SearchExploreParams,
   SettingsState,
   SettingsUpdate,
   TestAiCredentialRequest,
@@ -1816,6 +1819,163 @@ export const useRefreshJobs = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRefreshJobsMutationOptions(options));
+    }
+
+export const getSearchExploreUrl = (params: SearchExploreParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/explore?${stringifiedParams}` : `/api/explore`
+}
+
+/**
+ * Free-text search across every posting in the shared pool - saas pools every account's signatures/watches together, selfhosted's pool is just its own fetches - not only the ones this account's own criteria have already scored and queued (that stays GET /jobs). Case-insensitive substring match against title, company and description; also tried against an accent-folded form of `q`, since the stored text itself is not accent-folded (see lib/explore-search.ts for the documented limitation this leaves). Bounded and paginated - at most 25 results per page, most recently posted first - so a search is always an indexed, LIMITed query, never a scan of the whole pool. `inMyQueue` is true when this account already has a review-queue row for that posting.
+ * @summary Search the entire shared pool of postings directly
+ */
+export const searchExplore = async (params: SearchExploreParams, options?: Parameters<typeof customFetch>[1]): Promise<ExplorePosting[]> => {
+
+  return customFetch<ExplorePosting[]>(getSearchExploreUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchExploreQueryKey = (params?: SearchExploreParams,) => {
+    return [
+    `/api/explore`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchExploreQueryOptions = <TData = Awaited<ReturnType<typeof searchExplore>>, TError = ErrorType<Error>>(params: SearchExploreParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchExplore>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchExploreQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchExplore>>> = ({ signal }) => searchExplore(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchExplore>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchExploreQueryResult = NonNullable<Awaited<ReturnType<typeof searchExplore>>>
+export type SearchExploreQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Search the entire shared pool of postings directly
+ */
+
+export function useSearchExplore<TData = Awaited<ReturnType<typeof searchExplore>>, TError = ErrorType<Error>>(
+ params: SearchExploreParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchExplore>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchExploreQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddExplorePostingUrl = (postingId: number,) => {
+
+
+
+
+  return `/api/explore/${postingId}/add`
+}
+
+/**
+ * Scores the posting against this account's own configuration - the same scoring path a normal refresh uses, never a placeholder zero - and queues it as `queued`. No timeline event is recorded, since this is pre-application (see docs on POST /applications for where the real trail starts).
+ * @summary Add a posting found via Explore straight to this account's review queue
+ */
+export const addExplorePosting = async (postingId: number, options?: Parameters<typeof customFetch>[1]): Promise<ExploreAddResult> => {
+
+  return customFetch<ExploreAddResult>(getAddExplorePostingUrl(postingId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAddExplorePostingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addExplorePosting>>, TError,{postingId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addExplorePosting>>, TError,{postingId: number}, TContext> => {
+
+const mutationKey = ['addExplorePosting'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addExplorePosting>>, {postingId: number}> = (props) => {
+          const {postingId} = props ?? {};
+
+          return  addExplorePosting(postingId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddExplorePostingMutationResult = NonNullable<Awaited<ReturnType<typeof addExplorePosting>>>
+
+    export type AddExplorePostingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add a posting found via Explore straight to this account's review queue
+ */
+export const useAddExplorePosting = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addExplorePosting>>, TError,{postingId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addExplorePosting>>,
+        TError,
+        {postingId: number},
+        TContext
+      > => {
+      return useMutation(getAddExplorePostingMutationOptions(options));
     }
 
 export const getListApplicationsUrl = (params?: ListApplicationsParams,) => {

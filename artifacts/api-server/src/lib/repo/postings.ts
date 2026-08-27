@@ -6,7 +6,7 @@
 // here takes `userId` explicitly, first, and lib/scoping.test.ts fails the
 // build if one of them stops doing that.
 
-import { and, asc, desc, eq, gte, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import {
   applicationsTable,
   db,
@@ -339,6 +339,123 @@ export type PostingCandidate = {
   salaryRange: string | null;
   titleCompanyKey: string;
 };
+
+/**
+ * One shared posting by id, in the same RawJob-compatible shape as
+ * `listPostingsToScore` below - reused by POST /explore/{id}/add (lot J2) to
+ * score a posting the account found by searching the whole pool, the same
+ * way a normal refresh scores a fetched one. Platform-scoped like
+ * `listPostingsForAnonymousMatch` above: the posting itself belongs to no
+ * account. Named in lib/scoping.test.ts's PLATFORM_SCOPED allowlist.
+ */
+export async function getPostingById(id: number): Promise<PostingCandidate | null> {
+  const [row] = await db
+    .select({
+      id: postingsTable.id,
+      source: postingsTable.source,
+      title: postingsTable.title,
+      company: postingsTable.company,
+      location: postingsTable.location,
+      url: postingsTable.url,
+      description: postingsTable.description,
+      postedDate: postingsTable.postedDate,
+      salaryRange: postingsTable.salaryRange,
+      titleCompanyKey: postingsTable.titleCompanyKey,
+    })
+    .from(postingsTable)
+    .where(eq(postingsTable.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export type PostingSearchParams = {
+  q: string;
+  foldedQ: string;
+  location: string | null;
+  source: string | null;
+  limit: number;
+  offset: number;
+};
+
+export type PostingSearchRow = {
+  id: number;
+  source: string;
+  title: string;
+  company: string;
+  location: string;
+  workMode: string;
+  description: string;
+  postedDate: string;
+  inMyQueue: boolean;
+};
+
+/**
+ * Free-text search across the ENTIRE shared pool (GET /explore, lot J2) -
+ * not one account's own scored queue, which is what `listUserPostings`
+ * above reads. Platform-scoped like `listPostingsForAnonymousMatch`:
+ * matching "what's in the pool" is not an operation on one account's data,
+ * so `userId` is not the first parameter here - it is only used to compute
+ * the `inMyQueue` flag per row, via the same left-join-and-check-null shape
+ * `findPostingsByUrl` above uses for its own `mine` flag. Named in
+ * lib/scoping.test.ts's PLATFORM_SCOPED allowlist.
+ *
+ * `params` is expected to already be validated and bounded by
+ * lib/explore-search.ts's parseExploreSearch (q trimmed and non-empty, limit
+ * capped) - this function trusts it and does not re-validate, so `limit` is
+ * always a real LIMIT, never an unbounded scan of the pool.
+ */
+export async function searchPostings(
+  params: PostingSearchParams,
+  userId: string,
+): Promise<PostingSearchRow[]> {
+  const term = `%${params.q}%`;
+  const foldedTerm = `%${params.foldedQ}%`;
+  // No `unaccent` extension assumed available (see lib/explore-search.ts's
+  // header for the full, empirically-confirmed limitation) - matching the
+  // query both as typed and accent-folded only helps when the query itself
+  // carries an accent an unaccented listing lacks; ILIKE never strips
+  // accents from the stored title/company/description, so an unaccented
+  // query still will not find an accented-only listing.
+  const conditions = [
+    or(
+      ilike(postingsTable.title, term),
+      ilike(postingsTable.company, term),
+      ilike(postingsTable.description, term),
+      ilike(postingsTable.title, foldedTerm),
+      ilike(postingsTable.company, foldedTerm),
+      ilike(postingsTable.description, foldedTerm),
+    ),
+  ];
+  if (params.location) conditions.push(ilike(postingsTable.location, `%${params.location}%`));
+  if (params.source) conditions.push(eq(postingsTable.source, params.source));
+
+  const rows = await db
+    .select({
+      id: postingsTable.id,
+      source: postingsTable.source,
+      title: postingsTable.title,
+      company: postingsTable.company,
+      location: postingsTable.location,
+      workMode: postingsTable.workMode,
+      description: postingsTable.description,
+      postedDate: postingsTable.postedDate,
+      queuedByUserId: userPostingsTable.userId,
+    })
+    .from(postingsTable)
+    .leftJoin(
+      userPostingsTable,
+      and(
+        eq(userPostingsTable.postingId, postingsTable.id),
+        eq(userPostingsTable.userId, userId),
+      ),
+    )
+    .where(and(...conditions))
+    .orderBy(desc(postingsTable.postedDate), desc(postingsTable.firstSeenAt))
+    .limit(params.limit)
+    .offset(params.offset);
+
+  return rows.map(({ queuedByUserId, ...row }) => ({ ...row, inMyQueue: queuedByUserId !== null }));
+}
 
 /**
  * Adverts seen since `since` that this account has no queue row for yet.

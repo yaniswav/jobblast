@@ -41,6 +41,7 @@ import {
   upsertPostings,
   type AttachedPosting,
   type NewUserPosting,
+  type PostingCandidate,
 } from "../repo/postings";
 import { getProfile } from "../repo/profile";
 import { locationKeywordsFromProfile, scoreJob } from "./scoring";
@@ -504,4 +505,54 @@ export async function scorePostingsForUser(userId: string, since: Date): Promise
   };
   logger.info(summary, "Shared refresh: account scored its new postings");
   return summary;
+}
+
+// ---------------------------------------------------------------------------
+// Explore (lot J2): search the whole pool directly, add one result on demand
+// ---------------------------------------------------------------------------
+
+/**
+ * Scores one already-in-the-pool posting against this account's own
+ * configuration and attaches it to their review queue (POST
+ * /explore/{id}/add) - the same per-account inputs `scorePostingsForUser`
+ * loads (profile, target-location keywords, cover letter template), applied
+ * to one explicitly chosen posting instead of a fetched batch. Unlike the
+ * automatic refresh path, this never drops the posting for scoring below
+ * `minRelevanceScore`: the account found it by searching and asked for it by
+ * name, so the score is informational, not a gate. Returns false when the
+ * account already had this posting queued (the route reports 409 for that),
+ * true when it was newly attached.
+ */
+export async function scoreAndAttachPosting(userId: string, posting: PostingCandidate): Promise<boolean> {
+  const profileRow = await getProfile(userId);
+  const profile: BulletProfile = {
+    headline: profileRow?.headline ?? "",
+    masterResume: profileRow?.masterResume ?? "",
+  };
+  const profileLocationKeywords = locationKeywordsFromProfile(profileRow?.targetLocations ?? []);
+  const coverLetterTemplate = await getCoverLetterTemplate(userId);
+
+  const raw: RawJob = {
+    source: posting.source as RawJob["source"],
+    title: posting.title,
+    company: posting.company,
+    location: posting.location,
+    url: posting.url,
+    description: posting.description,
+    postedDate: posting.postedDate,
+    salaryRange: posting.salaryRange,
+  };
+  const scored = scoreJob(raw, profileLocationKeywords);
+
+  const inserted = await attachUserPostings(userId, [
+    {
+      postingId: posting.id,
+      relevanceScore: scored.relevanceScore,
+      matchReasons: scored.matchReasons,
+      highlightedSkills: scored.highlightedSkills,
+      tailoredBullets: tailoredBulletsFor(scored.highlightedSkills, profile),
+      coverLetter: coverLetterFor(scored.title, scored.company, coverLetterTemplate),
+    },
+  ]);
+  return inserted > 0;
 }

@@ -152,6 +152,36 @@ export interface JobListing {
   fitAnalysis: JobListingFitAnalysis;
 }
 
+export type ExplorePostingWorkMode = typeof ExplorePostingWorkMode[keyof typeof ExplorePostingWorkMode];
+
+
+export const ExplorePostingWorkMode = {
+  Remote: 'Remote',
+  Hybrid: 'Hybrid',
+  'On-site': 'On-site',
+} as const;
+
+/**
+ * One shared-pool posting as GET /explore returns it - a lighter shape than JobListing (no score, no tailored content: those only exist once a posting is actually in an account's queue).
+ */
+export interface ExplorePosting {
+  id: number;
+  source: string;
+  title: string;
+  company: string;
+  location: string;
+  workMode: ExplorePostingWorkMode;
+  /** HTML-stripped, truncated to ~300 characters on a word boundary. */
+  descriptionExcerpt: string;
+  postedDate: string;
+  /** True when this account already has a review-queue row for this posting. */
+  inMyQueue: boolean;
+}
+
+export interface ExploreAddResult {
+  added: boolean;
+}
+
 export interface JobRefreshStatus {
   started: boolean;
 }
@@ -821,9 +851,52 @@ export const ApplicationStatusParameter = {
  */
 export type CompanyCatalogQueryParameter = string;
 
+/**
+ * Free-text match against title, company and description. At least 2 characters.
+ */
+export type ExploreQueryParameter = string;
+
+/**
+ * Substring match against the posting's location.
+ */
+export type ExploreLocationParameter = string;
+
+/**
+ * Exact match against a posting's stored source label (e.g. "Greenhouse", "France Travail") - the UI populates this from the `source` values in the current results rather than a hardcoded list, since it does not line up with the internal SourceId config keys.
+ */
+export type ExploreSourceParameter = string;
+
+/**
+ * Max results for this page. Capped at 25.
+ */
+export type ExploreLimitParameter = number;
+
+export type ExploreOffsetParameter = number;
+
 export type ListJobsParams = {
 search?: SearchParameter;
 status?: JobStatusParameter;
+};
+
+export type SearchExploreParams = {
+/**
+ * Free-text match against title, company and description. At least 2 characters.
+ * @minLength 2
+ */
+q: ExploreQueryParameter;
+/**
+ * Substring match against the posting's location.
+ */
+location?: ExploreLocationParameter;
+/**
+ * Exact match against a posting's stored source label (e.g. "Greenhouse", "France Travail") - the UI populates this from the `source` values in the current results rather than a hardcoded list, since it does not line up with the internal SourceId config keys.
+ */
+source?: ExploreSourceParameter;
+/**
+ * Max results for this page. Capped at 25.
+ */
+limit?: ExploreLimitParameter;
+offset?: ExploreOffsetParameter;
 };
 
 export type ListApplicationsParams = {

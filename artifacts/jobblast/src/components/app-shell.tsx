@@ -1,4 +1,4 @@
-import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, Moon, Settings as SettingsIcon, Sun, TrendingUp, X } from 'lucide-react';
+import { BarChart3, BriefcaseBusiness, CircleUserRound, LayoutDashboard, Menu, Moon, Search, Settings as SettingsIcon, Sun, TrendingUp, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useGetAuthSession, useGetProfile, useHealthCheck } from '@workspace/api-client-react';
@@ -7,6 +7,7 @@ import { useLocale, useT, type TranslationKey } from '@/i18n';
 const navigation: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; testId: string }[] = [
   { href: '/', labelKey: 'nav.overview', icon: LayoutDashboard, testId: 'link-overview' },
   { href: '/review', labelKey: 'nav.reviewQueue', icon: BriefcaseBusiness, testId: 'link-review-queue' },
+  { href: '/explore', labelKey: 'nav.explore', icon: Search, testId: 'link-explore' },
   { href: '/applications', labelKey: 'nav.applications', icon: BarChart3, testId: 'link-applications' },
   { href: '/stats', labelKey: 'nav.stats', icon: TrendingUp, testId: 'link-stats' },
   { href: '/profile', labelKey: 'nav.profile', icon: CircleUserRound, testId: 'link-your-profile' },
