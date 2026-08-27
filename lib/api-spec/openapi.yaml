@@ -732,6 +732,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /applications/{id}/events:
+    get:
+      operationId: listApplicationEvents
+      tags: [applications]
+      summary: Get an application's timeline (applied, status changes, follow-ups, notes, detected e-mails, briefs), newest first
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Timeline events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApplicationEvent"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /applications/{id}/notes:
+    post:
+      operationId: addApplicationNote
+      tags: [applications]
+      summary: Append a personal note to an application's timeline (append-only - no edit or delete)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationNoteInput"
+      responses:
+        "201":
+          description: Note recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationEvent"
+        "400":
+          description: Empty note, or over the length cap
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /profile:
     get:
       operationId: getProfile
@@ -1480,6 +1534,51 @@ components:
         - subject
         - body
         - source
+    ApplicationEventKind:
+      description: >
+        applied - the tracker row was created. status_changed - a status
+        move, manual or detected from Gmail (see the payload's origin).
+        followed_up - the user confirmed sending a follow-up (lot H4).
+        note_added - a personal note (append-only, no edit or delete).
+        email_detected - Gmail sync matched (or considered, then declined) an
+        e-mail against this application. brief_generated - an interview prep
+        brief finished.
+      type: string
+      enum: [applied, status_changed, followed_up, note_added, email_detected, brief_generated]
+    ApplicationEvent:
+      type: object
+      properties:
+        id:
+          type: number
+        applicationId:
+          type: number
+        kind:
+          $ref: "#/components/schemas/ApplicationEventKind"
+        occurredAt:
+          type: string
+          format: date-time
+        payload:
+          description: >
+            Shape depends on `kind` - see ApplicationEventKind. Never
+            contains an e-mail's body: a `subject` field, when present, is a
+            short synthetic label built from structured fields, not a quote
+            from the message.
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - applicationId
+        - kind
+        - occurredAt
+        - payload
+    ApplicationNoteInput:
+      type: object
+      properties:
+        text:
+          description: Plain text, 1 to 2000 characters after trimming.
+          type: string
+      required:
+        - text
     DashboardSummary:
       type: object
       properties:

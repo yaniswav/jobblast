@@ -205,6 +205,30 @@ export const fr = {
   'brief.toastRegenerating': 'Nouvelle recherche lancée. Cela prend quelques minutes.',
   'brief.toastRegenerateFailed': "Impossible de mettre un nouveau dossier en file.",
 
+  // Historique de la candidature (lot I1) : candidature envoyée, changements
+  // de statut, relances confirmées, notes personnelles, mails détectés et
+  // dossiers générés, au même endroit. Les notes ajoutées ici sont en
+  // ajout seul dans ce lot.
+  'timeline.openAriaLabel': "Voir l'historique de {title}",
+  'timeline.eyebrow': 'Historique de la candidature',
+  'timeline.close': "Fermer l'historique",
+  'timeline.loading': "Chargement de l'historique",
+  'timeline.emptyTitle': "Rien d'enregistré pour le moment.",
+  'timeline.emptyBody': "L'activité de cette candidature apparaîtra ici.",
+  'timeline.kindApplied': 'Candidature enregistrée',
+  'timeline.kindStatusChangedManual': 'Statut passé de {from} à {to}',
+  'timeline.kindStatusChangedGmail': 'Statut passé de {from} à {to}, détecté depuis Gmail',
+  'timeline.kindFollowedUp': 'Relance confirmée',
+  'timeline.kindNoteAdded': 'Note ajoutée',
+  'timeline.kindEmailDetected': 'Mail détecté',
+  'timeline.kindBriefGenerated': "Dossier d'entretien généré",
+  'timeline.noteLabel': 'Ajouter une note',
+  'timeline.notePlaceholder': 'Notez ce qui vaut la peine de s\'en souvenir...',
+  'timeline.noteSaving': 'Enregistrement...',
+  'timeline.noteButton': 'Ajouter la note',
+  'timeline.toastNoteAdded': 'Note ajoutée.',
+  'timeline.toastNoteFailed': "Impossible d'enregistrer la note.",
+
   // Profile page
   'profile.eyebrow': 'Votre profil',
   'profile.title': 'Clarifiez votre signal.',

@@ -29,6 +29,7 @@
 // research session.
 
 import type { FitAnalysis } from "@workspace/db";
+import { recordApplicationEvent } from "../application-events";
 import { getApplicationWithPosting } from "../repo/applications";
 import {
   listPendingBriefs,
@@ -414,12 +415,19 @@ export async function runInterviewBriefPass(
           continue;
         }
 
+        const generatedAt = new Date();
         await updateBrief(userId, applicationId, {
           status: "ready",
           contentMarkdown: markdown,
-          generatedAt: new Date(),
+          generatedAt,
           error: null,
         });
+        await recordApplicationEvent(
+          userId,
+          applicationId,
+          { kind: "brief_generated", payload: { chars: markdown.length } },
+          generatedAt,
+        );
 
         succeeded++;
         attemptsByApplication.delete(applicationId);

@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
 import {
+  AddApplicationNoteBody,
+  AddApplicationNoteParams,
+  AddApplicationNoteResponse,
   CreateApplicationBody,
   CreateApplicationResponse,
   GetFollowUpEmailParams,
@@ -7,6 +10,8 @@ import {
   GetInterviewBriefParams,
   GetInterviewBriefPdfParams,
   GetInterviewBriefResponse,
+  ListApplicationEventsParams,
+  ListApplicationEventsResponse,
   ListApplicationsQueryParams,
   ListApplicationsResponse,
   MarkFollowedUpParams,
@@ -23,6 +28,11 @@ import {
   resetInterviewBrief,
   runInterviewBriefPass,
 } from "../lib/ai/interview-brief";
+import {
+  buildStatusChangedPayload,
+  normalizeNoteText,
+  recordApplicationEvent,
+} from "../lib/application-events";
 import { actingUserId } from "../lib/auth/middleware";
 import { loadConfig } from "../lib/config";
 import { withFollowUpEligibility } from "../lib/follow-ups";
@@ -38,6 +48,7 @@ import {
   updateApplication,
   type Application,
 } from "../lib/repo/applications";
+import { listApplicationEvents } from "../lib/repo/application-events";
 import {
   getBrief,
   getReadyBrief,
@@ -90,6 +101,13 @@ router.post("/applications", async (req, res): Promise<void> => {
     return;
   }
 
+  await recordApplicationEvent(
+    userId,
+    result.application.id,
+    { kind: "applied" },
+    result.application.appliedAt,
+  );
+
   res.status(201).json(CreateApplicationResponse.parse(toApplicationResponse(result.application)));
 });
 
@@ -125,6 +143,19 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
   if (!application) {
     res.status(404).json({ error: "Application not found" });
     return;
+  }
+  // A manual status move, timelined. gmail-sync.ts records its own
+  // status_changed events (origin "gmail") at the point it applies a move -
+  // see that file's header.
+  if (update.status !== undefined && previous && previous.status !== application.status) {
+    await recordApplicationEvent(userId, application.id, {
+      kind: "status_changed",
+      payload: buildStatusChangedPayload({
+        from: previous.status,
+        to: application.status,
+        origin: "manual",
+      }),
+    });
   }
   // Reaching "interview" queues a preparation brief. The generation itself
   // is a multi-minute web research run, so it happens in the background pass
@@ -206,6 +237,13 @@ router.post("/applications/:id/follow-up", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Application not found" });
     return;
   }
+
+  await recordApplicationEvent(
+    userId,
+    updated.id,
+    { kind: "followed_up", payload: { followUpCount: updated.followUpCount } },
+    updated.lastFollowedUpAt ?? undefined,
+  );
 
   logger.info({ applicationId: updated.id, followUpCount: updated.followUpCount }, "Follow-up confirmed by the user");
   res.json(MarkFollowedUpResponse.parse(toApplicationResponse(updated)));
@@ -314,6 +352,71 @@ router.get("/applications/:id/interview-brief.pdf", async (req, res): Promise<vo
     generatedAt: brief.generatedAt,
   });
   doc.pipe(res);
+});
+
+// ---------------------------------------------------------------------------
+// Timeline (lot I1, lib/application-events.ts)
+//
+// GET returns everything recorded for one application, newest first. POST
+// appends a personal note - append-only, no edit or delete in this lot.
+// ---------------------------------------------------------------------------
+
+router.get("/applications/:id/events", async (req, res): Promise<void> => {
+  const userId = actingUserId(req);
+  const params = ListApplicationEventsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const application = await getApplication(userId, params.data.id);
+  if (!application) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  const events = await listApplicationEvents(userId, params.data.id);
+  res.json(ListApplicationEventsResponse.parse(events));
+});
+
+router.post("/applications/:id/notes", async (req, res): Promise<void> => {
+  const userId = actingUserId(req);
+  const params = AddApplicationNoteParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const body = AddApplicationNoteBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const application = await getApplication(userId, params.data.id);
+  if (!application) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  const text = normalizeNoteText(body.data.text);
+  if (!text) {
+    res.status(400).json({ error: "A note must be 1 to 2000 characters long" });
+    return;
+  }
+
+  const event = await recordApplicationEvent(userId, application.id, {
+    kind: "note_added",
+    payload: { text },
+  });
+  if (!event) {
+    // The one place this lot's "never fail the caller" rule does not apply:
+    // there is no caller action here other than recording the note, so a
+    // failed insert IS the failure to report.
+    res.status(500).json({ error: "Could not save the note" });
+    return;
+  }
+
+  res.status(201).json(AddApplicationNoteResponse.parse(event));
 });
 
 export default router;

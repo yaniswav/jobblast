@@ -203,6 +203,29 @@ export const en = {
   'brief.toastRegenerating': 'Fresh research started. This takes a few minutes.',
   'brief.toastRegenerateFailed': 'Could not queue a new brief.',
 
+  // Application timeline (lot I1): applied, status changes, confirmed
+  // follow-ups, personal notes, detected e-mails and generated briefs, all
+  // in one place. Notes added here are append-only in this lot.
+  'timeline.openAriaLabel': 'View history for {title}',
+  'timeline.eyebrow': 'Application timeline',
+  'timeline.close': 'Close timeline',
+  'timeline.loading': 'Loading timeline',
+  'timeline.emptyTitle': 'Nothing recorded yet.',
+  'timeline.emptyBody': 'Activity on this application will show up here.',
+  'timeline.kindApplied': 'Application logged',
+  'timeline.kindStatusChangedManual': 'Status changed from {from} to {to}',
+  'timeline.kindStatusChangedGmail': 'Status changed from {from} to {to}, detected from Gmail',
+  'timeline.kindFollowedUp': 'Follow-up confirmed',
+  'timeline.kindNoteAdded': 'Note added',
+  'timeline.kindEmailDetected': 'Email detected',
+  'timeline.kindBriefGenerated': 'Interview brief generated',
+  'timeline.noteLabel': 'Add a note',
+  'timeline.notePlaceholder': 'Jot down anything worth remembering...',
+  'timeline.noteSaving': 'Saving...',
+  'timeline.noteButton': 'Add note',
+  'timeline.toastNoteAdded': 'Note added.',
+  'timeline.toastNoteFailed': 'Could not save the note.',
+
   // Profile page
   'profile.eyebrow': 'Your profile',
   'profile.title': 'Make your signal clear.',

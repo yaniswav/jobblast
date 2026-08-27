@@ -254,6 +254,40 @@ export interface FollowUpEmail {
   source: FollowUpEmailSource;
 }
 
+/**
+ * applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload's origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.
+ */
+export type ApplicationEventKind = typeof ApplicationEventKind[keyof typeof ApplicationEventKind];
+
+
+export const ApplicationEventKind = {
+  applied: 'applied',
+  status_changed: 'status_changed',
+  followed_up: 'followed_up',
+  note_added: 'note_added',
+  email_detected: 'email_detected',
+  brief_generated: 'brief_generated',
+} as const;
+
+/**
+ * Shape depends on `kind` - see ApplicationEventKind. Never contains an e-mail's body: a `subject` field, when present, is a short synthetic label built from structured fields, not a quote from the message.
+ */
+export type ApplicationEventPayload = { [key: string]: unknown };
+
+export interface ApplicationEvent {
+  id: number;
+  applicationId: number;
+  kind: ApplicationEventKind;
+  occurredAt: string;
+  /** Shape depends on `kind` - see ApplicationEventKind. Never contains an e-mail's body: a `subject` field, when present, is a short synthetic label built from structured fields, not a quote from the message. */
+  payload: ApplicationEventPayload;
+}
+
+export interface ApplicationNoteInput {
+  /** Plain text, 1 to 2000 characters after trimming. */
+  text: string;
+}
+
 export interface DashboardSummary {
   dailyGoal: number;
   appliedToday: number;

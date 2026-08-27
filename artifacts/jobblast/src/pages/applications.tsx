@@ -1,9 +1,9 @@
-import { CalendarClock, Check, CircleAlert, Copy, Edit3, ExternalLink, FileDown, Filter, Mail, RefreshCw, Search, Sparkles, X } from 'lucide-react';
+import { ArrowRightLeft, CalendarClock, Check, CircleAlert, Copy, Edit3, ExternalLink, FileDown, Filter, History, Inbox, Mail, RefreshCw, Search, Send, Sparkles, StickyNote, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApplicationStatus, getGetDashboardQueryKey, getGetFollowUpEmailQueryKey, getGetInterviewBriefPdfUrl, getGetInterviewBriefQueryKey, getGetJobQueryKey, getListApplicationsQueryKey, useGetFollowUpEmail, useGetInterviewBrief, useGetJob, useListApplications, useMarkFollowedUp, useRegenerateInterviewBrief, useUpdateApplication } from '@workspace/api-client-react';
-import type { Application, ApplicationStatus as ApplicationStatusType } from '@workspace/api-client-react';
+import { ApplicationStatus, getGetDashboardQueryKey, getGetFollowUpEmailQueryKey, getGetInterviewBriefPdfUrl, getGetInterviewBriefQueryKey, getGetJobQueryKey, getListApplicationEventsQueryKey, getListApplicationsQueryKey, useAddApplicationNote, useGetFollowUpEmail, useGetInterviewBrief, useGetJob, useListApplicationEvents, useListApplications, useMarkFollowedUp, useRegenerateInterviewBrief, useUpdateApplication } from '@workspace/api-client-react';
+import type { Application, ApplicationEvent, ApplicationEventKind, ApplicationStatus as ApplicationStatusType } from '@workspace/api-client-react';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
 import { fold } from '@/lib/suggestions';
@@ -20,6 +20,7 @@ export default function Applications() {
   const [editing, setEditing] = useState<Application | null>(null);
   const [preparing, setPreparing] = useState<Application | null>(null);
   const [preparingFollowUp, setPreparingFollowUp] = useState<Application | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<Application | null>(null);
   const applications = useListApplications(filter === 'all' ? undefined : { status: filter });
   // Lot H6: accent/case-insensitive (fold(), same helper the tag-editor
   // dropdowns use) so "cafe" finds "Café" and "MULLER" finds "Müller" -
@@ -36,16 +37,17 @@ export default function Applications() {
         <select className="select w-auto min-w-[130px]" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} data-testid="select-application-status"><option value="all">{t('applications.allStatuses')}</option>{statuses.map((status) => <option value={status} key={status}>{t(`status.${status}` as TranslationKey)}</option>)}</select>
       </div>
       <section className="surface">
-        {visible.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('applications.colRole')}</th><th>{t('applications.colStatus')}</th><th>{t('applications.colFollowUp')}</th><th>{t('applications.colNotes')}</th><th><span className="sr-only">{t('applications.colActions')}</span></th></tr></thead><tbody>{visible.map((application) => <ApplicationRow key={application.id} application={application} onEdit={() => setEditing(application)} onPrep={() => setPreparing(application)} onPrepFollowUp={() => setPreparingFollowUp(application)} />)}</tbody></table></div> : <EmptyState title={search ? t('applications.emptySearchTitle') : t('applications.emptyTitle')} body={search ? t('applications.emptySearchBody') : t('applications.emptyBody')} /> }
+        {visible.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>{t('applications.colRole')}</th><th>{t('applications.colStatus')}</th><th>{t('applications.colFollowUp')}</th><th>{t('applications.colNotes')}</th><th><span className="sr-only">{t('applications.colActions')}</span></th></tr></thead><tbody>{visible.map((application) => <ApplicationRow key={application.id} application={application} onEdit={() => setEditing(application)} onPrep={() => setPreparing(application)} onPrepFollowUp={() => setPreparingFollowUp(application)} onHistory={() => setViewingHistory(application)} />)}</tbody></table></div> : <EmptyState title={search ? t('applications.emptySearchTitle') : t('applications.emptyTitle')} body={search ? t('applications.emptySearchBody') : t('applications.emptyBody')} /> }
       </section>
       {editing && <EditApplication application={editing} onClose={() => setEditing(null)} />}
       {preparing && <InterviewBrief application={preparing} onClose={() => setPreparing(null)} />}
       {preparingFollowUp && <FollowUpPanel application={preparingFollowUp} onClose={() => setPreparingFollowUp(null)} />}
+      {viewingHistory && <TimelinePanel application={viewingHistory} onClose={() => setViewingHistory(null)} />}
     </div>
   );
 }
 
-function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp }: { application: Application; onEdit: () => void; onPrep: () => void; onPrepFollowUp: () => void }) {
+function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp, onHistory }: { application: Application; onEdit: () => void; onPrep: () => void; onPrepFollowUp: () => void; onHistory: () => void }) {
   const t = useT();
   const [locale] = useLocale();
   const isApproved = application.status === 'approved';
@@ -65,7 +67,172 @@ function ApplicationRow({ application, onEdit, onPrep, onPrepFollowUp }: { appli
     },
     onError: () => toast(t('applications.toastMarkAppliedFailed')),
   });
-  return <tr className="list-enter" data-testid={`row-application-${application.id}`}><td><div className="flex items-center gap-3"><div className="avatar">{application.companyInitials}</div><div><div className="font-bold">{application.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.company} · {application.location}</div></div></div></td><td><div className="flex items-center gap-1.5 flex-wrap"><span className={`badge ${tone}`}>{t(`status.${application.status}` as TranslationKey)}</span>{application.followUpEligible && <span className="badge badge-amber" data-testid={`badge-follow-up-${application.id}`}>{t('applications.followUpBadge')}</span>}</div></td><td>{application.followUpDate ? <div className={`flex items-center gap-1.5 text-xs ${due ? 'text-[hsl(var(--accent))] font-bold' : 'text-[hsl(var(--muted-foreground))]'}`}><CalendarClock size={14} />{due ? t('applications.dueNow') : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(application.followUpDate))}</div> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}</td><td><div className="max-w-[210px] truncate text-xs text-[hsl(var(--muted-foreground))]" title={application.notes}>{application.notes || t('applications.noNoteYet')}</div></td><td><div className="flex items-center justify-end gap-2">{isApproved && <a className="btn btn-ghost" href={job.data?.url} target="_blank" rel="noreferrer" aria-disabled={!job.data?.url} onClick={(event) => { if (!job.data?.url) event.preventDefault(); }} data-testid={`link-open-job-${application.id}`}><ExternalLink size={14} /> {t('applications.openListing')}</a>}{isApproved && <button className="btn btn-primary" onClick={handleMarkApplied} disabled={markApplied.isPending} data-testid={`button-mark-applied-${application.id}`}><Check size={14} /> {markApplied.isPending ? t('applications.markingApplied') : t('applications.markApplied')}</button>}{isInterview && <button className="btn btn-primary" onClick={onPrep} data-testid={`button-interview-prep-${application.id}`}><Sparkles size={14} /> {t('applications.prep')}</button>}{application.followUpEligible && <button className="btn btn-primary" onClick={onPrepFollowUp} data-testid={`button-prepare-follow-up-${application.id}`}><Mail size={14} /> {t('applications.prepareFollowUp')}</button>}<button className="btn btn-ghost icon-btn" onClick={onEdit} aria-label={t('applications.editAriaLabel', { title: application.title })} data-testid={`button-edit-application-${application.id}`}><Edit3 size={15} /></button></div></td></tr>;
+  return <tr className="list-enter" data-testid={`row-application-${application.id}`}><td><div className="flex items-center gap-3"><div className="avatar">{application.companyInitials}</div><div><div className="font-bold">{application.title}</div><div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.company} · {application.location}</div></div></div></td><td><div className="flex items-center gap-1.5 flex-wrap"><span className={`badge ${tone}`}>{t(`status.${application.status}` as TranslationKey)}</span>{application.followUpEligible && <span className="badge badge-amber" data-testid={`badge-follow-up-${application.id}`}>{t('applications.followUpBadge')}</span>}</div></td><td>{application.followUpDate ? <div className={`flex items-center gap-1.5 text-xs ${due ? 'text-[hsl(var(--accent))] font-bold' : 'text-[hsl(var(--muted-foreground))]'}`}><CalendarClock size={14} />{due ? t('applications.dueNow') : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(application.followUpDate))}</div> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}</td><td><div className="max-w-[210px] truncate text-xs text-[hsl(var(--muted-foreground))]" title={application.notes}>{application.notes || t('applications.noNoteYet')}</div></td><td><div className="flex items-center justify-end gap-2">{isApproved && <a className="btn btn-ghost" href={job.data?.url} target="_blank" rel="noreferrer" aria-disabled={!job.data?.url} onClick={(event) => { if (!job.data?.url) event.preventDefault(); }} data-testid={`link-open-job-${application.id}`}><ExternalLink size={14} /> {t('applications.openListing')}</a>}{isApproved && <button className="btn btn-primary" onClick={handleMarkApplied} disabled={markApplied.isPending} data-testid={`button-mark-applied-${application.id}`}><Check size={14} /> {markApplied.isPending ? t('applications.markingApplied') : t('applications.markApplied')}</button>}{isInterview && <button className="btn btn-primary" onClick={onPrep} data-testid={`button-interview-prep-${application.id}`}><Sparkles size={14} /> {t('applications.prep')}</button>}{application.followUpEligible && <button className="btn btn-primary" onClick={onPrepFollowUp} data-testid={`button-prepare-follow-up-${application.id}`}><Mail size={14} /> {t('applications.prepareFollowUp')}</button>}<button className="btn btn-ghost icon-btn" onClick={onHistory} aria-label={t('timeline.openAriaLabel', { title: application.title })} data-testid={`button-history-${application.id}`}><History size={15} /></button><button className="btn btn-ghost icon-btn" onClick={onEdit} aria-label={t('applications.editAriaLabel', { title: application.title })} data-testid={`button-edit-application-${application.id}`}><Edit3 size={15} /></button></div></td></tr>;
+}
+
+// ---------------------------------------------------------------------------
+// Timeline (lot I1): everything recorded for one application, newest first -
+// applied, status changes (manual or detected by the Gmail sync), confirmed
+// follow-ups, personal notes, detected e-mails and generated interview
+// briefs. A note field at the bottom appends a new personal note; notes are
+// append-only in this lot, no edit or delete.
+// ---------------------------------------------------------------------------
+
+const MAX_TIMELINE_NOTE_CHARS = 2000;
+
+const EVENT_ICON_BY_KIND = {
+  applied: Send,
+  status_changed: ArrowRightLeft,
+  followed_up: Mail,
+  note_added: StickyNote,
+  email_detected: Inbox,
+  brief_generated: Sparkles,
+} satisfies Record<ApplicationEventKind, typeof History>;
+
+function payloadText(payload: Record<string, unknown>, key: string): string | undefined {
+  const value = payload[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/** What one timeline entry shows: a title, and an optional supporting line (an e-mail subject, a note's text, ...). */
+type EventDescription = { title: string; detail?: string };
+
+/** Fully localized { title, detail } for one timeline event. */
+function describeEvent(event: ApplicationEvent, t: ReturnType<typeof useT>): EventDescription {
+  const payload = event.payload as Record<string, unknown>;
+  switch (event.kind) {
+    case 'applied':
+      return { title: t('timeline.kindApplied') };
+    case 'status_changed': {
+      const from = payloadText(payload, 'from');
+      const to = payloadText(payload, 'to');
+      const fromLabel = from ? t(`status.${from}` as TranslationKey) : '';
+      const toLabel = to ? t(`status.${to}` as TranslationKey) : '';
+      const title = payload['origin'] === 'gmail'
+        ? t('timeline.kindStatusChangedGmail', { from: fromLabel, to: toLabel })
+        : t('timeline.kindStatusChangedManual', { from: fromLabel, to: toLabel });
+      return { title, detail: payloadText(payload, 'subject') };
+    }
+    case 'followed_up':
+      return { title: t('timeline.kindFollowedUp') };
+    case 'note_added':
+      return { title: t('timeline.kindNoteAdded'), detail: payloadText(payload, 'text') };
+    case 'email_detected':
+      return { title: t('timeline.kindEmailDetected'), detail: payloadText(payload, 'subject') };
+    case 'brief_generated':
+      return { title: t('timeline.kindBriefGenerated') };
+    default:
+      return { title: event.kind };
+  }
+}
+
+const RELATIVE_TIME_DIVISIONS: Array<{ amount: number; unit: Intl.RelativeTimeFormatUnit }> = [
+  { amount: 60, unit: 'seconds' },
+  { amount: 60, unit: 'minutes' },
+  { amount: 24, unit: 'hours' },
+  { amount: 7, unit: 'days' },
+  { amount: 4.34524, unit: 'weeks' },
+  { amount: 12, unit: 'months' },
+  { amount: Number.POSITIVE_INFINITY, unit: 'years' },
+];
+
+/** "3 days ago" / "il y a 3 jours" - phrased entirely by Intl, no custom strings to translate. */
+function relativeTime(date: Date, locale: string): string {
+  let duration = (date.getTime() - Date.now()) / 1000;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  for (const division of RELATIVE_TIME_DIVISIONS) {
+    if (Math.abs(duration) < division.amount) return rtf.format(Math.round(duration), division.unit);
+    duration /= division.amount;
+  }
+  return rtf.format(Math.round(duration), 'years');
+}
+
+function TimelinePanel({ application, onClose }: { application: Application; onClose: () => void }) {
+  const t = useT();
+  const [locale] = useLocale();
+  const queryClient = useQueryClient();
+  const [note, setNote] = useState('');
+  const events = useListApplicationEvents(application.id, { query: { queryKey: getListApplicationEventsQueryKey(application.id) } });
+  const addNote = useAddApplicationNote();
+
+  const trimmedNote = note.trim();
+  const noteValid = trimmedNote.length > 0 && trimmedNote.length <= MAX_TIMELINE_NOTE_CHARS;
+
+  const handleAddNote = () => {
+    if (!noteValid) return;
+    addNote.mutate({ id: application.id, data: { text: trimmedNote } }, {
+      onSuccess: () => {
+        setNote('');
+        queryClient.invalidateQueries({ queryKey: getListApplicationEventsQueryKey(application.id) });
+        toast(t('timeline.toastNoteAdded'));
+      },
+      onError: () => toast(t('timeline.toastNoteFailed')),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 grid place-items-center bg-[hsl(var(--foreground)/.38)] p-4" onClick={onClose}>
+      <div className="surface w-full max-w-2xl max-h-[88vh] flex flex-col p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <div className="eyebrow">{t('timeline.eyebrow')}</div>
+            <h2 className="text-xl font-bold tracking-[-.04em] mt-2">{application.company}</h2>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{application.title}</p>
+          </div>
+          <button className="btn btn-ghost icon-btn" onClick={onClose} aria-label={t('timeline.close')} data-testid="button-close-timeline"><X size={17} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-1" data-testid="timeline-body">
+          {events.isLoading && <LoadingState label={t('timeline.loading')} />}
+          {events.isError && <ErrorState onRetry={() => events.refetch()} />}
+          {events.data && events.data.length === 0 && <EmptyState title={t('timeline.emptyTitle')} body={t('timeline.emptyBody')} />}
+          {events.data && events.data.length > 0 && (
+            <ol className="grid gap-0" data-testid="timeline-list">
+              {events.data.map((event, index) => {
+                const Icon = EVENT_ICON_BY_KIND[event.kind];
+                const { title, detail } = describeEvent(event, t);
+                const occurredAt = new Date(event.occurredAt);
+                const isLast = index === events.data!.length - 1;
+                return (
+                  <li key={event.id} className="list-enter relative pl-9" style={{ paddingBottom: isLast ? 0 : 20 }} data-testid={`timeline-event-${event.id}`}>
+                    <span className="absolute left-0 top-0.5 grid h-6 w-6 place-items-center rounded-full bg-[hsl(var(--primary)/.14)] text-[hsl(var(--primary))]" aria-hidden="true"><Icon size={13} /></span>
+                    {!isLast && <span className="absolute left-[11px] top-6 bottom-0 w-px bg-[hsl(var(--border))]" aria-hidden="true" />}
+                    <div className="text-sm font-bold text-[hsl(var(--foreground))]">{title}</div>
+                    {detail && <div className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))] whitespace-pre-wrap">{detail}</div>}
+                    <div
+                      className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]"
+                      title={new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(occurredAt)}
+                    >
+                      {relativeTime(occurredAt, locale)}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+
+        <div className="pt-4 mt-4 border-t border-[hsl(var(--border))]">
+          <label className="label" htmlFor="timeline-note">{t('timeline.noteLabel')}</label>
+          <textarea
+            id="timeline-note"
+            className="textarea min-h-[70px]"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder={t('timeline.notePlaceholder')}
+            maxLength={MAX_TIMELINE_NOTE_CHARS}
+            data-testid="textarea-timeline-note"
+          />
+          <div className="flex items-center justify-between mt-2">
+            <span className="font-mono-app text-[10px] text-[hsl(var(--muted-foreground))]">{t('common.charsCount', { count: note.length })}</span>
+            <button className="btn btn-primary" onClick={handleAddNote} disabled={!noteValid || addNote.isPending} data-testid="button-add-timeline-note">
+              <StickyNote size={14} /> {addNote.isPending ? t('timeline.noteSaving') : t('timeline.noteButton')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

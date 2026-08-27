@@ -27,7 +27,9 @@ import type {
   AiTestResult,
   AnonymousMatchResult,
   Application,
+  ApplicationEvent,
   ApplicationInput,
+  ApplicationNoteInput,
   ApplicationUpdate,
   AuthSession,
   CompanyCatalogEntry,
@@ -2332,6 +2334,155 @@ export const useMarkFollowedUp = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getMarkFollowedUpMutationOptions(options));
+    }
+
+export const getListApplicationEventsUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/events`
+}
+
+/**
+ * @summary Get an application's timeline (applied, status changes, follow-ups, notes, detected e-mails, briefs), newest first
+ */
+export const listApplicationEvents = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ApplicationEvent[]> => {
+
+  return customFetch<ApplicationEvent[]>(getListApplicationEventsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListApplicationEventsQueryKey = (id: number,) => {
+    return [
+    `/api/applications/${id}/events`
+    ] as const;
+    }
+
+
+export const getListApplicationEventsQueryOptions = <TData = Awaited<ReturnType<typeof listApplicationEvents>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApplicationEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListApplicationEventsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listApplicationEvents>>> = ({ signal }) => listApplicationEvents(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listApplicationEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListApplicationEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listApplicationEvents>>>
+export type ListApplicationEventsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Get an application's timeline (applied, status changes, follow-ups, notes, detected e-mails, briefs), newest first
+ */
+
+export function useListApplicationEvents<TData = Awaited<ReturnType<typeof listApplicationEvents>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApplicationEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListApplicationEventsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddApplicationNoteUrl = (id: number,) => {
+
+
+
+
+  return `/api/applications/${id}/notes`
+}
+
+/**
+ * @summary Append a personal note to an application's timeline (append-only - no edit or delete)
+ */
+export const addApplicationNote = async (id: number,
+    applicationNoteInput: ApplicationNoteInput, options?: Parameters<typeof customFetch>[1]): Promise<ApplicationEvent> => {
+
+  return customFetch<ApplicationEvent>(getAddApplicationNoteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(applicationNoteInput)
+  }
+);}
+
+
+
+
+
+export const getAddApplicationNoteMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addApplicationNote>>, TError,{id: number;data: BodyType<ApplicationNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addApplicationNote>>, TError,{id: number;data: BodyType<ApplicationNoteInput>}, TContext> => {
+
+const mutationKey = ['addApplicationNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addApplicationNote>>, {id: number;data: BodyType<ApplicationNoteInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addApplicationNote(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddApplicationNoteMutationResult = NonNullable<Awaited<ReturnType<typeof addApplicationNote>>>
+    export type AddApplicationNoteMutationBody = BodyType<ApplicationNoteInput>
+    export type AddApplicationNoteMutationError = ErrorType<Error>
+
+    /**
+ * @summary Append a personal note to an application's timeline (append-only - no edit or delete)
+ */
+export const useAddApplicationNote = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addApplicationNote>>, TError,{id: number;data: BodyType<ApplicationNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addApplicationNote>>,
+        TError,
+        {id: number;data: BodyType<ApplicationNoteInput>},
+        TContext
+      > => {
+      return useMutation(getAddApplicationNoteMutationOptions(options));
     }
 
 export const getGetProfileUrl = () => {

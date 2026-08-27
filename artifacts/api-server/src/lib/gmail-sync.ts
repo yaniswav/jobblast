@@ -55,6 +55,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ensureInterviewBrief } from "./ai/interview-brief";
+import {
+  buildEmailDetectedPayload,
+  buildEmailSubject,
+  buildStatusChangedPayload,
+  recordApplicationEvent,
+} from "./application-events";
 import { configuredProviderName, getAgentProvider, type AgentProvider } from "./ai/provider";
 import { loadConfig } from "./config";
 import { logger } from "./logger";
@@ -869,6 +875,31 @@ export async function runGmailSyncPass(
       // Never in a dry run: queueing is a write.
       if (!dryRun && toStatus === "interview" && fromStatus !== "interview") {
         await ensureInterviewBrief(userId, application.id);
+      }
+
+      // Timeline (lot I1): a real status move gets its own status_changed
+      // event (origin "gmail", the subject in its payload); a confirmation
+      // e-mail, which never moves the status, gets an email_detected event
+      // instead - see application-events.ts's EmailDetectedVerdict for why
+      // that is the only case this pass ever timelines. Never in a dry run:
+      // this is a write, and fire-and-forget, so it can never fail the sync.
+      if (!dryRun) {
+        const subject = buildEmailSubject({
+          kindLabel: NOTE_LABEL_BY_KIND[email.kind],
+          company: application.company,
+          from: email.from,
+        });
+        if (targetStatus !== null) {
+          await recordApplicationEvent(userId, application.id, {
+            kind: "status_changed",
+            payload: buildStatusChangedPayload({ from: fromStatus, to: toStatus, origin: "gmail", subject }),
+          });
+        } else {
+          await recordApplicationEvent(userId, application.id, {
+            kind: "email_detected",
+            payload: buildEmailDetectedPayload({ kind: email.kind, verdict: "matched", subject }),
+          });
+        }
       }
 
       // The working copy moves whether or not this was a dry run; the

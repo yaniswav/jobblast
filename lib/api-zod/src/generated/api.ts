@@ -647,6 +647,43 @@ export const MarkFollowedUpResponse = zod.object({
 
 
 /**
+ * @summary Get an application's timeline (applied, status changes, follow-ups, notes, detected e-mails, briefs), newest first
+ */
+export const ListApplicationEventsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListApplicationEventsResponseItem = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number(),
+  "kind": zod.enum(['applied', 'status_changed', 'followed_up', 'note_added', 'email_detected', 'brief_generated']).describe('applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload\'s origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.\n'),
+  "occurredAt": zod.coerce.date(),
+  "payload": zod.record(zod.string(), zod.unknown()).describe('Shape depends on `kind` - see ApplicationEventKind. Never contains an e-mail\'s body: a `subject` field, when present, is a short synthetic label built from structured fields, not a quote from the message.\n')
+})
+export const ListApplicationEventsResponse = zod.array(ListApplicationEventsResponseItem)
+
+
+/**
+ * @summary Append a personal note to an application's timeline (append-only - no edit or delete)
+ */
+export const AddApplicationNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddApplicationNoteBody = zod.object({
+  "text": zod.string().describe('Plain text, 1 to 2000 characters after trimming.')
+})
+
+export const AddApplicationNoteResponse = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number(),
+  "kind": zod.enum(['applied', 'status_changed', 'followed_up', 'note_added', 'email_detected', 'brief_generated']).describe('applied - the tracker row was created. status_changed - a status move, manual or detected from Gmail (see the payload\'s origin). followed_up - the user confirmed sending a follow-up (lot H4). note_added - a personal note (append-only, no edit or delete). email_detected - Gmail sync matched (or considered, then declined) an e-mail against this application. brief_generated - an interview prep brief finished.\n'),
+  "occurredAt": zod.coerce.date(),
+  "payload": zod.record(zod.string(), zod.unknown()).describe('Shape depends on `kind` - see ApplicationEventKind. Never contains an e-mail\'s body: a `subject` field, when present, is a short synthetic label built from structured fields, not a quote from the message.\n')
+})
+
+
+/**
  * @summary Get the job seeker profile
  */
 export const GetProfileResponse = zod.object({
