@@ -372,17 +372,11 @@ function SearchCriteriaSection({ t }: { t: ReturnType<typeof useT> }) {
     setContractTypes(settings.data.searchCriteria.contractTypes);
   }, [settings.data]);
 
-  const addKeyword = () => {
-    const value = newKeyword.trim();
-    if (value && !keywords.includes(value)) setKeywords((current) => [...current, value]);
-    setNewKeyword('');
-  };
+  // TagEditor already trims and rejects a duplicate before calling onAdd
+  // (lot H6, see lib/suggestions.ts's isDuplicateTag) - this only appends.
+  const addKeyword = (value: string) => setKeywords((current) => [...current, value]);
   const removeKeyword = (value: string) => setKeywords((current) => current.filter((item) => item !== value));
-  const addLocation = () => {
-    const value = newLocation.trim();
-    if (value && !locations.includes(value)) setLocations((current) => [...current, value]);
-    setNewLocation('');
-  };
+  const addLocation = (value: string) => setLocations((current) => [...current, value]);
   const removeLocation = (value: string) => setLocations((current) => current.filter((item) => item !== value));
   const toggleLanguage = (code: string) =>
     setLanguages((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));

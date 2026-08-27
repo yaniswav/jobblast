@@ -6,6 +6,7 @@ import { ApplicationStatus, getGetDashboardQueryKey, getGetFollowUpEmailQueryKey
 import type { Application, ApplicationStatus as ApplicationStatusType } from '@workspace/api-client-react';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-shell';
 import { useLocale, useT, type TranslationKey } from '@/i18n';
+import { fold } from '@/lib/suggestions';
 
 const statuses = Object.values(ApplicationStatus);
 
@@ -20,7 +21,10 @@ export default function Applications() {
   const [preparing, setPreparing] = useState<Application | null>(null);
   const [preparingFollowUp, setPreparingFollowUp] = useState<Application | null>(null);
   const applications = useListApplications(filter === 'all' ? undefined : { status: filter });
-  const visible = useMemo(() => (applications.data ?? []).filter((app) => `${app.title} ${app.company} ${app.location}`.toLowerCase().includes(search.toLowerCase())), [applications.data, search]);
+  // Lot H6: accent/case-insensitive (fold(), same helper the tag-editor
+  // dropdowns use) so "cafe" finds "Café" and "MULLER" finds "Müller" -
+  // still a plain substring filter, no dropdown here.
+  const visible = useMemo(() => (applications.data ?? []).filter((app) => fold(`${app.title} ${app.company} ${app.location}`).includes(fold(search))), [applications.data, search]);
   if (applications.isLoading) return <LoadingState label={t('loading.applications')} />;
   if (applications.isError) return <div className="content-wrap"><ErrorState onRetry={() => applications.refetch()} /></div>;
   return (

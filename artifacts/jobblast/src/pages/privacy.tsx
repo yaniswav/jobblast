@@ -73,6 +73,11 @@ export default function Privacy() {
         </div>
 
         <div>
+          <h2 className="font-bold text-sm mb-1">{t('privacy.catalogHeading')}</h2>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('privacy.catalogBody')}</p>
+        </div>
+
+        <div>
           <h2 className="font-bold text-sm mb-1">{t('privacy.whereHeading')}</h2>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
             {info.country

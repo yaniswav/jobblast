@@ -8,13 +8,16 @@
     "migrate-multi-tenant": "tsx ./src/migrate-multi-tenant.ts",
     "invite": "tsx ./src/invite.ts",
     "rotate-byok": "tsx ./src/rotate-byok.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "catalog-candidates": "tsx ./src/catalog-candidates.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@workspace/db": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vitest": "^4.1.11"
   }
 }

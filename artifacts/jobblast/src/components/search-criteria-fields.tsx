@@ -2,6 +2,7 @@ import { Check } from 'lucide-react';
 import type { FranceTravailContractType } from '@workspace/api-client-react';
 import { TagEditor } from '@/pages/profile';
 import { useT, type TranslationKey } from '@/i18n';
+import { LOCATION_SUGGESTIONS, SKILL_SUGGESTIONS } from '@/lib/suggestions';
 
 // Shared between the onboarding wizard's criteria step (pages/onboarding.tsx)
 // and the Settings page's search criteria section (pages/settings.tsx): both
@@ -53,12 +54,12 @@ export function SearchCriteriaFields({
   keywords: string[];
   newKeyword: string;
   setNewKeyword: (value: string) => void;
-  onAddKeyword: () => void;
+  onAddKeyword: (value: string) => void;
   onRemoveKeyword: (value: string) => void;
   locations: string[];
   newLocation: string;
   setNewLocation: (value: string) => void;
-  onAddLocation: () => void;
+  onAddLocation: (value: string) => void;
   onRemoveLocation: (value: string) => void;
   languages: string[];
   onToggleLanguage: (code: string) => void;
@@ -77,6 +78,7 @@ export function SearchCriteriaFields({
         onRemove={onRemoveKeyword}
         placeholder={t('onboarding.keywordsPlaceholder')}
         testId={`${testIdPrefix}-keyword`}
+        suggestions={SKILL_SUGGESTIONS}
       />
       <TagEditor
         label={t('onboarding.locationsLabel')}
@@ -87,6 +89,7 @@ export function SearchCriteriaFields({
         onRemove={onRemoveLocation}
         placeholder={t('onboarding.locationsPlaceholder')}
         testId={`${testIdPrefix}-location`}
+        suggestions={LOCATION_SUGGESTIONS}
       />
       <div>
         <label className="label">{t('onboarding.letterLanguagesLabel')}</label>
